@@ -1,5 +1,18 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+**Redis:** For transient data like `file_id` association with audio/video chunks, and possibly buffering for 3D reconstruction. It acts as a fast cache and temporary state store.
+
+**TimescaleDB:** The ultimate destination for all your structured time-series event data. Its ability to handle vast amounts of chronologically ordered data and perform complex queries efficiently is perfect for your "timeline UI."
+
+**TimescaleDB Schema Guidelines:**
+- Each logical event family has its own hypertable (`gps_data`, `transcripts`, etc.).
+- Primary key `(time, device_id, <natural_key>)`.
+- Partition interval: 1 day.
+
+**Trino:**
+- **Purpose:** Enable federated queries. You can write SQL queries in Trino that join data from your TimescaleDB (e.g., `device_states`) with data from your UseMemos SQLite database (e.g., `notes`).
+- **Integration:** Trino connects to TimescaleDB as a PostgreSQL connector and to SQLite files using its dedicated connector (though you'll need to expose the SQLite file to Trino, perhaps via a shared volume or a small service that proxies access to it).
+- All analytical SQL lives in `/sql/` and is tested via `pytest-sql`.

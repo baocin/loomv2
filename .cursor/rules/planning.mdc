@@ -1,5 +1,67 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+**Cadence:** 2-week iterations, starting next Monday.
+
+**Definition of Done (DoD):** Feature behind on-by-default flag, unit + integration tests pass, Helm chart renders & deploys in dev overlay, documentation updated.
+
+Update this as work is accomplished
+
+**Sprint Timeline:**
+
+| Sprint | Dates | Focus | Key Deliverables | Exit Criteria |
+| ------ | ----- | ----- | ---------------- | ------------- |
+| 0 – Bootstrap | Week 0 | Repo scaffolding, CI baseline | • Folder structure \| • **models/** dir provisioned \| UV + pre-commit setup \| GitHub Actions skeleton \| Dev Kubernetes manifests + Tilt setup | All hooks green on `main` |
+| 1 – Ingestion API | Wk 1-2 | FastAPI WS & REST gateway | • `/audio`, `/sensor` endpoints \| • Produce to raw Kafka topics | 95% test coverage on `services/ingestion-api` |
+| 2 – Kafka Core | Wk 3-4 | Topic creation, schemas | • Kafka `infra` chart \| • Avro/JSON schema repo + CI lint | `kafka-topics.sh --list` shows full hierarchy |
+| 3 – VAD Consumer | Wk 5-6 | Speech detection | • `vad` service with Silero \| • Unit tests with testcontainers | Detected speech segments published |
+| 4 – Transcription | Wk 7-8 | Parakeet consumer | • Streaming transcription w/ word timing | WER ≤ 10% on sample set |
+| 5 – Image Analysis | Wk 9-10 | Moondream consumer | • Caption + gaze extractor | Results stored in TimescaleDB |
+| 6 – Persistence Layer | Wk 11-12 | Unified persistence service | • TimescaleDB Helm chart \| • Upserts for each event family | Query returns in <200 ms |
+| 7 – Observability + GitOps | Wk 13-14 | Prometheus, Grafana, Flux overlays | • Dashboards \| • Alert rules \| • Prod overlay hardened | Alert on consumer lag > 5k |
+
+**Pre-commit Hooks Configuration:**
+Add the following to `.pre-commit-config.yaml` at repo root. Hooks are required; CI fails if they are skipped.
+
+```yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.6
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.2.5
+    hooks:
+      - id: prettier
+        files: "\.(md|yaml)$"
+  - repo: local
+    hooks:
+      - id: pytest
+        name: "pytest (unit)"
+        entry: pytest -q
+        language: system
+        pass_filenames: false
+  - repo: local
+    hooks:
+      - id: helm-lint
+        name: "helm lint"
+        entry: bash -c 'helm lint deploy/charts/*'
+        language: system
+        pass_filenames: false
+```
+
+Run `pre-commit install` after cloning. CI workflow runs `pre-commit run --all-files`.
+
+**Sprint Retro Template:**
+1. **What went well?**
+2. **What didn't?**
+3. **Action items (owner / due)**
+
+Capture in `/docs/retros/sprint-<n>.md` each iteration.

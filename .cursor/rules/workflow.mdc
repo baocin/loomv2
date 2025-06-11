@@ -1,5 +1,50 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+**Commit Early & Often:**
+- Commit after **every logical unit of work** (single function, test, config change)
+- Never commit broken code; each commit should be deployable
+- Use atomic commits: one concept per commit (don't mix refactoring + new features)
+
+**Before Every Commit:**
+1. **Run tests:** `pytest tests/unit/` for the service you're changing
+2. **Pre-commit hooks:** Will auto-run on `git commit` (lint, format, test)
+3. **Manual verification:** Start the service locally if touching core logic
+
+**Local Development Loop:**
+```bash
+# 1. Make changes
+vim services/vad/app/main.py
+
+# 2. Test changes locally
+make test
+tilt up  # Deploys to local k8s cluster
+
+# 3. Verify in local cluster
+kubectl get pods -n loom-dev
+kubectl logs -f deployment/vad-consumer -n loom-dev
+
+# 4. Commit atomically  
+git add services/vad/app/main.py
+git commit -m "feat(vad): add silence detection threshold"
+
+# 5. Push frequently
+git push origin feat/vad-silence-detection
+
+# 6. Open PR when feature complete
+gh pr create --title "VAD: Add configurable silence detection"
+```
+
+**Branch Strategy:**
+- **Main branch:** Always deployable to production
+- **Feature branches:** `feat/<service>-<description>` (e.g., `feat/vad-silero-integration`)
+- **Hotfix branches:** `fix/<issue-id>-<description>`
+- Delete feature branches after merge
+
+**Pull Request Process:**
+1. **Self-review:** Walk through your own diff before requesting review
+2. **Tests pass:** CI must be green before requesting review
+3. **Small PRs:** Target <400 lines changed; split large features
+4. **Documentation:** Update relevant docs in the same PR

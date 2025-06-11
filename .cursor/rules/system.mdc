@@ -1,5 +1,33 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+**System Goal:** A unified personal informatics engine to create a richly queryable timeline of all personal events, device interactions, and digital footprints, enabling advanced AI-driven context inference and analysis.
+
+**Core Architectural Pattern:** Event-driven microservices architecture with a strong emphasis on asynchronous processing, scalability, and modularity.
+
+**API Gateway:** **Kong** will serve as the central API gateway. It's excellent for managing diverse API paths, routing traffic (REST, WebSockets), enforcing rate limits, handling authentication/authorization (if you add users beyond yourself), and providing observability.
+
+**Ingestion Service:** A **FastAPI** application, leveraging **WebSockets** for real-time streaming data (audio chunks, accelerometer, screen recording keyframes) and **REST** for batch or less frequent data (periodic photos, app lifecycle events, metadata). This will be the primary entry point for all raw data from your devices.
+
+**Message Bus:** **Apache Kafka** is the backbone for data ingestion, decoupling, and inter-service communication. Its publish-subscribe model naturally supports your need for hierarchical processing pipelines and backpressure management.
+
+**Model Storage (Local):** All pre-trained model weights (HF, ONNX, etc.) live in a top-level `models/` directory that is **git-ignored**. Kubernetes mounts this directory read-only into every consumer pod at `/models`, ensuring a single cache is shared across services while keeping containers stateless.
+
+**Processing:** A suite of specialized consumer microservices (Python scripts, often using Hugging Face models) responsible for specific data transformations, filtering, and analysis. Each consumer reads from one or more Kafka topics and writes to new, more processed topics.
+
+**State Store:** **Redis** for fast, ephemeral data access. This is crucial for managing chunking logic (associating audio/video chunks with a `file_id`), buffering intermediate processing states, and potentially caching model weights or frequently accessed metadata.
+
+**Primary Datastore:** **TimescaleDB** (PostgreSQL with time-series extensions) is the ideal choice for storing all your granular, event-driven, time-series data. Its capabilities for handling high ingest rates and complex time-series queries will be invaluable.
+
+**Federated Querying:** **Trino** (formerly PrestoSQL) will be used to provide a unified query interface across your TimescaleDB instance and external data sources like your UseMemos SQLite database. This allows you to join and query data from disparate sources seamlessly.
+
+**Infrastructure and DevOps:**
+- **Orchestration Platform:** **Kubernetes** for managing containerized services across production, staging, and development environments.
+- **Deployment Methodology:** **GitOps** using **Flux** for managing and deploying Helm charts. This provides automated, declarative deployments, ensuring your infrastructure and application states are version-controlled and synchronized with your Git repository. Helm charts will define your Kafka topics, consumer deployments, database instances, and other services.
+- **Monitoring:** For **Kafka backpressure**, you'll need tools that can monitor consumer lag (the difference between the latest offset written to a topic and the latest offset consumed by a consumer group).
+  - **Prometheus + Grafana:** Standard solution. Kafka Exporter (or similar) can expose consumer lag metrics for Prometheus, which Grafana can visualize.
+  - **Kafka's built-in consumer group commands:** `kafka-consumer-groups.sh` can manually check lag.
+  - **Confluent Control Center (if using Confluent Platform):** Provides excellent built-in monitoring.
+  - **Third-party tools:** Datadog, Splunk, etc.

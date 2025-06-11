@@ -1,9 +1,9 @@
 ---
-description: 
+description: overall architecture and structure
 globs: 
 alwaysApply: false
 ---
-Follow the event-driven micro-services architecture described in project.md.
+Follow the event-driven micro-services architecture described in system.md.
 
 Each processing unit is an **independent Python service** (container) consuming from **one or more Kafka topics** and producing to downstream topics.
 
