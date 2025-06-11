@@ -1,5 +1,31 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+Rule Name: testing
+Rule Type: agent_requested
+Description: Testing strategy including unit and integration test requirements, coverage standards, CI matrix, and quality gates for merging pull requests.
+
+**Unit tests:** `pytest -q`; cover business logic with ≥ 80% coverage.
+
+**Integration tests:** use **testcontainers** to spin up Kafka, Redis, TimescaleDB.
+
+CI matrix runs unit tests on `ubuntu-latest` **and** `macos-latest` to mimic dev environments.
+
+For consumer services, include contract tests verifying produced messages against JSON schema.
+
+Use `pytest-mock` for patching external calls; network access blocked by default.
+
+**Makefile Targets (recommended):**
+- `make test` – unit + integration tests
+- `make lint` – black + ruff
+- `make docker` – build local image via BuildKit
+- `make helm` – lint chart with `helm lint` & `helm template` dry-run
+
+**Quality Gates:**
+PR cannot merge unless:
+- All Make targets succeed
+- Coverage ≥ threshold
+- Helm template renders without error for all overlays
+- Flux `kustomize build` passes `kubeval` validation

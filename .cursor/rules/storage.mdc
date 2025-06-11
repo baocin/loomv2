@@ -3,6 +3,10 @@ description:
 globs: 
 alwaysApply: false
 ---
+Rule Name: storage
+Rule Type: agent_requested
+Description: Data persistence patterns using Redis for transient state, TimescaleDB for time-series data, and Trino for federated querying across data sources.
+
 **Redis:** For transient data like `file_id` association with audio/video chunks, and possibly buffering for 3D reconstruction. It acts as a fast cache and temporary state store.
 
 **TimescaleDB:** The ultimate destination for all your structured time-series event data. Its ability to handle vast amounts of chronologically ordered data and perform complex queries efficiently is perfect for your "timeline UI."

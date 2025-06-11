@@ -1,10 +1,9 @@
 ---
-description: overall architecture and structure
+description: Core architectural principles for the event-driven microservices system including service patterns, Redis usage, and model storage conventions.
 globs: 
 alwaysApply: false
 ---
 Follow the event-driven micro-services architecture described in system.md.
-
 Each processing unit is an **independent Python service** (container) consuming from **one or more Kafka topics** and producing to downstream topics.
 
 Prefer **async / await** & **FastAPI** for all network-bound code.

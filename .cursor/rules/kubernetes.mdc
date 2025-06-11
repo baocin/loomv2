@@ -1,5 +1,5 @@
 ---
-description: 
+description: Kubernetes and Helm chart standards for production deployment including resource management, health probes, security, and monitoring requirements.
 globs: 
 alwaysApply: false
 ---

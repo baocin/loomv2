@@ -1,5 +1,30 @@
 ---
-description:
-globs:
+description: Comprehensive list of all data sources feeding into the personal informatics pipeline including device sensors, OS events, and external integrations.
+globs: 
 alwaysApply: false
 ---
+**Device Sensors (Real-time & Periodic):**
+- **Audio:** Microphone chunks (WebSocket).
+- **Video:** Screen recording keyframes (WebSocket), periodic webcam frames (front/rear, REST/upload), screenshots (REST/upload).
+- **Motion:** Accelerometer (WebSocket), GPS (REST/upload), Step Count (REST/upload).
+- **Environment:** Barometer, Device Temperature, Light Sensor, Humidity, Air Quality (REST/upload or WebSocket if high frequency).
+- **Vitals:** Heart Rate (REST/upload or WebSocket).
+- **Power:** Battery level, charging state (REST/upload).
+- **Network:** Wi-Fi state (connected SSID, signal strength), nearby Bluetooth devices (REST/upload).
+
+**OS & App Events:**
+- Android app lifecycle events (REST/upload).
+- Notifications (REST/upload).
+- Clipboard content (REST/upload).
+- User input: Keyboard/mouse activity, opened applications (from desktop agents, REST/upload).
+
+**Digital Interactions:**
+- Website analytics (e.g., browser extension, REST/upload).
+
+**External Integrations:**
+- Scraped liked Twitter/X posts (from a dedicated script, REST/upload or directly to Kafka).
+- Synced Email and Calendar events (from dedicated scripts, REST/upload or directly to Kafka).
+- Arbitrary URLs (from clipboard, browser extension, etc., REST/upload).
+
+**Existing Databases:**
+- UseMemos SQLite database (accessed via Trino).

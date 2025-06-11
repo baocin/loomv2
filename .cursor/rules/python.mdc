@@ -1,5 +1,55 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+Rule Name: python
+Rule Type: agent_requested
+Description: Python dependency management with uv, repository structure, and folder organization standards for services and shared components.
+
+**Python Dependency Management (uv):**
+- Each service contains a `pyproject.toml` managed by **uv**
+- Use command `uv pip sync -r requirements-locked.txt` inside Dockerfiles
+- Lock file: `requirements-locked.txt` committed and updated via CI on dependency bumps
+- No virtualenvs committed; devs run `uv venv .venv && uv pip install -r requirements-locked.txt`
+
+**Repository Layout:**
+```
+services/
+  ingestion-api/    # FastAPI app – REST & WS
+  consumers/
+    vad/            # Silero VAD
+    parakeet/       # Transcription
+    moondream/
+    ...
+shared/
+  proto_schemas/    # pydantic models & avro if needed
+  util/
+models/            # Downloaded/converted model weights (git-ignored, mounted RO)
+```
+
+**Extended Folder Structure:**
+```
+loomv2/
+  services/
+    <service-name>/
+      app/                 # Python source
+      pyproject.toml
+      requirements-locked.txt
+      Dockerfile
+      charts/              # Optional, thin wrapper chart if not using top-level
+  deploy/
+    charts/                # Helm charts (source of truth)
+    flux/
+      base/                # kustomization.yaml + common patches
+      overlays/
+        dev/
+        staging/
+        prod/
+  models/           # Central cache of model files
+  tests/
+    unit/
+    integration/
+  sql/
+  docs/
+```

@@ -1,9 +1,9 @@
 ---
-description: 
+description: Sprint planning timeline, definition of done, pre-commit hook configuration, and retrospective template for the 8-sprint development cycle.
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
-**Cadence:** 2-week iterations, starting next Monday.
+ **Cadence:** 2-week iterations, starting next Monday.
 
 **Definition of Done (DoD):** Feature behind on-by-default flag, unit + integration tests pass, Helm chart renders & deploys in dev overlay, documentation updated.
 
