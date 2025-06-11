@@ -5,7 +5,7 @@
 
 | Sprint | Dates | Focus | Key Deliverables | Exit Criteria |
 | ------ | ----- | ----- | ---------------- | ------------- |
-| 0 – Bootstrap | Week 0 | Repo scaffolding, CI baseline | • Folder structure \| • **models/** dir provisioned \| UV + pre-commit setup \| GitHub Actions skeleton \| Dev k3d cluster scripts | All hooks green on `main` |
+| 0 – Bootstrap | Week 0 | Repo scaffolding, CI baseline | • Folder structure \| • **models/** dir provisioned \| UV + pre-commit setup \| GitHub Actions skeleton \| Dev Kubernetes manifests + Tilt setup | All hooks green on `main` |
 | 1 – Ingestion API | Wk 1-2 | FastAPI WS & REST gateway | • `/audio`, `/sensor` endpoints \| • Produce to raw Kafka topics | 95% test coverage on `services/ingestion-api` |
 | 2 – Kafka Core | Wk 3-4 | Topic creation, schemas | • Kafka `infra` chart \| • Avro/JSON schema repo + CI lint | `kafka-topics.sh --list` shows full hierarchy |
 | 3 – VAD Consumer | Wk 5-6 | Speech detection | • `vad` service with Silero \| • Unit tests with testcontainers | Detected speech segments published |

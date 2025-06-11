@@ -60,11 +60,23 @@ Only the following short-lived keys are allowed:
 
 ### CI / CD
 - GitHub Actions → build & push multi-arch Docker images.
-- FluxCD syncs `kustomize` overlays per environment: `dev`, `edge`, `prod`.
+- FluxCD syncs `kustomize` overlays per environment: `dev`, `staging`, `prod`.
+- **Production readiness:** All services must pass security scans, resource limits defined, health checks configured.
+- **Blue-green deployments:** Use Kubernetes deployments with rolling updates for zero-downtime releases.
 
 ### Security
 - Secrets injected via sealed-secrets; **never** committed in plain-text.
 - All external HTTP calls must time-out within 5 s and have retry (max 2).
+- **Network policies:** Restrict pod-to-pod communication to required services only.
+- **Pod security standards:** Enforce restricted security context (non-root, read-only filesystem where possible).
+
+### Kubernetes Production Standards
+- **Resource management:** Every container has CPU/memory requests and limits defined.
+- **Health probes:** All services implement `/healthz` (liveness) and `/readyz` (readiness) endpoints.
+- **Horizontal Pod Autoscaling:** Consumer services auto-scale based on Kafka consumer lag metrics.
+- **Pod Disruption Budgets:** Ensure minimum availability during cluster maintenance.
+- **Monitoring:** Prometheus metrics, structured logging via JSON to stdout, distributed tracing.
+- **Graceful shutdown:** Handle SIGTERM properly with 30s timeout for in-flight request completion.
 
 ### Lint Rules (Cursor)
 - Warn if a service consumes a topic but does **not** produce any output.
@@ -98,7 +110,7 @@ Only the following short-lived keys are allowed:
 - Config via `values.yaml`; no hard-coded env vars in templates.
 
 ### Flux GitOps Migrations
-- Environment overlays under `deploy/flux/overlays/{dev,edge,prod}` using **kustomize**.
+- Environment overlays under `deploy/flux/overlays/{dev,staging,prod}` using **kustomize**.
 - Promote via pull request merging into `main`; Flux watches `main`.
 - Each overlay patches only values that differ from base; avoid duplication.
 - Migration steps (DB schema etc.) handled via Helm `postUpgrade` hooks or separate `job` manifests.
@@ -119,7 +131,7 @@ loomv2/
       base/                # kustomization.yaml + common patches
       overlays/
         dev/
-        edge/
+        staging/
         prod/
   models/           # Central cache of model files
   tests/
@@ -194,17 +206,22 @@ Examples:
 # 1. Make changes
 vim services/vad/app/main.py
 
-# 2. Test changes
+# 2. Test changes locally
 make test
+tilt up  # Deploys to local k8s cluster
 
-# 3. Commit atomically  
+# 3. Verify in local cluster
+kubectl get pods -n loom-dev
+kubectl logs -f deployment/vad-consumer -n loom-dev
+
+# 4. Commit atomically  
 git add services/vad/app/main.py
 git commit -m "feat(vad): add silence detection threshold"
 
-# 4. Push frequently
+# 5. Push frequently
 git push origin feat/vad-silence-detection
 
-# 5. Open PR when feature complete
+# 6. Open PR when feature complete
 gh pr create --title "VAD: Add configurable silence detection"
 ```
 

@@ -21,7 +21,7 @@
 **Federated Querying:** **Trino** (formerly PrestoSQL) will be used to provide a unified query interface across your TimescaleDB instance and external data sources like your UseMemos SQLite database. This allows you to join and query data from disparate sources seamlessly.
 
 **Infrastructure and DevOps:**
-*   **Orchestration Platform:** **k3s** (Lightweight Kubernetes) on your devices/servers for managing containerized services.
+*   **Orchestration Platform:** **Kubernetes** for managing containerized services across production, staging, and development environments.
 *   **Deployment Methodology:** **GitOps** using **Flux** for managing and deploying Helm charts. This provides automated, declarative deployments, ensuring your infrastructure and application states are version-controlled and synchronized with your Git repository. Helm charts will define your Kafka topics, consumer deployments, database instances, and other services.
 *   **Monitoring:** For **Kafka backpressure**, you'll need tools that can monitor consumer lag (the difference between the latest offset written to a topic and the latest offset consumed by a consumer group).
     *   **Prometheus + Grafana:** Standard solution. Kafka Exporter (or similar) can expose consumer lag metrics for Prometheus, which Grafana can visualize.
