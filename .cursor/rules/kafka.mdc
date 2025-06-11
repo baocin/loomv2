@@ -14,6 +14,38 @@ Examples:
 - **Value:** JSON schema versioned with `schema_version` field
 - **Compression:** `lz4` for high-volume topics
 
+**Raw Data Ingestion Topics:**
+- `device.audio.raw`: For raw microphone audio chunks.
+- `device.video.screen.raw`: Keyframes from screen recordings.
+- `device.image.camera.raw`: One-off periodic photos from front/rear cameras, and screenshots.
+- `device.sensor.accelerometer.raw`: Accelerometer data.
+- `device.sensor.gps.raw`: GPS coordinates.
+- `device.sensor.barometer.raw`: Barometer data.
+- `device.sensor.temperature.raw`: Device temperature.
+- `device.health.heartrate.raw`: Heart rate data.
+- `device.health.steps.raw`: Step count.
+- `device.state.power.raw`: Power states (battery, charging).
+- `device.network.wifi.raw`: Wi-Fi state.
+- `device.network.bluetooth.raw`: Nearby Bluetooth devices.
+- `os.events.app_lifecycle.raw`: Android app lifecycle events.
+- `os.events.notifications.raw`: System notifications.
+- `digital.clipboard.raw`: Clipboard content.
+- `digital.web_analytics.raw`: Website analytics.
+- `external.twitter.liked.raw`: Scraped liked Twitter/X posts.
+- `external.calendar.events.raw`: Calendar events.
+- `external.email.events.raw`: Email events.
+- `task.url.ingest`: For arbitrary URLs (Twitter links, PDFs, general web links).
+
+**Processed Data Topics:**
+- `media.audio.vad_filtered`: Audio chunks identified as speech.
+- `media.text.transcribed.words`: Word-by-word transcripts from speech.
+- `media.image.analysis.moondream_results`: Moondream outputs (captions, gaze, objects) for snapshots.
+- `media.video.analysis.yolo_results`: Object detection/tracking from video streams.
+- `analysis.3d_reconstruction.dustr_results`: 3D environment data.
+- `analysis.inferred_context.qwen_results`: High-level context inferences (location, food, people).
+- `task.url.processed.twitter_archived`: Results from Twitter archiving.
+- `task.url.processed.pdf_extracted`: Extracted content/summary from PDFs.
+
 **Lint Rules:**
 - Error if a topic string literal violates naming convention regex `^[a-z]+(\.[a-z0-9_]+)+$`
 - Warn if a service consumes a topic but does **not** produce any output
