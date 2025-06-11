@@ -1,0 +1,202 @@
+---
+description: sprint 4
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_4
+Rule Type: agent_requested
+Description: Sprint 4 (Transcription) - Detailed task checklist for Parakeet consumer with streaming transcription and word timing.
+
+## Sprint 4: Transcription (Weeks 7-8)
+**Focus:** Parakeet consumer
+**Exit Criteria:** WER ≤ 10% on sample set
+
+### 🚧 Planned Tasks
+
+#### Project Setup
+- [ ] Create `services/consumers/transcription/` directory structure
+- [ ] Set up pyproject.toml with transformers, torch dependencies
+- [ ] Generate requirements-locked.txt with Parakeet model
+- [ ] Create app package structure following python rules
+- [ ] Set up proper __init__.py files
+
+#### Parakeet Model Integration
+- [ ] Download Parakeet model to `models/` directory
+- [ ] Create model loader with GPU/CPU configuration
+- [ ] Implement audio preprocessing for Parakeet requirements
+- [ ] Set up model inference pipeline
+- [ ] Configure model parameters (beam search, language)
+- [ ] Add model warmup and memory optimization
+- [ ] Implement model caching strategies
+
+#### Kafka Consumer Integration
+- [ ] Create KafkaConsumerService for `media.audio.vad_filtered`
+- [ ] Implement async message processing with aiokafka
+- [ ] Set up consumer group management and offset tracking
+- [ ] Configure message deserialization from VAD output
+- [ ] Implement proper error handling and retry logic
+- [ ] Add consumer lag monitoring
+- [ ] Set up graceful shutdown handling
+
+#### Streaming Transcription Pipeline
+- [ ] Create TranscriptionProcessor for streaming audio
+- [ ] Implement real-time transcription chunking
+- [ ] Set up sliding window processing for continuity
+- [ ] Add context preservation across chunks
+- [ ] Implement partial result handling
+- [ ] Create confidence scoring for transcriptions
+- [ ] Add language detection and switching
+
+#### Word-Level Timing
+- [ ] Implement word-level timestamp alignment
+- [ ] Create forced alignment for precise timing
+- [ ] Set up character-level timing information
+- [ ] Add phoneme-level alignment (optional)
+- [ ] Implement timing confidence scoring
+- [ ] Create timing validation and correction
+- [ ] Add silence detection in timing
+
+#### Kafka Producer Integration
+- [ ] Create producer for `media.text.transcribed.words`
+- [ ] Implement transcribed text publishing with timing
+- [ ] Add metadata enrichment (confidence, language, speaker)
+- [ ] Set up schema validation for transcription output
+- [ ] Configure batching for word-level results
+- [ ] Implement proper error handling for publishing
+
+#### Configuration Management
+- [ ] Create pydantic-settings based configuration
+- [ ] Set up transcription model and quality settings
+- [ ] Configure Kafka consumer and producer settings
+- [ ] Add audio processing parameters (chunk size, overlap)
+- [ ] Set up model path and GPU configuration
+- [ ] Create environment variable handling
+
+#### Data Models
+- [ ] Create TranscribedText model with word timing
+- [ ] Implement WordWithTiming for precise alignment
+- [ ] Add TranscriptionMetadata (confidence, language, speaker)
+- [ ] Create error handling models
+- [ ] Set up schema versioning for compatibility
+- [ ] Implement validation for transcription results
+
+#### Quality Assurance & Testing
+- [ ] Create WER (Word Error Rate) evaluation framework
+- [ ] Set up test dataset with ground truth transcriptions
+- [ ] Implement accuracy benchmarking pipeline
+- [ ] Create quality regression testing
+- [ ] Add performance profiling for transcription speed
+- [ ] Set up A/B testing framework for model updates
+
+#### Health & Monitoring
+- [ ] Implement service health checks
+- [ ] Create Prometheus metrics for transcription processing
+- [ ] Set up transcription quality monitoring (WER, confidence)
+- [ ] Add processing rate and latency metrics
+- [ ] Implement consumer lag alerting
+- [ ] Create model performance monitoring
+
+#### Testing Framework
+- [ ] Set up testcontainers for Kafka integration testing
+- [ ] Create Kafka cluster test fixtures with audio pipeline
+- [ ] Implement end-to-end transcription tests
+- [ ] Set up test audio data with known transcriptions
+- [ ] Create timing accuracy testing framework
+- [ ] Add performance benchmarking tests
+- [ ] Test consumer group behavior and rebalancing
+
+#### Unit Testing
+- [ ] Create comprehensive unit tests for transcription logic
+- [ ] Test audio preprocessing and model inference
+- [ ] Implement timing alignment testing
+- [ ] Create Kafka message handling tests
+- [ ] Test configuration and error scenarios
+- [ ] Add mock testing for heavy model operations
+
+#### Performance Optimization
+- [ ] Optimize model loading and inference speed
+- [ ] Implement GPU utilization monitoring
+- [ ] Set up model quantization for speed/accuracy trade-offs
+- [ ] Configure memory management for large models
+- [ ] Add processing queue management
+- [ ] Implement backpressure handling for slow transcription
+
+#### Multi-language Support
+- [ ] Add language detection from audio
+- [ ] Implement multi-language model loading
+- [ ] Create language-specific transcription pipelines
+- [ ] Set up automatic language switching
+- [ ] Add language confidence scoring
+- [ ] Create language-specific quality metrics
+
+#### Speaker Recognition (Optional)
+- [ ] Integrate speaker diarization model
+- [ ] Implement speaker segmentation
+- [ ] Add speaker identification and labeling
+- [ ] Create speaker-aware transcription output
+- [ ] Set up speaker change detection
+- [ ] Add speaker confidence scoring
+
+#### Docker & Deployment
+- [ ] Create production Dockerfile with GPU support
+- [ ] Set up proper model volume mounting from `models/`
+- [ ] Configure resource limits for GPU/CPU intensive processing
+- [ ] Implement health checks for model readiness
+- [ ] Set up graceful shutdown for processing cleanup
+- [ ] Configure logging and monitoring
+
+#### Development Tooling
+- [ ] Create Makefile with test, lint, docker, gpu targets
+- [ ] Set up transcription debugging utilities
+- [ ] Create audio and text visualization tools
+- [ ] Implement transcription quality analysis tools
+- [ ] Add sample audio generation for testing
+- [ ] Create transcription monitoring dashboard
+
+#### Error Handling & Resilience
+- [ ] Create robust error handling for model failures
+- [ ] Implement retry logic for transient failures
+- [ ] Set up dead letter queue for failed messages
+- [ ] Add circuit breaker for downstream services
+- [ ] Create graceful degradation (lower quality models)
+- [ ] Implement poison message handling
+
+### 🎯 Exit Criteria Checklist
+- [ ] Transcription consumer processes `media.audio.vad_filtered`
+- [ ] Parakeet model loaded and operational
+- [ ] Word-level timing accuracy within acceptable bounds
+- [ ] Transcriptions published to `media.text.transcribed.words`
+- [ ] WER ≤ 10% on standardized test set
+- [ ] Integration tests with full audio pipeline passing
+- [ ] Performance metrics within target bounds
+
+### 📋 Dependencies
+- **Requires:** Completed Sprint 3 (VAD filtered audio available)
+- **Model:** Parakeet model downloaded to `models/` directory
+- **Hardware:** GPU access for optimal performance
+- **Enables:** Context inference and text processing services
+- **Integration:** Consumes from VAD consumer output
+
+### 🔧 Technical Standards
+- Follow architecture rules for stateless services
+- Implement Kafka consumer patterns from kafka.mdc
+- Use Kubernetes standards for GPU resources
+- Follow testing requirements with testcontainers
+- Mount models from `models/` directory read-only
+- Implement monitoring per observability standards
+
+### 📊 Performance Targets
+- **WER (Word Error Rate):** ≤ 10% on test dataset
+- **Processing Latency:** <2s for 30s audio chunk
+- **Throughput:** Handle 5+ concurrent audio streams
+- **Timing Accuracy:** ±100ms for word boundaries
+- **Consumer Lag:** <500 messages under normal load
+- **Memory Usage:** <2GB per instance (with model)
+- **GPU Utilization:** >80% during peak processing
+
+### 🧪 Quality Metrics
+- **Confidence Score:** Average >85% for accepted transcriptions
+- **Language Detection:** >95% accuracy for supported languages
+- **Processing Speed:** Real-time factor <0.5 (process faster than audio)
+- **Error Recovery:** <1% failed message rate
+- **Uptime:** >99.5% service availability

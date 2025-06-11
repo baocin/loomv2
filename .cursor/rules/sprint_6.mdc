@@ -1,0 +1,237 @@
+---
+description: sprint 6
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_6
+Rule Type: agent_requested
+Description: Sprint 6 (Persistence Layer) - Detailed task checklist for unified persistence service with TimescaleDB Helm chart and event family upserts.
+
+## Sprint 6: Persistence Layer (Weeks 11-12)
+**Focus:** Unified persistence service
+**Exit Criteria:** Query returns in <200 ms
+
+### 🚧 Planned Tasks
+
+#### Project Setup
+- [ ] Create `services/persistence/` directory structure
+- [ ] Set up pyproject.toml with asyncpg, TimescaleDB dependencies
+- [ ] Generate requirements-locked.txt with database libraries
+- [ ] Create app package structure following python rules
+- [ ] Set up proper __init__.py files
+
+#### TimescaleDB Helm Chart
+- [ ] Create `deploy/charts/timescaledb/` Helm chart
+- [ ] Set up Chart.yaml with proper versioning and metadata
+- [ ] Configure values.yaml for TimescaleDB cluster settings
+- [ ] Create StatefulSet with persistent storage
+- [ ] Set up PostgreSQL + TimescaleDB extension
+- [ ] Configure database initialization scripts
+- [ ] Set up resource requests and limits per Kubernetes rules
+- [ ] Add health probes for database readiness
+- [ ] Configure network policies for security
+- [ ] Set up backup and recovery procedures
+
+#### Database Schema Design
+- [ ] Design unified schema for all event families
+- [ ] Create hypertables for time-series data:
+  - [ ] `audio_events` - VAD and transcription results
+  - [ ] `image_events` - Image analysis and captions
+  - [ ] `sensor_events` - Device sensor readings
+  - [ ] `system_events` - OS and application events
+  - [ ] `external_events` - Social media and calendar data
+  - [ ] `analysis_events` - AI processing results
+- [ ] Set up proper partitioning strategies
+- [ ] Create indexes for efficient querying
+- [ ] Implement data retention policies
+- [ ] Set up compression for historical data
+
+#### Kafka Consumer Integration
+- [ ] Create unified KafkaConsumerService for all result topics:
+  - [ ] `media.audio.vad_filtered`
+  - [ ] `media.text.transcribed.words`
+  - [ ] `media.image.analysis.moondream_results`
+  - [ ] `media.video.analysis.yolo_results`
+  - [ ] `analysis.3d_reconstruction.dustr_results`
+  - [ ] `analysis.inferred_context.qwen_results`
+  - [ ] All raw sensor and device topics
+- [ ] Implement async message processing with aiokafka
+- [ ] Set up consumer group management and offset tracking
+- [ ] Configure message deserialization for all formats
+- [ ] Implement proper error handling and retry logic
+- [ ] Add consumer lag monitoring for all topics
+- [ ] Set up graceful shutdown handling
+
+#### Database Connection & Pooling
+- [ ] Create AsyncDBConnectionService with asyncpg
+- [ ] Implement connection pooling with proper sizing
+- [ ] Set up database health monitoring
+- [ ] Configure connection timeouts and retries
+- [ ] Add connection pool metrics and monitoring
+- [ ] Implement database failover and recovery
+- [ ] Set up read-write split for analytics queries
+
+#### Data Ingestion Service
+- [ ] Create DataIngestionService for unified processing
+- [ ] Implement event family classification and routing
+- [ ] Set up data validation and schema checking
+- [ ] Create upsert logic for duplicate event handling
+- [ ] Implement batch processing for performance
+- [ ] Add data enrichment and normalization
+- [ ] Set up data deduplication strategies
+
+#### Event Family Handlers
+- [ ] Create AudioEventHandler for audio processing results
+- [ ] Implement ImageEventHandler for image analysis data
+- [ ] Create SensorEventHandler for device sensor data
+- [ ] Implement SystemEventHandler for OS events
+- [ ] Create ExternalEventHandler for social media data
+- [ ] Implement AnalysisEventHandler for AI results
+- [ ] Set up proper error handling for each family
+
+#### Query Service & API
+- [ ] Create QueryService for analytical queries
+- [ ] Implement time-range queries with proper indexing
+- [ ] Set up aggregation queries for dashboards
+- [ ] Create real-time data access endpoints
+- [ ] Implement pagination for large result sets
+- [ ] Add query optimization and caching
+- [ ] Set up query performance monitoring
+
+#### Configuration Management
+- [ ] Create pydantic-settings based configuration
+- [ ] Set up database connection and pool settings
+- [ ] Configure Kafka consumer settings for all topics
+- [ ] Add data processing parameters (batch size, timeouts)
+- [ ] Set up retention and compression configuration
+- [ ] Create environment variable handling
+
+#### Data Models & Schemas
+- [ ] Create unified pydantic models for all event types
+- [ ] Implement database models with SQLAlchemy
+- [ ] Set up schema migration framework
+- [ ] Create data validation models
+- [ ] Implement serialization/deserialization helpers
+- [ ] Set up schema versioning and compatibility
+
+#### Health & Monitoring
+- [ ] Implement service health checks
+- [ ] Create Prometheus metrics for database operations
+- [ ] Set up ingestion rate and latency monitoring
+- [ ] Add query performance monitoring
+- [ ] Implement consumer lag alerting
+- [ ] Create database storage and performance monitoring
+- [ ] Add data quality metrics
+
+#### Testing Framework
+- [ ] Set up testcontainers for TimescaleDB testing
+- [ ] Create database test fixtures and schemas
+- [ ] Implement end-to-end ingestion tests
+- [ ] Set up query performance testing
+- [ ] Create data integrity testing framework
+- [ ] Add load testing for concurrent operations
+- [ ] Test schema migration procedures
+
+#### Unit Testing
+- [ ] Create comprehensive unit tests for database operations
+- [ ] Test data ingestion and validation logic
+- [ ] Implement query optimization testing
+- [ ] Create Kafka consumer testing
+- [ ] Test error handling and recovery scenarios
+- [ ] Add performance regression testing
+
+#### Performance Optimization
+- [ ] Optimize database queries and indexing
+- [ ] Implement query result caching
+- [ ] Set up connection pooling optimization
+- [ ] Configure batch processing for throughput
+- [ ] Add query execution plan monitoring
+- [ ] Implement data compression strategies
+
+#### Data Analytics & Queries
+- [ ] Create analytical query templates
+- [ ] Implement time-series aggregation functions
+- [ ] Set up cross-event correlation queries
+- [ ] Create dashboard data preparation
+- [ ] Implement export functionality for data science
+- [ ] Add data quality and completeness reporting
+
+#### Docker & Deployment
+- [ ] Create production Dockerfile for persistence service
+- [ ] Set up database migration initialization
+- [ ] Configure resource limits for I/O intensive operations
+- [ ] Implement health checks for database connectivity
+- [ ] Set up graceful shutdown for data consistency
+- [ ] Configure logging and monitoring
+
+#### Development Tooling
+- [ ] Create Makefile with test, lint, docker, db targets
+- [ ] Set up database debugging utilities
+- [ ] Create data visualization and exploration tools
+- [ ] Implement query performance analysis tools
+- [ ] Add database schema management utilities
+- [ ] Create data migration and backup tools
+
+#### Database Administration
+- [ ] Set up automated backup procedures
+- [ ] Create database monitoring and alerting
+- [ ] Implement data retention enforcement
+- [ ] Set up database performance tuning
+- [ ] Create disaster recovery procedures
+- [ ] Implement database security hardening
+
+#### API & External Access
+- [ ] Create REST API for analytical queries
+- [ ] Implement GraphQL endpoint for flexible queries
+- [ ] Set up authentication and authorization
+- [ ] Create rate limiting for query endpoints
+- [ ] Add API documentation and examples
+- [ ] Implement query result caching
+
+#### Data Export & Integration
+- [ ] Create data export utilities (CSV, JSON, Parquet)
+- [ ] Implement Trino integration for federated queries
+- [ ] Set up data streaming for real-time analytics
+- [ ] Create integration with external analytics tools
+- [ ] Implement data lineage tracking
+- [ ] Add metadata management
+
+### 🎯 Exit Criteria Checklist
+- [ ] TimescaleDB Helm chart deployed and operational
+- [ ] All event families have dedicated hypertables
+- [ ] Unified persistence service processes all topic families
+- [ ] Upsert logic handles duplicate events correctly
+- [ ] Query performance <200ms for standard analytical queries
+- [ ] Integration tests with full pipeline passing
+- [ ] Database monitoring and alerting operational
+
+### 📋 Dependencies
+- **Requires:** Completed Sprint 2 (Kafka topics), Sprint 3-5 (consumers producing data)
+- **Database:** TimescaleDB cluster with proper configuration
+- **Enables:** Analytical querying, dashboard data, ML feature engineering
+- **Integration:** Receives data from all processing services
+
+### 🔧 Technical Standards
+- Follow architecture rules for stateless services
+- Implement TimescaleDB patterns from storage.mdc
+- Use Kubernetes standards for stateful services
+- Follow testing requirements with testcontainers
+- Implement monitoring per observability standards
+- Use proper database security practices
+
+### 📊 Performance Targets
+- **Query Performance:** <200ms for analytical queries
+- **Ingestion Rate:** 10,000+ events per second
+- **Throughput:** Handle all consumer output streams
+- **Consumer Lag:** <500 messages across all topics
+- **Database Storage:** Efficient compression >70%
+- **Connection Pool:** <50 active connections under normal load
+- **Uptime:** >99.9% service availability
+
+### 💾 Database Targets
+- **Storage Efficiency:** >70% compression ratio for historical data
+- **Query Efficiency:** Proper indexing for <200ms response
+- **Data Retention:** Automated cleanup per event family policies
+- **Backup Recovery:** <1 hour RTO, <15 minutes RPO
+- **Concurrent Users:** Support 100+ concurrent analytical queries
+- **Data Integrity:** 100% ACID compliance for critical events

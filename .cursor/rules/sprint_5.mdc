@@ -1,0 +1,236 @@
+---
+description: sprint 5
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_5
+Rule Type: agent_requested
+Description: Sprint 5 (Image Analysis) - Detailed task checklist for Moondream consumer with caption and gaze extraction.
+
+## Sprint 5: Image Analysis (Weeks 9-10)
+**Focus:** Moondream consumer
+**Exit Criteria:** Results stored in TimescaleDB
+
+### 🚧 Planned Tasks
+
+#### Project Setup
+- [ ] Create `services/consumers/image-analysis/` directory structure
+- [ ] Set up pyproject.toml with transformers, torch, cv2, pillow dependencies
+- [ ] Generate requirements-locked.txt with Moondream model
+- [ ] Create app package structure following python rules
+- [ ] Set up proper __init__.py files
+
+#### Moondream Model Integration
+- [ ] Download Moondream model to `models/` directory
+- [ ] Create model loader with GPU/CPU configuration
+- [ ] Implement image preprocessing for Moondream requirements
+- [ ] Set up model inference pipeline for captioning
+- [ ] Configure model parameters (beam search, max tokens)
+- [ ] Add model warmup and memory optimization
+- [ ] Implement model caching strategies
+
+#### Kafka Consumer Integration
+- [ ] Create KafkaConsumerService for image topics:
+  - [ ] `device.image.camera.raw`
+  - [ ] `device.video.screen.raw`
+- [ ] Implement async message processing with aiokafka
+- [ ] Set up consumer group management and offset tracking
+- [ ] Configure message deserialization from ingestion-api format
+- [ ] Implement proper error handling and retry logic
+- [ ] Add consumer lag monitoring
+- [ ] Set up graceful shutdown handling
+
+#### Image Processing Pipeline
+- [ ] Create ImageProcessor class for analysis operations
+- [ ] Implement image format validation and conversion
+- [ ] Set up image resizing and optimization
+- [ ] Add image quality validation (resolution, format)
+- [ ] Implement batch processing for multiple images
+- [ ] Create image debugging and visualization tools
+- [ ] Add metadata extraction (EXIF, dimensions, format)
+
+#### Caption Generation
+- [ ] Create CaptionGenerator using Moondream
+- [ ] Implement image-to-text captioning pipeline
+- [ ] Set up confidence scoring for captions
+- [ ] Add context-aware caption generation
+- [ ] Implement multi-resolution caption generation
+- [ ] Create caption quality validation
+- [ ] Add custom prompt engineering for specific contexts
+
+#### Gaze Detection & Analysis
+- [ ] Integrate gaze detection model (MediaPipe or custom)
+- [ ] Implement eye tracking from images/video frames
+- [ ] Create gaze direction estimation
+- [ ] Set up attention heatmap generation
+- [ ] Add gaze focus point detection
+- [ ] Implement gaze pattern analysis
+- [ ] Create gaze confidence scoring
+
+#### Object Detection & Recognition
+- [ ] Integrate object detection model (YOLO or similar)
+- [ ] Implement object bounding box detection
+- [ ] Create object classification and labeling
+- [ ] Set up object tracking across frames
+- [ ] Add custom object category training
+- [ ] Implement object confidence scoring
+- [ ] Create object relationship analysis
+
+#### Kafka Producer Integration
+- [ ] Create producer for `media.image.analysis.moondream_results`
+- [ ] Implement analysis result publishing
+- [ ] Add metadata enrichment (confidence, objects, gaze)
+- [ ] Set up schema validation for analysis output
+- [ ] Configure batching for image results
+- [ ] Implement proper error handling for publishing
+
+#### TimescaleDB Integration
+- [ ] Create TimescaleDB connection service
+- [ ] Implement database schema for image analysis results
+- [ ] Set up hypertables for time-series image data
+- [ ] Create data insertion and upsert logic
+- [ ] Add database connection pooling and health checks
+- [ ] Implement data retention policies
+- [ ] Set up database indexing for efficient queries
+
+#### Configuration Management
+- [ ] Create pydantic-settings based configuration
+- [ ] Set up image analysis model and quality settings
+- [ ] Configure Kafka consumer and producer settings
+- [ ] Add image processing parameters (batch size, resolution)
+- [ ] Set up model path and GPU configuration
+- [ ] Create environment variable handling
+
+#### Data Models
+- [ ] Create ImageAnalysisResult model for output
+- [ ] Implement CaptionData with confidence and timing
+- [ ] Add GazeData for eye tracking results
+- [ ] Create ObjectDetectionResult for recognized objects
+- [ ] Implement DatabaseRecord for TimescaleDB storage
+- [ ] Set up schema versioning for compatibility
+- [ ] Create validation for analysis results
+
+#### Health & Monitoring
+- [ ] Implement service health checks
+- [ ] Create Prometheus metrics for image processing
+- [ ] Set up analysis quality monitoring (confidence scores)
+- [ ] Add processing rate and latency metrics
+- [ ] Implement consumer lag alerting
+- [ ] Create model performance monitoring
+- [ ] Add database connection monitoring
+
+#### Testing Framework
+- [ ] Set up testcontainers for Kafka + TimescaleDB testing
+- [ ] Create database test fixtures and schemas
+- [ ] Implement end-to-end image analysis tests
+- [ ] Set up test image data with known results
+- [ ] Create caption accuracy testing framework
+- [ ] Add performance benchmarking tests
+- [ ] Test database operations and queries
+
+#### Unit Testing
+- [ ] Create comprehensive unit tests for image processing
+- [ ] Test image preprocessing and model inference
+- [ ] Implement caption generation testing
+- [ ] Create Kafka message handling tests
+- [ ] Test database operations and models
+- [ ] Add mock testing for heavy model operations
+
+#### Performance Optimization
+- [ ] Optimize model loading and inference speed
+- [ ] Implement GPU utilization monitoring
+- [ ] Set up model quantization for speed/accuracy trade-offs
+- [ ] Configure memory management for large images
+- [ ] Add processing queue management
+- [ ] Implement backpressure handling for slow analysis
+
+#### Image Quality Assessment
+- [ ] Create image quality scoring pipeline
+- [ ] Implement blur detection and scoring
+- [ ] Add lighting quality assessment
+- [ ] Set up composition analysis
+- [ ] Create image filtering based on quality
+- [ ] Implement quality-based processing prioritization
+
+#### Multi-modal Analysis
+- [ ] Combine text and image analysis results
+- [ ] Create context-aware caption enhancement
+- [ ] Implement cross-modal validation
+- [ ] Set up temporal analysis for video frames
+- [ ] Add scene understanding capabilities
+- [ ] Create multi-frame analysis for video
+
+#### Docker & Deployment
+- [ ] Create production Dockerfile with GPU support
+- [ ] Set up proper model volume mounting from `models/`
+- [ ] Configure resource limits for GPU/CPU intensive processing
+- [ ] Implement health checks for model readiness
+- [ ] Set up graceful shutdown for processing cleanup
+- [ ] Configure logging and monitoring
+
+#### Development Tooling
+- [ ] Create Makefile with test, lint, docker, gpu targets
+- [ ] Set up image analysis debugging utilities
+- [ ] Create image and result visualization tools
+- [ ] Implement analysis quality assessment tools
+- [ ] Add sample image generation for testing
+- [ ] Create analysis monitoring dashboard
+
+#### Database Schema & Queries
+- [ ] Design TimescaleDB schema for image analysis
+- [ ] Create tables for captions, objects, gaze data
+- [ ] Set up proper indexing for time-series queries
+- [ ] Implement data retention and compression
+- [ ] Create analytical query templates
+- [ ] Set up data export and backup procedures
+
+#### Error Handling & Resilience
+- [ ] Create robust error handling for model failures
+- [ ] Implement retry logic for transient failures
+- [ ] Set up dead letter queue for failed messages
+- [ ] Add circuit breaker for downstream services
+- [ ] Create graceful degradation strategies
+- [ ] Implement poison message handling
+
+### 🎯 Exit Criteria Checklist
+- [ ] Image analysis consumer processes camera and screen capture topics
+- [ ] Moondream model loaded and operational
+- [ ] Caption generation working with acceptable quality
+- [ ] Gaze detection operational for applicable images
+- [ ] Results published to `media.image.analysis.moondream_results`
+- [ ] Results stored in TimescaleDB with proper schema
+- [ ] Integration tests with full pipeline passing
+- [ ] Performance metrics within target bounds
+
+### 📋 Dependencies
+- **Requires:** Completed Sprint 2 (Kafka topics available)
+- **Model:** Moondream model downloaded to `models/` directory
+- **Database:** TimescaleDB setup (from Sprint 6 prep)
+- **Hardware:** GPU access for optimal performance
+- **Enables:** Context inference services, unified querying
+- **Integration:** Consumes from ingestion-api image output
+
+### 🔧 Technical Standards
+- Follow architecture rules for stateless services
+- Implement Kafka consumer patterns from kafka.mdc
+- Use TimescaleDB patterns from storage.mdc
+- Follow testing requirements with testcontainers
+- Mount models from `models/` directory read-only
+- Implement monitoring per observability standards
+
+### 📊 Performance Targets
+- **Processing Latency:** <5s per image analysis
+- **Throughput:** Handle 10+ concurrent image streams
+- **Caption Quality:** Subjective evaluation >80% relevance
+- **Consumer Lag:** <100 messages under normal load
+- **Memory Usage:** <3GB per instance (with model)
+- **GPU Utilization:** >70% during peak processing
+- **Database Latency:** <200ms for result storage
+
+### 🎨 Quality Metrics
+- **Caption Relevance:** >80% subjectively relevant captions
+- **Object Detection:** >90% precision for common objects
+- **Gaze Accuracy:** ±5 degrees for gaze direction estimation
+- **Processing Success:** >99% successfully processed images
+- **Uptime:** >99.5% service availability
+- **Data Integrity:** 100% results successfully stored in DB

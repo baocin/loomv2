@@ -1,0 +1,75 @@
+---
+description: sprint 0
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_0
+Rule Type: agent_requested
+Description: Sprint 0 (Bootstrap) - Detailed task checklist for repo scaffolding and CI baseline setup.
+
+## Sprint 0: Bootstrap (Week 0)
+**Focus:** Repo scaffolding, CI baseline
+**Exit Criteria:** All hooks green on `main`
+
+### ✅ Completed Tasks
+
+#### Repository Structure
+- [x] Create basic folder structure following python rules
+- [x] Set up `.cursor/rules/` directory with all rule files
+- [x] Create `models/` directory for AI model weights (git-ignored)
+- [x] Set up `services/` directory for microservices
+- [x] Create `shared/` directory for common utilities
+- [x] Set up `tests/` directory structure
+- [x] Create `sql/` directory for analytical queries
+- [x] Set up `docs/` directory
+
+#### Development Environment
+- [x] Configure uv for Python dependency management
+- [x] Set up pyproject.toml templates
+- [x] Create requirements-locked.txt generation workflow
+- [x] Configure Black + Ruff linting standards
+- [x] Set up pytest configuration with asyncio support
+
+#### Git & Version Control
+- [x] Initialize repository with proper .gitignore
+- [x] Set up conventional commit standards
+- [x] Configure branch strategy (main/feat/fix)
+- [x] Implement atomic commit workflow
+
+#### Documentation & Rules
+- [x] Create comprehensive cursor rules (architecture, kafka, kubernetes, etc.)
+- [x] Document sprint planning timeline
+- [x] Set up coding standards and workflow documentation
+- [x] Create definition of done (DoD) criteria
+
+### 🚧 Remaining Tasks (Future Sprints)
+
+#### Pre-commit Hooks Setup
+- [ ] Create `.pre-commit-config.yaml` with ruff, black, prettier, pytest, helm-lint
+- [ ] Configure pre-commit installation workflow
+- [ ] Set up CI integration for pre-commit validation
+
+#### GitHub Actions CI/CD
+- [ ] Create workflow for unit/integration tests
+- [ ] Set up multi-arch Docker image builds
+- [ ] Configure security scanning (safety, bandit)
+- [ ] Set up coverage reporting
+- [ ] Create release automation
+
+#### Kubernetes Development Environment
+- [ ] Set up local k8s cluster (kind/k3d/minikube)
+- [ ] Install and configure Tilt for local development
+- [ ] Create base Kubernetes manifests
+- [ ] Set up kubectl configuration
+- [ ] Configure local development namespaces
+
+#### Helm Chart Foundation
+- [ ] Create base Helm chart templates
+- [ ] Set up chart linting pipeline
+- [ ] Configure values.yaml structure
+- [ ] Create chart versioning strategy
+
+### 📝 Notes
+- Repository structure completed and follows all cursor rules
+- Sprint planning documentation in place
+- Ready to begin Sprint 1 (Ingestion API)

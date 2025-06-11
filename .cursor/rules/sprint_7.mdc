@@ -1,0 +1,258 @@
+---
+description: sprint 7
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_7
+Rule Type: agent_requested
+Description: Sprint 7 (Observability + GitOps) - Detailed task checklist for Prometheus, Grafana, Flux overlays and production monitoring.
+
+## Sprint 7: Observability + GitOps (Weeks 13-14)
+**Focus:** Prometheus, Grafana, Flux overlays
+**Exit Criteria:** Alert on consumer lag > 5k
+
+### 🚧 Planned Tasks
+
+#### Prometheus Setup
+- [ ] Create `deploy/charts/prometheus/` Helm chart
+- [ ] Set up Chart.yaml with proper versioning and metadata
+- [ ] Configure values.yaml for Prometheus cluster settings
+- [ ] Create Prometheus StatefulSet with persistent storage
+- [ ] Set up service discovery for all microservices
+- [ ] Configure scraping configs for all service metrics
+- [ ] Set up resource requests and limits per Kubernetes rules
+- [ ] Add health probes for Prometheus readiness
+- [ ] Configure network policies for security
+- [ ] Set up data retention and storage policies
+
+#### Grafana Dashboard Setup
+- [ ] Create `deploy/charts/grafana/` Helm chart
+- [ ] Set up Chart.yaml with proper versioning and metadata
+- [ ] Configure values.yaml for Grafana settings
+- [ ] Create Grafana Deployment with persistent storage
+- [ ] Set up datasource configuration for Prometheus
+- [ ] Configure authentication and authorization
+- [ ] Set up dashboard provisioning
+- [ ] Add resource requests and limits
+- [ ] Configure network policies for dashboard access
+
+#### Service-Specific Dashboards
+- [ ] Create Ingestion API dashboard:
+  - [ ] HTTP request rates and latencies
+  - [ ] WebSocket connection metrics
+  - [ ] Kafka producer metrics
+  - [ ] Error rates and status codes
+- [ ] Create VAD Consumer dashboard:
+  - [ ] Audio processing rates
+  - [ ] VAD detection accuracy metrics
+  - [ ] Consumer lag monitoring
+  - [ ] Model inference performance
+- [ ] Create Transcription Consumer dashboard:
+  - [ ] Transcription processing rates
+  - [ ] WER (Word Error Rate) metrics
+  - [ ] GPU utilization monitoring
+  - [ ] Timing accuracy metrics
+- [ ] Create Image Analysis dashboard:
+  - [ ] Image processing rates
+  - [ ] Caption generation metrics
+  - [ ] Object detection accuracy
+  - [ ] Database storage performance
+- [ ] Create Persistence Layer dashboard:
+  - [ ] Database ingestion rates
+  - [ ] Query performance metrics
+  - [ ] Storage utilization
+  - [ ] Connection pool metrics
+
+#### Infrastructure Dashboards
+- [ ] Create Kafka Infrastructure dashboard:
+  - [ ] Topic throughput and lag
+  - [ ] Broker health and performance
+  - [ ] Partition distribution
+  - [ ] Consumer group health
+- [ ] Create TimescaleDB dashboard:
+  - [ ] Database performance metrics
+  - [ ] Storage and compression
+  - [ ] Query execution times
+  - [ ] Connection health
+- [ ] Create Kubernetes cluster dashboard:
+  - [ ] Node resource utilization
+  - [ ] Pod health and restarts
+  - [ ] Network and storage I/O
+  - [ ] Cluster capacity planning
+
+#### Alert Manager Configuration
+- [ ] Create `deploy/charts/alertmanager/` Helm chart
+- [ ] Set up AlertManager StatefulSet
+- [ ] Configure alert routing and grouping
+- [ ] Set up notification channels (Slack, email, PagerDuty)
+- [ ] Create alert suppression rules
+- [ ] Configure alert escalation policies
+- [ ] Set up alert acknowledgment workflows
+
+#### Critical Alerting Rules
+- [ ] Create consumer lag alerts:
+  - [ ] Alert when lag > 5k messages (exit criteria)
+  - [ ] Warning when lag > 1k messages
+  - [ ] Critical when lag > 10k messages
+- [ ] Create service health alerts:
+  - [ ] Pod crash/restart alerts
+  - [ ] High error rate alerts (>5%)
+  - [ ] Service unavailability alerts
+- [ ] Create performance alerts:
+  - [ ] High latency alerts (>2s for APIs)
+  - [ ] Low throughput alerts
+  - [ ] Resource exhaustion alerts
+- [ ] Create infrastructure alerts:
+  - [ ] Kafka broker down alerts
+  - [ ] Database connection failures
+  - [ ] Storage capacity alerts (>80%)
+
+#### GitOps with Flux
+- [ ] Set up Flux v2 for GitOps deployment
+- [ ] Create `deploy/overlays/` directory structure:
+  - [ ] `overlays/dev/` - Development environment
+  - [ ] `overlays/staging/` - Staging environment  
+  - [ ] `overlays/prod/` - Production environment
+- [ ] Configure Flux source controllers
+- [ ] Set up Helm controller for chart deployments
+- [ ] Create kustomization files for each environment
+- [ ] Configure image automation for container updates
+- [ ] Set up notification controllers for deploy status
+
+#### Development Environment Overlay
+- [ ] Create `overlays/dev/kustomization.yaml`
+- [ ] Configure reduced resource limits for development
+- [ ] Set up single replica deployments
+- [ ] Configure development-specific secrets
+- [ ] Set up local storage classes
+- [ ] Create development-specific network policies
+- [ ] Configure debug logging levels
+
+#### Staging Environment Overlay
+- [ ] Create `overlays/staging/kustomization.yaml`
+- [ ] Configure production-like resource limits
+- [ ] Set up multi-replica deployments for HA testing
+- [ ] Configure staging-specific secrets and config
+- [ ] Set up staging data sources
+- [ ] Create staging-specific monitoring
+- [ ] Configure staging-specific retention policies
+
+#### Production Environment Overlay
+- [ ] Create `overlays/prod/kustomization.yaml`
+- [ ] Configure production resource limits and HPA
+- [ ] Set up high availability with PodDisruptionBudgets
+- [ ] Configure production secrets management
+- [ ] Set up production storage classes and backup
+- [ ] Create production network security policies
+- [ ] Configure production monitoring and alerting
+- [ ] Set up production data retention and archival
+
+#### Security Hardening
+- [ ] Implement Pod Security Standards (restricted)
+- [ ] Configure NetworkPolicies for micro-segmentation
+- [ ] Set up RBAC for service accounts
+- [ ] Configure secrets management with sealed-secrets
+- [ ] Implement security contexts (non-root, read-only filesystem)
+- [ ] Set up image vulnerability scanning
+- [ ] Configure runtime security monitoring
+
+#### Monitoring & Observability
+- [ ] Set up distributed tracing with Jaeger/Tempo
+- [ ] Configure log aggregation with Loki
+- [ ] Implement structured logging across all services
+- [ ] Set up metrics federation for multi-cluster
+- [ ] Create SLI/SLO definitions for all services
+- [ ] Implement error budget tracking
+- [ ] Set up capacity planning dashboards
+
+#### CI/CD Pipeline Integration
+- [ ] Update GitHub Actions for GitOps workflow
+- [ ] Create image scanning and security checks
+- [ ] Set up automated testing in staging
+- [ ] Configure promotion gates between environments
+- [ ] Create rollback procedures
+- [ ] Set up deployment notifications
+- [ ] Configure automated canary deployments
+
+#### Documentation & Runbooks
+- [ ] Create operational runbooks for common issues
+- [ ] Document alert response procedures
+- [ ] Create disaster recovery procedures
+- [ ] Document deployment and rollback processes
+- [ ] Create troubleshooting guides
+- [ ] Document capacity planning procedures
+- [ ] Create on-call playbooks
+
+#### Performance Testing
+- [ ] Set up load testing for ingestion API
+- [ ] Create performance benchmarks for all services
+- [ ] Implement chaos engineering testing
+- [ ] Set up synthetic monitoring for user journeys
+- [ ] Create performance regression testing
+- [ ] Set up capacity testing for scaling limits
+
+#### Backup & Disaster Recovery
+- [ ] Set up automated database backups
+- [ ] Configure Kafka topic backup and restore
+- [ ] Create cluster backup procedures
+- [ ] Set up cross-region data replication
+- [ ] Test disaster recovery procedures
+- [ ] Create data migration tools
+- [ ] Document recovery time objectives (RTO/RPO)
+
+#### Cost Optimization
+- [ ] Implement resource right-sizing recommendations
+- [ ] Set up cost monitoring and alerting
+- [ ] Configure cluster autoscaling
+- [ ] Implement spot instance usage where appropriate
+- [ ] Set up resource usage optimization
+- [ ] Create cost allocation and chargeback reporting
+
+### 🎯 Exit Criteria Checklist
+- [ ] Prometheus collecting metrics from all services
+- [ ] Grafana dashboards operational for all components
+- [ ] Alert Manager configured with critical alerts
+- [ ] Consumer lag alert triggering at >5k messages
+- [ ] Flux GitOps operational for all environments
+- [ ] Production overlay hardened and secured
+- [ ] All services monitored with SLI/SLO tracking
+- [ ] Disaster recovery procedures tested
+
+### 📋 Dependencies
+- **Requires:** All previous sprints completed (Sprint 1-6)
+- **Infrastructure:** Kubernetes cluster with sufficient resources
+- **Security:** Production secrets and certificates
+- **Enables:** Production readiness, operational monitoring
+- **Integration:** Full end-to-end monitoring and alerting
+
+### 🔧 Technical Standards
+- Follow Kubernetes security standards
+- Implement monitoring best practices
+- Use GitOps principles for deployment
+- Follow observability standards (metrics, logs, traces)
+- Implement proper RBAC and network security
+- Use infrastructure as code for all components
+
+### 📊 Performance Targets
+- **Alert Response:** <30 seconds for critical alerts
+- **Dashboard Load:** <2 seconds for dashboard rendering
+- **Metrics Collection:** 99.9% successful scraping
+- **Log Ingestion:** <5 second latency for log queries
+- **Deployment Time:** <10 minutes for service updates
+- **Rollback Time:** <5 minutes for service rollback
+
+### 🚨 Alerting Standards
+- **Consumer Lag:** Alert at >5k messages (exit criteria)
+- **Service Health:** Alert on pod failures or high error rates
+- **Performance:** Alert on latency >2s or throughput degradation
+- **Infrastructure:** Alert on resource exhaustion >80%
+- **Security:** Alert on unauthorized access or policy violations
+- **Data Quality:** Alert on data ingestion failures or anomalies
+
+### 🔒 Security Requirements
+- **Pod Security:** Restricted security contexts for all workloads
+- **Network:** Micro-segmentation with NetworkPolicies
+- **RBAC:** Least privilege access for service accounts
+- **Secrets:** Encrypted secrets management with rotation
+- **Images:** Vulnerability scanning for all container images
+- **Runtime:** Security monitoring and threat detection

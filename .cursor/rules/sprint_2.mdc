@@ -1,0 +1,168 @@
+---
+description: sprint 2
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_2
+Rule Type: agent_requested
+Description: Sprint 2 (Kafka Core) - Detailed task checklist for Kafka infrastructure, topic creation, and schema management.
+
+## Sprint 2: Kafka Core (Weeks 3-4)
+**Focus:** Topic creation, schemas
+**Exit Criteria:** `kafka-topics.sh --list` shows full hierarchy
+
+### 🚧 Planned Tasks
+
+#### Kafka Infrastructure (Helm Chart)
+- [ ] Create `deploy/charts/kafka-infra/` Helm chart
+- [ ] Set up Chart.yaml with proper versioning and metadata
+- [ ] Configure values.yaml for Kafka cluster settings
+- [ ] Create Kafka StatefulSet with persistent storage
+- [ ] Set up Zookeeper ensemble (or KRaft mode)
+- [ ] Configure Kafka broker settings (replication, partitions)
+- [ ] Set up resource requests and limits per Kubernetes rules
+- [ ] Add health probes for Kafka brokers
+- [ ] Configure network policies for security
+- [ ] Set up monitoring with JMX exporter
+
+#### Topic Management
+- [ ] Create topic creation job/script
+- [ ] Implement all raw data ingestion topics:
+  - [ ] `device.audio.raw`
+  - [ ] `device.video.screen.raw`
+  - [ ] `device.image.camera.raw`
+  - [ ] `device.sensor.accelerometer.raw`
+  - [ ] `device.sensor.gps.raw`
+  - [ ] `device.sensor.barometer.raw`
+  - [ ] `device.sensor.temperature.raw`
+  - [ ] `device.health.heartrate.raw`
+  - [ ] `device.health.steps.raw`
+  - [ ] `device.state.power.raw`
+  - [ ] `device.network.wifi.raw`
+  - [ ] `device.network.bluetooth.raw`
+  - [ ] `os.events.app_lifecycle.raw`
+  - [ ] `os.events.notifications.raw`
+  - [ ] `digital.clipboard.raw`
+  - [ ] `digital.web_analytics.raw`
+  - [ ] `external.twitter.liked.raw`
+  - [ ] `external.calendar.events.raw`
+  - [ ] `external.email.events.raw`
+  - [ ] `task.url.ingest`
+
+#### Processed Data Topics
+- [ ] Create processed topic structure:
+  - [ ] `media.audio.vad_filtered`
+  - [ ] `media.text.transcribed.words`
+  - [ ] `media.image.analysis.moondream_results`
+  - [ ] `media.video.analysis.yolo_results`
+  - [ ] `analysis.3d_reconstruction.dustr_results`
+  - [ ] `analysis.inferred_context.qwen_results`
+  - [ ] `task.url.processed.twitter_archived`
+  - [ ] `task.url.processed.pdf_extracted`
+
+#### Topic Configuration
+- [ ] Set up proper partition counts based on expected load
+- [ ] Configure replication factor for high availability
+- [ ] Set retention policies per topic type
+- [ ] Configure compression settings (lz4 for high-volume)
+- [ ] Set up cleanup policies (delete vs compact)
+- [ ] Configure segment size and rolling policies
+
+#### Schema Management Repository
+- [ ] Create `shared/schemas/` directory
+- [ ] Set up JSON Schema definitions for all message types
+- [ ] Create Avro schema alternatives for high-throughput topics
+- [ ] Implement schema versioning strategy
+- [ ] Set up schema compatibility checks
+- [ ] Create schema evolution guidelines
+
+#### Schema Registry (Optional)
+- [ ] Evaluate Confluent Schema Registry vs alternatives
+- [ ] Set up schema registry deployment
+- [ ] Configure schema registration automation
+- [ ] Set up compatibility checking
+- [ ] Create schema migration strategies
+
+#### CI/CD for Schemas
+- [ ] Create schema validation pipeline
+- [ ] Set up automated schema testing
+- [ ] Configure schema compatibility checks in CI
+- [ ] Create schema deployment automation
+- [ ] Set up schema versioning and tagging
+
+#### Shared Schema Library
+- [ ] Create `shared/proto_schemas/` Python package
+- [ ] Implement pydantic models from schemas
+- [ ] Set up schema validation utilities
+- [ ] Create serialization/deserialization helpers
+- [ ] Add schema version checking utilities
+- [ ] Package for distribution to consumers
+
+#### Topic Administration Tools
+- [ ] Create topic management CLI tool
+- [ ] Implement topic creation/deletion scripts
+- [ ] Set up partition management utilities
+- [ ] Create consumer group monitoring tools
+- [ ] Implement topic configuration management
+- [ ] Set up topic metrics collection
+
+#### Monitoring & Observability
+- [ ] Set up Kafka lag monitoring
+- [ ] Create topic throughput metrics
+- [ ] Implement partition distribution monitoring
+- [ ] Set up broker health monitoring
+- [ ] Create consumer group lag alerts
+- [ ] Configure retention monitoring
+
+#### Development Environment
+- [ ] Update Tilt configuration for Kafka
+- [ ] Set up local Kafka cluster for development
+- [ ] Create development topic creation scripts
+- [ ] Configure local schema registry
+- [ ] Set up development monitoring stack
+- [ ] Create topic browsing utilities
+
+#### Testing Framework
+- [ ] Create integration tests with testcontainers
+- [ ] Set up Kafka cluster testing utilities
+- [ ] Implement topic creation testing
+- [ ] Create schema validation testing
+- [ ] Set up producer/consumer integration tests
+- [ ] Configure performance testing framework
+
+#### Documentation
+- [ ] Document Kafka architecture decisions
+- [ ] Create topic naming convention guide
+- [ ] Document partition and replication strategies
+- [ ] Create schema design guidelines
+- [ ] Document operational procedures
+- [ ] Create troubleshooting guide
+
+#### Migration & Compatibility
+- [ ] Create migration strategy from development to production
+- [ ] Set up topic configuration migration
+- [ ] Plan consumer group migration
+- [ ] Create rollback procedures
+- [ ] Test schema evolution scenarios
+- [ ] Document upgrade procedures
+
+### 🎯 Exit Criteria Checklist
+- [ ] Kafka cluster deployed and healthy
+- [ ] All topics created with proper configuration
+- [ ] `kafka-topics.sh --list` shows complete hierarchy
+- [ ] Schema validation pipeline operational
+- [ ] Consumer lag monitoring active
+- [ ] Integration tests passing
+- [ ] Documentation complete
+
+### 📋 Dependencies
+- **Requires:** Completed Sprint 1 (ingestion API)
+- **Enables:** Sprint 3 (VAD Consumer) - needs topics to consume from
+- **Integration:** Update ingestion-api to use schema validation
+
+### 🔧 Technical Standards
+- Follow Kafka topic naming rules from kafka.mdc
+- Implement Kubernetes standards from kubernetes.mdc  
+- Use Helm chart standards for deployment
+- Follow testing requirements with testcontainers
+- Implement monitoring per observability standards

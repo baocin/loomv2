@@ -1,0 +1,168 @@
+---
+description: sprint 3
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_3
+Rule Type: agent_requested
+Description: Sprint 3 (VAD Consumer) - Detailed task checklist for Speech detection using Silero VAD with testcontainers integration.
+
+## Sprint 3: VAD Consumer (Weeks 5-6)
+**Focus:** Speech detection
+**Exit Criteria:** Detected speech segments published
+
+### 🚧 Planned Tasks
+
+#### Project Setup
+- [ ] Create `services/consumers/vad/` directory structure
+- [ ] Set up pyproject.toml with aiokafka, silero-vad dependencies
+- [ ] Generate requirements-locked.txt with models from `models/`
+- [ ] Create app package structure following python rules
+- [ ] Set up proper __init__.py files
+
+#### Silero VAD Integration
+- [ ] Download Silero VAD model to `models/` directory
+- [ ] Create VAD model loader with configurable thresholds
+- [ ] Implement audio chunk preprocessing (resampling, normalization)
+- [ ] Set up voice activity detection logic
+- [ ] Configure silence detection thresholds
+- [ ] Implement chunk-level vs window-level detection
+- [ ] Add model warmup and caching
+
+#### Kafka Consumer Integration
+- [ ] Create KafkaConsumerService for `device.audio.raw`
+- [ ] Implement async message processing with aiokafka
+- [ ] Set up consumer group management and offset tracking
+- [ ] Configure message deserialization from ingestion-api format
+- [ ] Implement proper error handling and retry logic
+- [ ] Add consumer lag monitoring
+- [ ] Set up graceful shutdown handling
+
+#### Audio Processing Pipeline
+- [ ] Create AudioProcessor class for VAD operations
+- [ ] Implement audio format validation and conversion
+- [ ] Set up chunking strategy for long audio files
+- [ ] Add audio quality validation (sample rate, channels)
+- [ ] Implement overlap processing for continuous streams
+- [ ] Create silence trimming and padding logic
+- [ ] Add audio debugging and visualization tools
+
+#### Kafka Producer Integration  
+- [ ] Create producer for `media.audio.vad_filtered` topic
+- [ ] Implement filtered audio chunk publishing
+- [ ] Add metadata enrichment (VAD confidence, timestamps)
+- [ ] Set up schema validation for output messages
+- [ ] Configure compression and batching for audio data
+- [ ] Implement proper error handling for publishing
+
+#### Configuration Management
+- [ ] Create pydantic-settings based configuration
+- [ ] Set up VAD threshold and model configuration
+- [ ] Configure Kafka consumer and producer settings
+- [ ] Add audio processing parameters (window size, overlap)
+- [ ] Set up model path and loading configuration
+- [ ] Create environment variable handling
+
+#### Data Models
+- [ ] Create FilteredAudioChunk model for output
+- [ ] Implement VADMetadata for detection results
+- [ ] Add confidence scoring and timing information
+- [ ] Create error handling models
+- [ ] Set up schema versioning for compatibility
+- [ ] Implement validation for audio parameters
+
+#### Health & Monitoring
+- [ ] Implement service health checks
+- [ ] Create Prometheus metrics for VAD processing
+- [ ] Set up audio processing rate monitoring
+- [ ] Add VAD accuracy and confidence metrics
+- [ ] Implement consumer lag alerting
+- [ ] Create model performance monitoring
+
+#### Testing with TestContainers
+- [ ] Set up testcontainers for Kafka integration testing
+- [ ] Create Kafka cluster test fixtures
+- [ ] Implement end-to-end audio processing tests
+- [ ] Set up test audio data and expected results
+- [ ] Create VAD accuracy testing framework
+- [ ] Add performance benchmarking tests
+- [ ] Test consumer group behavior and rebalancing
+
+#### Unit Testing
+- [ ] Create comprehensive unit tests for VAD logic
+- [ ] Test audio preprocessing and validation
+- [ ] Implement model loading and inference tests
+- [ ] Create Kafka message handling tests
+- [ ] Test configuration and error scenarios
+- [ ] Add mock testing for external dependencies
+
+#### Docker & Deployment
+- [ ] Create production Dockerfile with model mounting
+- [ ] Set up proper model volume mounting from `models/`
+- [ ] Configure resource limits for CPU-intensive processing
+- [ ] Implement health checks for model readiness
+- [ ] Set up graceful shutdown for processing cleanup
+- [ ] Configure logging and monitoring
+
+#### Development Tooling
+- [ ] Create Makefile with test, lint, docker targets
+- [ ] Set up audio debugging utilities
+- [ ] Create VAD visualization tools
+- [ ] Implement performance profiling tools
+- [ ] Add audio sample generation for testing
+- [ ] Create consumer monitoring dashboard
+
+#### Performance Optimization
+- [ ] Optimize model loading and inference speed
+- [ ] Implement audio processing batching
+- [ ] Set up multi-threading for I/O operations
+- [ ] Configure memory management for large audio files
+- [ ] Add processing queue management
+- [ ] Implement backpressure handling
+
+#### Error Handling & Resilience
+- [ ] Create robust error handling for model failures
+- [ ] Implement retry logic for transient failures
+- [ ] Set up dead letter queue for failed messages
+- [ ] Add circuit breaker for downstream services
+- [ ] Create graceful degradation strategies
+- [ ] Implement poison message handling
+
+#### Observability
+- [ ] Set up structured logging with processing metadata
+- [ ] Create distributed tracing for audio pipeline
+- [ ] Implement custom metrics for VAD performance
+- [ ] Add audio quality metrics
+- [ ] Set up alerting for processing anomalies
+- [ ] Create debugging and troubleshooting tools
+
+### 🎯 Exit Criteria Checklist
+- [ ] VAD consumer processes `device.audio.raw` topic
+- [ ] Silero VAD model loaded and operational
+- [ ] Speech segments detected and published to `media.audio.vad_filtered`
+- [ ] Integration tests with testcontainers passing
+- [ ] Consumer lag monitoring active
+- [ ] Service health checks operational
+- [ ] Performance metrics within acceptable bounds
+
+### 📋 Dependencies
+- **Requires:** Completed Sprint 2 (Kafka topics available)
+- **Model:** Silero VAD downloaded to `models/` directory
+- **Enables:** Sprint 4 (Transcription) - needs filtered audio
+- **Integration:** Consumes from ingestion-api output
+
+### 🔧 Technical Standards
+- Follow architecture rules for stateless services
+- Implement Kafka consumer patterns from kafka.mdc
+- Use Kubernetes standards for health probes
+- Follow testing requirements with testcontainers
+- Mount models from `models/` directory read-only
+- Implement monitoring per observability standards
+
+### 📊 Performance Targets
+- **Processing Latency:** <500ms per audio chunk
+- **Throughput:** Handle 10+ concurrent audio streams
+- **Accuracy:** >90% voice activity detection
+- **Consumer Lag:** <1000 messages under normal load
+- **Memory Usage:** <512MB per instance
+- **CPU Usage:** <80% during peak processing

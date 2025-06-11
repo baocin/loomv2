@@ -1,0 +1,147 @@
+---
+description: sprint 1
+globs: 
+alwaysApply: false
+---
+Rule Name: sprint_1
+Rule Type: agent_requested
+Description: Sprint 1 (Ingestion API) - Detailed task checklist for FastAPI WebSocket & REST gateway with Kafka producer integration.
+
+## Sprint 1: Ingestion API (Weeks 1-2)
+**Focus:** FastAPI WS & REST gateway
+**Exit Criteria:** 95% test coverage on `services/ingestion-api`
+
+### ✅ Completed Tasks
+
+#### Project Setup
+- [x] Create `services/ingestion-api/` directory structure
+- [x] Set up pyproject.toml with FastAPI, aiokafka, pydantic v2 dependencies
+- [x] Generate requirements-locked.txt with uv
+- [x] Create app package structure (`app/`, `tests/`, etc.)
+- [x] Set up proper __init__.py files
+
+#### Core Application
+- [x] Create FastAPI application with async lifespan management
+- [x] Configure structured logging with structlog (JSON output)
+- [x] Set up CORS middleware for cross-origin requests
+- [x] Implement Prometheus metrics collection
+- [x] Add custom exception handlers with proper error responses
+- [x] Configure uvicorn server settings
+
+#### Configuration Management
+- [x] Create pydantic-settings based configuration system
+- [x] Set up environment variable handling (LOOM_ prefix)
+- [x] Configure Kafka connection settings
+- [x] Set up server and monitoring configuration
+- [x] Create topic name configuration with patterns
+
+#### Data Models (Pydantic v2)
+- [x] Create BaseMessage with schema versioning and timestamps
+- [x] Implement AudioChunk model for microphone data
+- [x] Create GPSReading model for location data
+- [x] Implement AccelerometerReading for motion sensors
+- [x] Create HeartRateReading for health vitals
+- [x] Implement PowerState for battery and charging data
+- [x] Create SensorReading generic wrapper
+- [x] Implement ImageData model for camera/screenshots
+- [x] Create WebSocketMessage wrapper for real-time data
+- [x] Implement HealthCheck model for Kubernetes probes
+
+#### Kafka Producer Integration
+- [x] Create KafkaProducerService with aiokafka
+- [x] Implement async connection management (start/stop)
+- [x] Set up JSON message serialization with datetime/bytes handling
+- [x] Configure compression (lz4), batching, and retry logic
+- [x] Implement topic-specific send methods (audio, sensor, image)
+- [x] Add proper error handling and structured logging
+- [x] Set up connection health monitoring
+
+#### REST API Endpoints (/sensor)
+- [x] Create sensor router with comprehensive endpoints
+- [x] Implement `/sensor/gps` for GPS coordinate ingestion
+- [x] Create `/sensor/accelerometer` for motion data
+- [x] Implement `/sensor/heartrate` for health monitoring
+- [x] Create `/sensor/power` for battery state tracking
+- [x] Implement `/sensor/generic` for arbitrary sensor data
+- [x] Create `/sensor/batch` for bulk sensor processing
+- [x] Add proper HTTP status codes and error responses
+- [x] Implement structured logging for all endpoints
+
+#### WebSocket Audio Streaming (/audio)
+- [x] Create ConnectionManager for WebSocket lifecycle
+- [x] Implement `/audio/stream/{device_id}` WebSocket endpoint
+- [x] Set up real-time audio chunk processing
+- [x] Handle base64 encoding/decoding for binary data
+- [x] Implement ping/pong keepalive mechanism
+- [x] Add connection tracking and device management
+- [x] Create proper error handling and client acknowledgments
+- [x] Implement WebSocket disconnect cleanup
+
+#### REST Audio Endpoints
+- [x] Create `/audio/upload` for single chunk uploads
+- [x] Implement `/audio/connections` status endpoint
+- [x] Add proper error handling and response formatting
+
+#### Health & Monitoring
+- [x] Implement `/healthz` liveness probe (basic health check)
+- [x] Create `/readyz` readiness probe (dependency checks)
+- [x] Set up `/metrics` Prometheus endpoint
+- [x] Add HTTP request metrics middleware (duration, count by endpoint)
+- [x] Implement Kafka message metrics tracking
+- [x] Create connection health monitoring
+
+#### Testing Framework
+- [x] Set up pytest with asyncio support
+- [x] Create comprehensive unit tests for pydantic models
+- [x] Test model validation and error handling
+- [x] Set up test directory structure (unit/integration)
+- [x] Configure test coverage reporting framework
+- [x] Create test utilities and fixtures
+
+#### Docker & Deployment
+- [x] Create production Dockerfile with security best practices
+- [x] Set up non-root user and proper permissions
+- [x] Configure health checks in Docker
+- [x] Implement multi-stage build optimization
+- [x] Set up uv integration for dependency installation
+
+#### Development Tooling
+- [x] Create comprehensive Makefile (test, lint, docker, helm targets)
+- [x] Set up Black + Ruff formatting and linting
+- [x] Configure type checking preparation
+- [x] Create development server target with hot reload
+- [x] Set up security scanning targets (safety, bandit)
+- [x] Create CI pipeline preparation (lint-check, test, security)
+
+#### Documentation
+- [x] Create comprehensive docstrings for all functions/classes
+- [x] Document API endpoints with proper descriptions
+- [x] Add model field descriptions and examples
+- [x] Create Sprint 1 completion summary
+- [x] Document configuration options and environment variables
+
+### 📊 Sprint 1 Results
+- **Endpoints Delivered:** 9 REST endpoints + 1 WebSocket endpoint ✅
+- **Kafka Integration:** Full producer with error handling ✅  
+- **Models:** 9 comprehensive pydantic models ✅
+- **Health Probes:** Kubernetes-ready endpoints ✅
+- **Monitoring:** Prometheus metrics integrated ✅
+- **Testing:** Unit test framework established ✅
+- **Docker:** Production-ready container ✅
+- **Code Quality:** Black + Ruff + structured logging ✅
+
+### 🎯 Exit Criteria Status
+- ✅ `/audio` endpoints implemented (WebSocket + REST)
+- ✅ `/sensor` endpoints implemented (6 specific + 1 generic + 1 batch)
+- ✅ Produce to raw Kafka topics with proper naming
+- ⚠️ Test coverage framework ready (95% target achievable with expanded tests)
+
+### 📝 Technical Debt & Future Improvements
+- [ ] Expand unit test coverage to 95% target
+- [ ] Add integration tests with testcontainers
+- [ ] Implement WebSocket authentication/authorization
+- [ ] Add rate limiting for REST endpoints
+- [ ] Create Helm chart for Kubernetes deployment
+- [ ] Add OpenAPI documentation enhancements
+- [ ] Implement metrics dashboards
+- [ ] Add distributed tracing integration
