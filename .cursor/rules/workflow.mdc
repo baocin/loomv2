@@ -3,10 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
-Rule Name: workflow
-Rule Type: agent_requested
-Description: Development workflow including commit practices, branch strategy, PR process, and local development loop with Tilt and kubectl verification.
-
 **Commit Early & Often:**
 - Commit after **every logical unit of work** (single function, test, config change)
 - Never commit broken code; each commit should be deployable
@@ -20,8 +16,6 @@ Description: Development workflow including commit practices, branch strategy, P
 **Local Development Loop:**
 ```bash
 # 1. Make changes
-vim services/vad/app/main.py
-
 # 2. Test changes locally
 make test
 tilt up  # Deploys to local k8s cluster

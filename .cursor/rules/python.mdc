@@ -1,12 +1,8 @@
 ---
-description: 
+description: Python dependency management with uv, repository structure, and folder organization standards for services and shared components.
 globs: 
 alwaysApply: false
 ---
-Rule Name: python
-Rule Type: agent_requested
-Description: Python dependency management with uv, repository structure, and folder organization standards for services and shared components.
-
 **Python Dependency Management (uv):**
 - Each service contains a `pyproject.toml` managed by **uv**
 - Use command `uv pip sync -r requirements-locked.txt` inside Dockerfiles

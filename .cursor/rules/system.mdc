@@ -1,12 +1,8 @@
 ---
-description: 
+description: Overall system architecture overview including goal, core technologies (Kong, FastAPI, Kafka, Redis, TimescaleDB, Trino), and infrastructure patterns for the personal informatics engine.
 globs: 
 alwaysApply: false
 ---
-Rule Name: system
-Rule Type: agent_requested
-Description: Overall system architecture overview including goal, core technologies (Kong, FastAPI, Kafka, Redis, TimescaleDB, Trino), and infrastructure patterns for the personal informatics engine.
-
 **System Goal:** A unified personal informatics engine to create a richly queryable timeline of all personal events, device interactions, and digital footprints, enabling advanced AI-driven context inference and analysis.
 
 **Core Architectural Pattern:** Event-driven microservices architecture with a strong emphasis on asynchronous processing, scalability, and modularity.
