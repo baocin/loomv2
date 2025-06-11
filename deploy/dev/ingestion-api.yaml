@@ -1,0 +1,108 @@
+# Ingestion API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-api
+  namespace: loom-dev
+  labels:
+    app.kubernetes.io/name: ingestion-api
+    app.kubernetes.io/component: ingestion-api
+    app.kubernetes.io/part-of: loom
+    app.kubernetes.io/version: "0.1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingestion-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingestion-api
+        app.kubernetes.io/component: ingestion-api
+        app.kubernetes.io/part-of: loom
+        app.kubernetes.io/version: "0.1.0"
+    spec:
+      containers:
+      - name: ingestion-api
+        image: loom-ingestion-api:latest
+        imagePullPolicy: Never  # Use locally built image
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: LOOM_HOST
+          value: "0.0.0.0"
+        - name: LOOM_PORT
+          value: "8000"
+        - name: LOOM_LOG_LEVEL
+          value: "DEBUG"
+        - name: LOOM_KAFKA_CLIENT_ID
+          value: "ingestion-api-dev"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # FastAPI needs to write temp files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-api
+  namespace: loom-dev
+  labels:
+    app.kubernetes.io/name: ingestion-api
+    app.kubernetes.io/component: ingestion-api
+    app.kubernetes.io/part-of: loom
+spec:
+  selector:
+    app.kubernetes.io/name: ingestion-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  - name: websocket
+    port: 8080
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# NodePort service for external access during development
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-api-external
+  namespace: loom-dev
+spec:
+  selector:
+    app.kubernetes.io/name: ingestion-api
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    nodePort: 32080
+  type: NodePort 
