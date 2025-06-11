@@ -1,5 +1,29 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+**Helm Chart Standards:**
+- Charts live under `deploy/charts/<service>`; one chart per micro-service
+- `Chart.yaml` must include: `appVersion`, `kubeVersion`, semantic `version`
+- All images referenced via digest, **not** mutable tags
+- Resources: define requests and limits; CPU in millicores, memory in MiB
+- Health probes: `livenessProbe` on `/healthz`, `readinessProbe` on `/readyz`
+- Config via `values.yaml`; no hard-coded env vars in templates
+
+**Required Labels:**
+- `app.kubernetes.io/name`
+- `app.kubernetes.io/instance`
+- `app.kubernetes.io/version`
+- `app.kubernetes.io/component` (e.g., consumer, ingestion-api)
+- `app.kubernetes.io/part-of=loom`
+
+**Production Standards:**
+- **Resource management:** Every container has CPU/memory requests and limits defined
+- **Health probes:** All services implement `/healthz` (liveness) and `/readyz` (readiness) endpoints
+- **Horizontal Pod Autoscaling:** Consumer services auto-scale based on Kafka consumer lag metrics
+- **Pod Disruption Budgets:** Ensure minimum availability during cluster maintenance
+- **Monitoring:** Prometheus metrics, structured logging via JSON to stdout, distributed tracing
+- **Graceful shutdown:** Handle SIGTERM properly with 30s timeout for in-flight request completion
+- **Network policies:** Restrict pod-to-pod communication to required services only
+- **Pod security standards:** Enforce restricted security context (non-root, read-only filesystem where possible)

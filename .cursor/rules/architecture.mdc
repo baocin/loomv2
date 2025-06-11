@@ -1,5 +1,20 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+Follow the event-driven micro-services architecture described in project.md.
+
+Each processing unit is an **independent Python service** (container) consuming from **one or more Kafka topics** and producing to downstream topics.
+
+Prefer **async / await** & **FastAPI** for all network-bound code.
+
+Every service MUST be fully stateless except for Redis usage explicitly noted below.
+
+Dockerise every service; Helm charts live under `/deploy/charts/<service>`.
+
+All pre-trained model weights (HF safetensors, ONNX, etc.) are stored under the repo-level `models/` directory and mounted read-only into containers at `/models`.
+
+**Redis Usage** (only these short-lived keys):
+- `pair:<device_id>:<timestamp>` – buffering paired camera frames (TTL ≤ 30 s)
+- `chunk:<file_id>:offset` – mapping audio/video chunks (TTL ≤ 5 min)

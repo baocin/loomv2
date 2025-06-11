@@ -1,5 +1,19 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+Use the canonical pattern `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated). Never invent new prefixes; extend existing hierarchies.
+
+Examples:
+- `device.sensor.gps.raw`
+- `media.text.transcribed.words`
+
+**Kafka Contracts:**
+- **Key:** `device_id` when events originate from a single device, otherwise `null`
+- **Value:** JSON schema versioned with `schema_version` field
+- **Compression:** `lz4` for high-volume topics
+
+**Lint Rules:**
+- Error if a topic string literal violates naming convention regex `^[a-z]+(\.[a-z0-9_]+)+$`
+- Warn if a service consumes a topic but does **not** produce any output
