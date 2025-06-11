@@ -1,0 +1,55 @@
+[project]
+name = "loom-ingestion-api"
+version = "0.1.0"
+description = "FastAPI ingestion service for Loom v2 personal informatics pipeline"
+authors = [
+    {name = "Loom Team"}
+]
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "aiokafka>=0.8.0",
+    "pydantic>=2.5.0", 
+    "pydantic-settings>=2.1.0",
+    "python-multipart>=0.0.6",  # For file uploads
+    "websockets>=12.0",
+    "structlog>=23.2.0",  # Structured logging
+    "prometheus-client>=0.19.0",  # Metrics
+]
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.25.0",  # For testing FastAPI
+    "testcontainers>=3.7.0",  # For Kafka integration tests
+    "black>=23.11.0",
+    "ruff>=0.1.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.ruff]
+select = ["ALL"]
+ignore = ["ANN101", "ANN102", "E501", "B905"]
+line-length = 88
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+] 
