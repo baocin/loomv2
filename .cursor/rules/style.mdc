@@ -1,5 +1,18 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+Follow **Black** (line length 88) for formatting; enforced via pre-commit.
+
+**Ruff** ruleset: `ruff --select ALL --ignore ANN101,ANN102,E501,B905`.
+
+Docstrings: use **NumPy** style with type annotations; required for all public functions/classes.
+
+Commit messages: Conventional Commits (`feat:`, `fix:`, `chore:`) + scope (`service/vad`), body ≤ 72 chars per line.
+
+Use **pydantic v2** for all DTOs.
+
+No framework-level global state – dependency-inject with **FastAPI Depends** or `lagoon`.
+
+Unit tests with `pytest-asyncio`; minimum 80% coverage gate.
