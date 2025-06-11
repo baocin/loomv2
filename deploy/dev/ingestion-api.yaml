@@ -25,7 +25,7 @@ spec:
       containers:
       - name: ingestion-api
         image: loom-ingestion-api:latest
-        imagePullPolicy: Never  # Use locally built image
+        imagePullPolicy: Never  # Use locally imported image
         ports:
         - containerPort: 8000
           name: http
