@@ -44,7 +44,7 @@ kubectl apply -f "$PROJECT_ROOT/deploy/dev/ingestion-api.yaml"
 echo "⏳ Waiting for pods to be ready..."
 kubectl wait --for=condition=ready pod -l app=zookeeper -n ${NAMESPACE} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=kafka -n ${NAMESPACE} --timeout=180s
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ingestion-api -n ${NAMESPACE} --timeout=120s
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ingestion-api -n ${NAMESPACE} --timeout=300s
 
 # Show status
 echo "✅ Deployment complete!"
