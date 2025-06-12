@@ -6,6 +6,9 @@ set -e
 
 CLUSTER_NAME="loom-local"
 
+# Find script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "🐄 Setting up k3d cluster"
 echo "========================="
 
@@ -57,7 +60,7 @@ if kubectl get nodes; then
     echo "  Ports: 8000 (API), 9092 (Kafka)"
     echo ""
     echo "🚀 Next steps:"
-    echo "  1. Deploy: ./scripts/deploy-k3s.sh"
+echo "  1. Deploy: $SCRIPT_DIR/deploy-k3s.sh"
     echo ""
     echo "🧹 Cleanup commands:"
     echo "  Stop: k3d cluster stop $CLUSTER_NAME"

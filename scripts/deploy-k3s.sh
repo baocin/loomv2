@@ -10,6 +10,12 @@ CLUSTER_NAME="loom-local"
 echo "🚀 Deploying to k3d cluster"
 echo "============================"
 
+# Find project root (where this script is relative to)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+echo "📁 Project root: $PROJECT_ROOT"
+
 # Check k3d is running
 if ! kubectl get nodes &>/dev/null; then
     echo "❌ k3d cluster not accessible. Run ./scripts/setup-k3s-local.sh first"
@@ -18,9 +24,9 @@ fi
 
 # Build image
 echo "📦 Building ingestion-api image..."
-cd services/ingestion-api
+cd "$PROJECT_ROOT/services/ingestion-api"
 docker build -t loom-ingestion-api:latest .
-cd ../..
+cd "$PROJECT_ROOT"
 
 # Import image to k3d
 echo "📤 Importing image to k3d..."
@@ -30,9 +36,9 @@ echo "✅ Image imported successfully!"
 
 # Deploy manifests
 echo "🎯 Deploying to k3s..."
-kubectl apply -f deploy/dev/namespace.yaml
-kubectl apply -f deploy/dev/kafka.yaml
-kubectl apply -f deploy/dev/ingestion-api.yaml
+kubectl apply -f "$PROJECT_ROOT/deploy/dev/namespace.yaml"
+kubectl apply -f "$PROJECT_ROOT/deploy/dev/kafka.yaml"
+kubectl apply -f "$PROJECT_ROOT/deploy/dev/ingestion-api.yaml"
 
 # Wait for pods
 echo "⏳ Waiting for pods to be ready..."

@@ -16,6 +16,8 @@ Local development and testing using **k3d** - k3s in Docker containers!
 curl http://localhost:8000/healthz
 ```
 
+> **Note**: Scripts can be run from any directory - they auto-detect the project root.
+
 ## 📁 Scripts
 
 | Script | Purpose |
