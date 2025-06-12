@@ -1,0 +1,230 @@
+# Default values for ingestion-api
+# This is a YAML-formatted file
+
+# Global configuration
+global:
+  imageRegistry: ""
+  environment: development
+
+# Image configuration
+image:
+  registry: ""
+  repository: loom-ingestion-api
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  # Optionally specify an array of imagePullSecrets
+  pullSecrets: []
+
+# Service account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Application configuration
+config:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8000
+  logLevel: "INFO"
+  environment: "development"
+  
+  # Kafka settings
+  kafka:
+    bootstrapServers: "kafka:9092"
+    audioTopic: "device.audio.raw"
+    sensorTopic: "device.sensor.{type}.raw"
+    compressionType: "lz4"
+    batchSize: 16384
+    lingerMs: 10
+    retryBackoffMs: 100
+    maxRetries: 3
+  
+  # Monitoring settings
+  metricsEnabled: true
+  enableCors: true
+
+# Deployment configuration
+replicaCount: 2
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health probes
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: ingestion-api.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: ingestion-api-tls
+  #    hosts:
+  #      - ingestion-api.local
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Pod labels
+podLabels: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Environment variables
+env: []
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+
+# Environment variables from secrets/configmaps
+envFrom: []
+# - secretRef:
+#     name: secret-name
+# - configMapRef:
+#     name: configmap-name
+
+# Extra volumes
+extraVolumes: []
+# - name: extra-volume
+#   emptyDir: {}
+
+# Extra volume mounts
+extraVolumeMounts: []
+# - name: extra-volume
+#   mountPath: /extra
+
+# Init containers
+initContainers: []
+# - name: init-kafka
+#   image: busybox:1.35
+#   command: ['sh', '-c', 'until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;']
+
+# Sidecar containers
+sidecars: []
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  annotations: {}
+
+# Pod monitor for Prometheus
+podMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+  annotations: {}
+
+# ConfigMap for additional configuration files
+configMap:
+  enabled: false
+  data: {}
+
+# Secret for sensitive configuration
+secret:
+  enabled: false
+  data: {}
+
+# Persistence for temporary files
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+# Tests configuration
+tests:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: "7.85.0"
+    pullPolicy: IfNotPresent 

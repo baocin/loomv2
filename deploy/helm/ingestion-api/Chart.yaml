@@ -1,0 +1,20 @@
+apiVersion: v2
+name: ingestion-api
+description: Loom Ingestion API - FastAPI WebSocket & REST gateway with Kafka producer
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/mpedersen/loomv2
+keywords:
+  - ingestion
+  - api
+  - kafka
+  - websocket
+  - fastapi
+maintainers:
+  - name: Loom Team
+    email: dev@loom.com
+sources:
+  - https://github.com/mpedersen/loomv2
+annotations:
+  category: Application 
