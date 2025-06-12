@@ -1,114 +1,89 @@
-# Loom Deployment Guide
+# Loom Kubernetes Deployment
 
-This directory contains Kubernetes deployment manifests for the Loom ingestion API.
+This directory contains Kubernetes manifests for local development using **multipass**.
 
-## Quick Start
+> **Note**: For local development, use the scripts in `/scripts/` instead of deploying manually.
 
-### Prerequisites
+## 📁 Directory Structure
 
-1. **Docker** installed locally
-2. **kubectl** configured to access your k8s cluster at `10.0.0.148`
-3. **SSH access** to the k8s cluster nodes (for image transfer)
-
-### Option 1: Automated Deployment
-
-```bash
-# Run the automated deployment script
-./deploy/scripts/deploy.sh
+```
+deploy/
+└── dev/
+    ├── namespace.yaml        # loom-dev namespace
+    ├── kafka.yaml           # Zookeeper + Kafka
+    └── ingestion-api.yaml   # FastAPI service
 ```
 
-This script will:
-1. Build the Docker image
-2. Export it to a tar file
-3. Guide you through copying it to the cluster
-4. Deploy all services to k8s
-5. Wait for everything to be ready
-
-### Option 2: Manual Deployment
+## 🚀 Quick Deploy (via scripts)
 
 ```bash
-# 1. Build Docker image
-cd services/ingestion-api
-docker build -t loom-ingestion-api:latest .
-cd ../..
+# 1. Setup multipass VM with k3s
+./scripts/setup-k3s-local.sh
 
-# 2. Export and transfer image
-docker save loom-ingestion-api:latest > /tmp/loom-ingestion-api.tar
-scp /tmp/loom-ingestion-api.tar user@10.0.0.148:/tmp/
-ssh user@10.0.0.148 'docker load < /tmp/loom-ingestion-api.tar'
+# 2. Deploy everything
+./scripts/deploy-k3s.sh
+```
 
-# 3. Deploy to k8s
+## 📦 Manual Deployment (if needed)
+
+```bash
+# Deploy to existing k3s cluster
 kubectl apply -f deploy/dev/namespace.yaml
-kubectl apply -f deploy/dev/kafka.yaml
+kubectl apply -f deploy/dev/kafka.yaml  
 kubectl apply -f deploy/dev/ingestion-api.yaml
 
-# 4. Check status
+# Check status
 kubectl get pods -n loom-dev
 ```
 
-## Services Deployed
+## 🌐 Services Deployed
 
-- **Zookeeper**: Kafka coordination service
-- **Kafka**: Message broker with external access on port 32092
-- **Ingestion API**: FastAPI service with external access on port 32080
+- **Namespace**: `loom-dev`
+- **Zookeeper**: Kafka coordination (internal)
+- **Kafka**: Message broker (NodePort 32092)
+- **Ingestion API**: FastAPI service (NodePort 32080)
 
-## Testing the Deployment
+## 🧪 Testing
 
 ```bash
-# Check if everything is running
-kubectl get all -n loom-dev
+# Via port-forward (recommended)
+kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
+curl http://localhost:8000/healthz
 
-# Test the API
-curl http://10.0.0.148:32080/
-curl http://10.0.0.148:32080/healthz
+# Direct via VM IP
+VM_IP=$(multipass info k3s | grep IPv4 | awk '{print $2}')
+curl http://$VM_IP:32080/healthz
+```
+
+## 🔍 Debugging
+
+```bash
+# Check all resources
+kubectl get all -n loom-dev
 
 # View logs
 kubectl logs -f deployment/ingestion-api -n loom-dev
+kubectl logs -f deployment/kafka -n loom-dev
+
+# Describe problematic pods
+kubectl describe pod <pod-name> -n loom-dev
 
 # Check Kafka topics
 kubectl exec -it deployment/kafka -n loom-dev -- kafka-topics --list --bootstrap-server localhost:9092
 ```
 
-## Service URLs
-
-- **Ingestion API**: http://10.0.0.148:32080
-- **API Documentation**: http://10.0.0.148:32080/docs
-- **Health Check**: http://10.0.0.148:32080/healthz
-- **Kafka External**: 10.0.0.148:32092
-
-## WebSocket Testing
+## 🧹 Cleanup
 
 ```bash
-# Using wscat (install with: npm install -g wscat)
-wscat -c ws://10.0.0.148:32080/audio/stream/test-device
-```
-
-## Troubleshooting
-
-```bash
-# Pod not starting?
-kubectl describe pod -l app.kubernetes.io/name=ingestion-api -n loom-dev
-
-# Service not reachable?
-kubectl get svc -n loom-dev
-
-# Check logs
-kubectl logs -f deployment/ingestion-api -n loom-dev
-kubectl logs -f deployment/kafka -n loom-dev
-
-# Port forward for local testing
-kubectl port-forward svc/ingestion-api 8000:80 -n loom-dev
-```
-
-## Cleanup
-
-```bash
-# Delete everything
+# Remove just our apps
 kubectl delete namespace loom-dev
+
+# Remove entire VM (clean slate)
+multipass delete k3s && multipass purge
 ```
 
-## Next Steps
+## 🎯 Next Steps
 
-- **Sprint 2**: Replace this basic Kafka with proper Helm chart
-- **Sprint 7**: Add proper GitOps with Flux overlays
-- **Production**: Add TLS, authentication, and monitoring 
+- **Sprint 2**: Replace with proper Kafka Helm chart
+- **Sprint 6**: Add TimescaleDB for persistence
+- **Sprint 7**: Add monitoring and GitOps with Flux 

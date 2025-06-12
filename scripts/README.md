@@ -1,88 +1,95 @@
-# Loom Testing Scripts
+# Loom Local Development Scripts
 
-This directory contains scripts for testing and deploying the Loom services locally.
+Local development and testing using **multipass + k3s** - real Kubernetes in an Ubuntu VM!
 
-## 🚀 Quick Start Options
+## 🚀 Quick Start
 
-### Option 1: Local k3s (Recommended)
-
-**Simplest approach** - runs everything locally with k3s:
-
+**One-time setup:**
 ```bash
-# 1. Setup k3s locally
+# 1. Setup k3s in multipass VM (installs multipass if needed)
 ./scripts/setup-k3s-local.sh
 
-# 2. Deploy everything
+# 2. Deploy everything to k3s
 ./scripts/deploy-k3s.sh
 
-# 3. Test
+# 3. Test via port-forward
 kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
 curl http://localhost:8000/healthz
 ```
 
-### Option 2: Docker Only
+## 📁 Scripts
 
-**Quick API testing** without Kubernetes:
+| Script | Purpose |
+|--------|---------|
+| `setup-k3s-local.sh` | Install multipass VM + k3s (one-time) |
+| `deploy-k3s.sh` | Deploy to k3s VM |
+| `test-simple.sh` | Quick Docker-only API test |
+| `test-api.sh` | API testing with health checks |
 
+## 🎯 Development Workflow
+
+1. **Setup** (once): `./scripts/setup-k3s-local.sh`
+2. **Code** → **Deploy**: `./scripts/deploy-k3s.sh`
+3. **Test**: `kubectl port-forward` + `curl`
+4. **Debug**: `kubectl logs -f` or `multipass shell k3s`
+
+## ✅ Why Multipass + k3s?
+
+- ✅ **Real k3s** - exactly like production
+- ✅ **Real Ubuntu** - proper systemd/Linux environment
+- ✅ **Fast iteration** - local image import
+- ✅ **Easy debugging** - shell into VM anytime
+- ✅ **Clean isolation** - VM contains everything
+- ✅ **Simple cleanup** - delete VM to reset
+
+## 🔧 Requirements
+
+- **Docker** (for building images)
+- **multipass** (auto-installed by setup script)
+- **kubectl** (for deployment)
+- **curl** (for testing)
+
+## 🌐 Access Methods
+
+**Via port-forward (recommended):**
 ```bash
-# Simple test (no Kafka)
-./scripts/test-simple.sh
-
-# Full stack test (with Kafka)
-./scripts/test-docker.sh
+kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
+curl http://localhost:8000/healthz
 ```
 
-### Option 3: Remote k8s Cluster
-
-**For your existing cluster at 10.0.0.148**:
-
+**Direct via VM IP:**
 ```bash
-# Setup kubectl access
-./deploy/scripts/setup-kubectl.sh
-
-# Deploy to remote cluster
-./deploy/scripts/deploy.sh
+VM_IP=$(multipass info k3s | grep IPv4 | awk '{print $2}')
+curl http://$VM_IP:32080/healthz
 ```
 
-## 📁 Scripts Overview
-
-| Script | Purpose | Use Case |
-|--------|---------|----------|
-| `test-simple.sh` | Quick API test | Fast development iteration |
-| `test-docker.sh` | Full Docker stack | Local integration testing |
-| `setup-k3s-local.sh` | Install k3s locally | One-time setup |
-| `deploy-k3s.sh` | Deploy to local k3s | Kubernetes testing |
-
-## 🎯 Recommended Workflow
-
-1. **Development**: Use `test-simple.sh` for quick iterations
-2. **Testing**: Use `deploy-k3s.sh` for full k8s testing
-3. **Production**: Use remote cluster deployment
-
-## ✅ Benefits of Local k3s
-
-- ✅ **No SSH/SCP** - images stay local
-- ✅ **Fast deployment** - no network transfers
-- ✅ **Real Kubernetes** - same as production
-- ✅ **Simple cleanup** - just restart k3s
-- ✅ **Port forwarding** - easy access to services
-
-## 🔧 Dependencies
-
-- **Docker** (all approaches)
-- **kubectl** (k8s approaches)  
-- **curl** (testing)
-- **jq** (optional, for JSON formatting)
-
-## 🧹 Cleanup
+## 🧹 Cleanup Options
 
 ```bash
-# Stop Docker containers
-docker stop $(docker ps -q --filter name=loom)
-docker rm $(docker ps -aq --filter name=loom)
+# Just remove our apps
+kubectl delete namespace loom-dev
 
-# Reset k3s
-sudo k3s-uninstall.sh  # Remove k3s completely
-# or
-kubectl delete namespace loom-dev  # Just remove our stuff
+# Remove entire VM (clean slate)
+multipass delete k3s && multipass purge
+
+# Stop VM (keep for later)
+multipass stop k3s
+```
+
+## 🐞 Debugging
+
+```bash
+# Shell into VM
+multipass shell k3s
+
+# View VM info
+multipass info k3s
+
+# Check VM logs
+multipass logs k3s
+
+# Kubernetes debugging
+kubectl get pods -n loom-dev
+kubectl logs -f deployment/ingestion-api -n loom-dev
+kubectl describe pod <pod-name> -n loom-dev
 ``` 
