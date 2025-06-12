@@ -1,19 +1,18 @@
 # Loom Local Development Scripts
 
-Local development and testing using **multipass + k3s** - real Kubernetes in an Ubuntu VM!
+Local development and testing using **k3d** - k3s in Docker containers!
 
 ## 🚀 Quick Start
 
 **One-time setup:**
 ```bash
-# 1. Setup k3s in multipass VM (installs multipass if needed)
+# 1. Setup k3d cluster (installs k3d if needed)
 ./scripts/setup-k3s-local.sh
 
-# 2. Deploy everything to k3s
+# 2. Deploy everything to k3d
 ./scripts/deploy-k3s.sh
 
-# 3. Test via port-forward
-kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
+# 3. Test directly
 curl http://localhost:8000/healthz
 ```
 
@@ -21,8 +20,8 @@ curl http://localhost:8000/healthz
 
 | Script | Purpose |
 |--------|---------|
-| `setup-k3s-local.sh` | Install multipass VM + k3s (one-time) |
-| `deploy-k3s.sh` | Deploy to k3s VM |
+| `setup-k3s-local.sh` | Install k3d + create cluster (one-time) |
+| `deploy-k3s.sh` | Deploy to k3d cluster |
 | `test-simple.sh` | Quick Docker-only API test |
 | `test-api.sh` | API testing with health checks |
 
@@ -30,37 +29,36 @@ curl http://localhost:8000/healthz
 
 1. **Setup** (once): `./scripts/setup-k3s-local.sh`
 2. **Code** → **Deploy**: `./scripts/deploy-k3s.sh`
-3. **Test**: `kubectl port-forward` + `curl`
-4. **Debug**: `kubectl logs -f` or `multipass shell k3s`
+3. **Test**: `curl http://localhost:8000/healthz`
+4. **Debug**: `kubectl logs -f` or `docker ps`
 
-## ✅ Why Multipass + k3s?
+## ✅ Why k3d?
 
-- ✅ **Real k3s** - exactly like production
-- ✅ **Real Ubuntu** - proper systemd/Linux environment
-- ✅ **Fast iteration** - local image import
-- ✅ **Easy debugging** - shell into VM anytime
-- ✅ **Clean isolation** - VM contains everything
-- ✅ **Simple cleanup** - delete VM to reset
+- ✅ **Fast startup** - containers start in seconds
+- ✅ **Real k3s** - exactly like production k3s
+- ✅ **Port mapping** - direct localhost access
+- ✅ **Easy debugging** - standard Docker tools
+- ✅ **Lightweight** - no VM overhead
+- ✅ **Simple cleanup** - delete cluster instantly
 
 ## 🔧 Requirements
 
-- **Docker** (for building images)
-- **multipass** (auto-installed by setup script)
+- **Docker** (for building images and k3d)
+- **k3d** (auto-installed by setup script)
 - **kubectl** (for deployment)
 - **curl** (for testing)
 
 ## 🌐 Access Methods
 
-**Via port-forward (recommended):**
+**Direct via localhost (k3d port mapping):**
 ```bash
-kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
 curl http://localhost:8000/healthz
+curl http://localhost:8000/docs
 ```
 
-**Direct via VM IP:**
+**Kafka access:**
 ```bash
-VM_IP=$(multipass info k3s | grep IPv4 | awk '{print $2}')
-curl http://$VM_IP:32080/healthz
+# Connect to Kafka at localhost:9092
 ```
 
 ## 🧹 Cleanup Options
@@ -69,27 +67,27 @@ curl http://$VM_IP:32080/healthz
 # Just remove our apps
 kubectl delete namespace loom-dev
 
-# Remove entire VM (clean slate)
-multipass delete k3s && multipass purge
+# Remove entire cluster (instant reset)
+k3d cluster delete loom-local
 
-# Stop VM (keep for later)
-multipass stop k3s
+# Stop cluster (keep for later)
+k3d cluster stop loom-local
 ```
 
 ## 🐞 Debugging
 
 ```bash
-# Shell into VM
-multipass shell k3s
+# Check cluster status
+k3d cluster list
 
-# View VM info
-multipass info k3s
-
-# Check VM logs
-multipass logs k3s
+# Check Docker containers
+docker ps | grep k3d
 
 # Kubernetes debugging
 kubectl get pods -n loom-dev
 kubectl logs -f deployment/ingestion-api -n loom-dev
 kubectl describe pod <pod-name> -n loom-dev
+
+# Access cluster nodes
+docker exec -it k3d-loom-local-server-0 sh
 ``` 

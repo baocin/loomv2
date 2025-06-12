@@ -1,18 +1,18 @@
 #!/bin/bash
-# Simple deployment script for k3s in multipass VM
-# Real k3s deployment - just like production!
+# Simple deployment script for k3d cluster
+# Fast and simple - perfect for development!
 
 set -e
 
 NAMESPACE="loom-dev"
-VM_NAME="k3s"
+CLUSTER_NAME="loom-local"
 
-echo "🚀 Deploying to k3s in multipass VM"
-echo "===================================="
+echo "🚀 Deploying to k3d cluster"
+echo "============================"
 
-# Check k3s is running
+# Check k3d is running
 if ! kubectl get nodes &>/dev/null; then
-    echo "❌ k3s cluster not accessible. Run ./scripts/setup-k3s-local.sh first"
+    echo "❌ k3d cluster not accessible. Run ./scripts/setup-k3s-local.sh first"
     exit 1
 fi
 
@@ -22,12 +22,9 @@ cd services/ingestion-api
 docker build -t loom-ingestion-api:latest .
 cd ../..
 
-# Import image to multipass VM
-echo "📤 Importing image to multipass VM..."
-docker save loom-ingestion-api:latest > /tmp/loom-ingestion-api.tar
-multipass transfer /tmp/loom-ingestion-api.tar "$VM_NAME":/tmp/
-multipass exec "$VM_NAME" -- sudo k3s ctr images import /tmp/loom-ingestion-api.tar
-rm /tmp/loom-ingestion-api.tar
+# Import image to k3d
+echo "📤 Importing image to k3d..."
+k3d image import loom-ingestion-api:latest -c "$CLUSTER_NAME"
 
 echo "✅ Image imported successfully!"
 
@@ -52,31 +49,19 @@ echo ""
 echo "🌐 Services:"
 kubectl get svc -n ${NAMESPACE}
 echo ""
-# Get VM IP for direct access
-VM_IP=$(multipass info "$VM_NAME" | grep IPv4 | awk '{print $2}')
-
-echo "🔗 Access URLs:"
-echo "  Direct via VM IP:"
-echo "    Ingestion API: http://$VM_IP:32080"
-echo "    Kafka: $VM_IP:32092"
-echo ""
-echo "  Via port-forward (recommended):"
-echo "    kubectl port-forward svc/ingestion-api-external 8000:8000 -n ${NAMESPACE}"
-echo "    Then: http://localhost:8000"
+echo "🔗 Access URLs (via k3d port mapping):"
+echo "  Ingestion API: http://localhost:8000"
+echo "  Kafka: localhost:9092"
 echo ""
 echo "🧪 Quick test:"
-echo "  # Via port-forward:"
-echo "  kubectl port-forward svc/ingestion-api-external 8000:8000 -n ${NAMESPACE} &"
 echo "  curl http://localhost:8000/healthz"
-echo ""
-echo "  # Or direct via VM IP:"
-echo "  curl http://$VM_IP:32080/healthz"
+echo "  curl http://localhost:8000/docs"
 echo ""
 echo "📝 Useful commands:"
 echo "  kubectl logs -f deployment/ingestion-api -n ${NAMESPACE}"
 echo "  kubectl exec -it deployment/kafka -n ${NAMESPACE} -- kafka-topics --list --bootstrap-server localhost:9092"
-echo "  multipass shell $VM_NAME  # SSH into the VM"
+echo "  k3d cluster list  # Show clusters"
 echo ""
 echo "🧹 Cleanup:"
 echo "  kubectl delete namespace ${NAMESPACE}  # Remove our apps"
-echo "  multipass delete $VM_NAME && multipass purge  # Remove VM" 
+echo "  k3d cluster delete ${CLUSTER_NAME}  # Remove cluster" 

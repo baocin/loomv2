@@ -1,6 +1,6 @@
 # Loom Kubernetes Deployment
 
-This directory contains Kubernetes manifests for local development using **multipass**.
+This directory contains Kubernetes manifests for local development using **k3d**.
 
 > **Note**: For local development, use the scripts in `/scripts/` instead of deploying manually.
 
@@ -17,7 +17,7 @@ deploy/
 ## 🚀 Quick Deploy (via scripts)
 
 ```bash
-# 1. Setup multipass VM with k3s
+# 1. Setup k3d cluster
 ./scripts/setup-k3s-local.sh
 
 # 2. Deploy everything
@@ -27,7 +27,7 @@ deploy/
 ## 📦 Manual Deployment (if needed)
 
 ```bash
-# Deploy to existing k3s cluster
+# Deploy to existing k3d cluster
 kubectl apply -f deploy/dev/namespace.yaml
 kubectl apply -f deploy/dev/kafka.yaml  
 kubectl apply -f deploy/dev/ingestion-api.yaml
@@ -40,19 +40,18 @@ kubectl get pods -n loom-dev
 
 - **Namespace**: `loom-dev`
 - **Zookeeper**: Kafka coordination (internal)
-- **Kafka**: Message broker (NodePort 32092)
-- **Ingestion API**: FastAPI service (NodePort 32080)
+- **Kafka**: Message broker (mapped to localhost:9092)
+- **Ingestion API**: FastAPI service (mapped to localhost:8000)
 
 ## 🧪 Testing
 
 ```bash
-# Via port-forward (recommended)
-kubectl port-forward svc/ingestion-api-external 8000:8000 -n loom-dev &
+# Direct access via k3d port mapping
 curl http://localhost:8000/healthz
+curl http://localhost:8000/docs
 
-# Direct via VM IP
-VM_IP=$(multipass info k3s | grep IPv4 | awk '{print $2}')
-curl http://$VM_IP:32080/healthz
+# Test Kafka
+# (Available at localhost:9092)
 ```
 
 ## 🔍 Debugging
@@ -70,6 +69,10 @@ kubectl describe pod <pod-name> -n loom-dev
 
 # Check Kafka topics
 kubectl exec -it deployment/kafka -n loom-dev -- kafka-topics --list --bootstrap-server localhost:9092
+
+# Check k3d cluster
+k3d cluster list
+docker ps | grep k3d
 ```
 
 ## 🧹 Cleanup
@@ -78,8 +81,8 @@ kubectl exec -it deployment/kafka -n loom-dev -- kafka-topics --list --bootstrap
 # Remove just our apps
 kubectl delete namespace loom-dev
 
-# Remove entire VM (clean slate)
-multipass delete k3s && multipass purge
+# Remove entire cluster (instant reset)
+k3d cluster delete loom-local
 ```
 
 ## 🎯 Next Steps
