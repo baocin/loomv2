@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://loom.dev/schemas/media/audio/vad_filtered/v1.json",
+  "title": "VAD Filtered Audio",
+  "description": "Audio chunks that have been filtered by Voice Activity Detection",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the audio was captured"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device"
+    },
+    "file_id": {
+      "type": "string",
+      "description": "Unique identifier for the audio file/stream"
+    },
+    "chunk_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Sequential index of this chunk within the file"
+    },
+    "audio_data": {
+      "type": "string",
+      "description": "Base64 encoded audio data"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "minimum": 8000,
+      "maximum": 48000,
+      "description": "Audio sample rate in Hz"
+    },
+    "channels": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "description": "Number of audio channels"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Duration of audio chunk in milliseconds"
+    },
+    "vad_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "VAD confidence score (0-1)"
+    },
+    "speech_probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Probability that chunk contains speech"
+    }
+  },
+  "required": [
+    "schema_version", 
+    "timestamp", 
+    "device_id", 
+    "file_id", 
+    "chunk_index", 
+    "audio_data", 
+    "sample_rate", 
+    "channels", 
+    "duration_ms", 
+    "vad_confidence"
+  ],
+  "additionalProperties": false
+}

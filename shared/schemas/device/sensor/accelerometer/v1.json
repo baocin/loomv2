@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://loom.dev/schemas/device/sensor/accelerometer/v1.json",
+  "title": "Accelerometer Reading",
+  "description": "3-axis accelerometer data from device motion sensors",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the reading was taken"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device"
+    },
+    "x": {
+      "type": "number",
+      "description": "Acceleration along X-axis in m/s²"
+    },
+    "y": {
+      "type": "number",
+      "description": "Acceleration along Y-axis in m/s²"
+    },
+    "z": {
+      "type": "number",
+      "description": "Acceleration along Z-axis in m/s²"
+    },
+    "accuracy": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Sensor accuracy level (0=unreliable, 3=high)"
+    }
+  },
+  "required": ["schema_version", "timestamp", "device_id", "x", "y", "z"],
+  "additionalProperties": false
+}

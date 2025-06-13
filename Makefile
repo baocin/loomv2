@@ -1,0 +1,116 @@
+.PHONY: help setup test lint format docker clean dev-up dev-down topics-create
+
+# Default target
+help: ## Show this help message
+	@echo "Loom v2 Development Commands"
+	@echo "============================"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+# Development environment
+setup: ## Set up development environment
+	@echo "Setting up development environment..."
+	@command -v uv >/dev/null 2>&1 || { echo "uv not found. Install from https://docs.astral.sh/uv/"; exit 1; }
+	@command -v pre-commit >/dev/null 2>&1 || pip install pre-commit
+	@pre-commit install
+	@echo "✅ Development environment ready"
+
+dev-up: ## Start local development environment with Tilt
+	@command -v tilt >/dev/null 2>&1 || { echo "Tilt not found. Install from https://tilt.dev/"; exit 1; }
+	@command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found. Install Kubernetes CLI"; exit 1; }
+	tilt up
+
+dev-down: ## Stop local development environment
+	tilt down
+
+# Testing
+test: ## Run all tests
+	@echo "Running ingestion-api tests..."
+	@cd services/ingestion-api && make test
+
+test-coverage: ## Run tests with coverage report
+	@echo "Running tests with coverage..."
+	@cd services/ingestion-api && make test-coverage
+
+test-integration: ## Run integration tests
+	@echo "Running integration tests..."
+	@cd services/ingestion-api && make test-integration
+
+# Code quality
+lint: ## Run linting on all services
+	@echo "Running pre-commit hooks..."
+	@pre-commit run --all-files
+
+format: ## Format code
+	@echo "Formatting code..."
+	@find services/ -name "*.py" -exec black {} \;
+	@find services/ -name "*.py" -exec ruff --fix {} \;
+
+# Docker
+docker: ## Build all Docker images
+	@echo "Building ingestion-api image..."
+	@cd services/ingestion-api && make docker
+
+docker-push: ## Push Docker images to registry
+	@echo "Pushing Docker images..."
+	@cd services/ingestion-api && make docker-push
+
+# Kafka management
+topics-create: ## Create Kafka topics
+	@echo "Creating Kafka topics..."
+	@python scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed
+
+topics-list: ## List Kafka topics
+	@echo "Listing Kafka topics..."
+	@kubectl exec -n loom-dev deployment/kafka -- kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# Helm
+helm-lint: ## Lint all Helm charts
+	@echo "Linting Helm charts..."
+	@helm lint deploy/helm/*/
+
+helm-template: ## Template all Helm charts
+	@echo "Templating Helm charts..."
+	@for chart in deploy/helm/*/; do \
+		echo "Templating $$chart"; \
+		helm template test "$$chart" --dry-run; \
+	done
+
+# Cleanup
+clean: ## Clean up build artifacts
+	@echo "Cleaning up..."
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name ".coverage" -delete 2>/dev/null || true
+	@find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
+	@rm -f bandit-report.json
+
+# Database
+db-connect: ## Connect to local PostgreSQL database
+	@kubectl exec -n loom-dev -it deployment/postgres -- psql -U loom -d loom
+
+# Monitoring
+logs: ## Show logs for all services
+	@kubectl logs -n loom-dev -l app.kubernetes.io/part-of=loom --tail=100 -f
+
+status: ## Show status of all services
+	@kubectl get pods -n loom-dev
+	@echo ""
+	@kubectl get services -n loom-dev
+
+# Security
+security-scan: ## Run security scans
+	@echo "Running security scans..."
+	@bandit -r services/ -f txt
+	@safety check
+
+# Documentation
+docs-serve: ## Serve documentation locally
+	@echo "Documentation commands not yet implemented"
+
+# Release
+release: ## Create a new release (requires VERSION env var)
+	@if [ -z "$(VERSION)" ]; then echo "VERSION env var required"; exit 1; fi
+	@echo "Creating release $(VERSION)..."
+	@git tag -a v$(VERSION) -m "Release v$(VERSION)"
+	@git push origin v$(VERSION)

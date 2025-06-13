@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://loom.dev/schemas/device/sensor/gps/v1.json",
+  "title": "GPS Reading",
+  "description": "GPS coordinate data from device location services",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the reading was taken"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device"
+    },
+    "latitude": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Latitude in decimal degrees"
+    },
+    "longitude": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Longitude in decimal degrees"
+    },
+    "altitude": {
+      "type": ["number", "null"],
+      "description": "Altitude in meters above sea level"
+    },
+    "accuracy": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Horizontal accuracy in meters"
+    },
+    "speed": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Speed in meters per second"
+    },
+    "bearing": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 360,
+      "description": "Bearing in degrees from north"
+    }
+  },
+  "required": ["schema_version", "timestamp", "device_id", "latitude", "longitude"],
+  "additionalProperties": false
+}

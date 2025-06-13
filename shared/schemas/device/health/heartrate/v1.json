@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://loom.dev/schemas/device/health/heartrate/v1.json",
+  "title": "Heart Rate Reading",
+  "description": "Heart rate measurement from health sensors",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the reading was taken"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device"
+    },
+    "bpm": {
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 250,
+      "description": "Heart rate in beats per minute"
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence level of the measurement (0-1)"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["wearable", "phone", "manual", "other"],
+      "description": "Source of the heart rate measurement"
+    }
+  },
+  "required": ["schema_version", "timestamp", "device_id", "bpm"],
+  "additionalProperties": false
+}
