@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kafka-infra.fullname" . }}
+  labels:
+    {{- include "kafka-infra.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "kafka-infra.fullname" . }}-headless
+  replicas: {{ .Values.kafka.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kafka-infra.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kafka-infra.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: kafka
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy }}
+          env:
+            - name: KAFKA_CFG_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+              value: {{- range $i, $e := until (.Values.kafka.replicas | int) -}}
+                {{ if $i }},{{ end }}{{$i}}@{{ include "kafka-infra.fullname" $ }}-{{$i}}.{{ include "kafka-infra.fullname" $ }}-headless:9093
+              {{- end }}
+            - name: KAFKA_CFG_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # Merge additional configuration overrides
+            {{- range $key, $val := .Values.kafka.config }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+          ports:
+            - containerPort: 9092
+              name: client
+            - containerPort: 9093
+              name: internal
+            - containerPort: {{ .Values.jmxExporter.port }}
+              name: jmx
+          readinessProbe:
+            tcpSocket:
+              port: client
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: client
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.kafka.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+        {{- if .Values.jmxExporter.enabled }}
+        - name: jmx-exporter
+          image: "{{ .Values.jmxExporter.image.repository }}:{{ .Values.jmxExporter.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.jmxExporter.port }}
+          args:
+            - "--config.file=/etc/jmx-exporter/config.yaml"
+          volumeMounts:
+            - name: jmx-config
+              mountPath: /etc/jmx-exporter
+        {{- end }}
+      volumes:
+        {{- if .Values.jmxExporter.enabled }}
+        - name: jmx-config
+          configMap:
+            name: {{ include "kafka-infra.fullname" . }}-jmx
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "kafka-infra.labels" . | nindent 8 }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.kafka.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.kafka.storage.size }} 

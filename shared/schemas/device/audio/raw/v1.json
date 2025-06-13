@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loom.dev/schemas/device/audio/raw/v1.json",
+  "title": "Device Audio Raw",
+  "description": "Raw audio chunk captured from device microphone.",
+  "type": "object",
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the chunk was captured."
+    },
+    "encoding": {
+      "type": "string",
+      "description": "Audio format encoding (e.g., pcm_s16le)."
+    },
+    "sample_rate": {
+      "type": "integer",
+      "minimum": 8000,
+      "maximum": 48000,
+      "description": "Sampling rate in Hz."
+    },
+    "channels": {
+      "type": "integer",
+      "enum": [1, 2],
+      "description": "Number of audio channels."
+    },
+    "data": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "Base64-encoded audio bytes."
+    }
+  },
+  "required": ["device_id", "timestamp", "encoding", "sample_rate", "channels", "data"],
+  "additionalProperties": false
+} 

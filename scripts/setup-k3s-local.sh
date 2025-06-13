@@ -46,6 +46,7 @@ k3d cluster create "$CLUSTER_NAME" \
   --api-port 6443 \
   --port "8000:8000@loadbalancer" \
   --port "9092:9092@loadbalancer" \
+  --port "5432:5432@loadbalancer" \
   --port "3000:3000@loadbalancer" \
   --registry-use "k3d-$REGISTRY_NAME:$REGISTRY_PORT" \
   --agents 2 \
@@ -78,6 +79,7 @@ echo ""
 echo "🌐 Port Mappings:"
 echo "  8000 -> Ingestion API"
 echo "  9092 -> Kafka"
+echo "  5432 -> PostgreSQL"
 echo "  3000 -> Frontend (future)"
 echo ""
 echo "🔧 Useful Commands:"

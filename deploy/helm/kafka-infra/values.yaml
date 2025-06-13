@@ -1,0 +1,72 @@
+# Default values for kafka-infra Helm chart.
+# This file contains a minimal but production-ready configuration that adheres to
+# the workspace kubernetes standards (resource requests/limits, probes, security).
+# Adjust as required per environment via values overrides.
+
+kafka:
+  replicas: 3
+  image:
+    repository: bitnami/kafka
+    tag: 3.6.0-debian-11-r0
+    pullPolicy: IfNotPresent
+  config:
+    # Example broker configuration
+    KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "3"
+    KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "3"
+    KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "3"
+    KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "2"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  storage:
+    size: 10Gi
+    storageClassName: standard
+  listener:
+    external:
+      enabled: false  # Override to true with proper load balancer in production
+    internal:
+      port: 9092
+
+zookeeper:
+  enabled: false  # Enable if using ZooKeeper mode instead of KRaft
+  replicas: 3
+  image:
+    repository: bitnami/zookeeper
+    tag: 3.9.1-debian-11-r0
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  storage:
+    size: 5Gi
+    storageClassName: standard
+
+# Monitoring via JMX exporter sidecar
+jmxExporter:
+  enabled: true
+  image:
+    repository: bitnami/jmx-exporter
+    tag: 0.21.0-debian-11-r0
+  port: 5556
+
+# Pod security context overrides
+podSecurityContext: {}
+containerSecurityContext: {}
+
+# Node selector / tolerations / affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+service:
+  type: ClusterIP
+  annotations: {} 

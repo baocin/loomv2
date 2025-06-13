@@ -38,12 +38,14 @@ echo "✅ Image imported successfully!"
 echo "🎯 Deploying to k3s..."
 kubectl apply -f "$PROJECT_ROOT/deploy/dev/namespace.yaml"
 kubectl apply -f "$PROJECT_ROOT/deploy/dev/kafka.yaml"
+kubectl apply -f "$PROJECT_ROOT/deploy/dev/postgres.yaml"
 kubectl apply -f "$PROJECT_ROOT/deploy/dev/ingestion-api.yaml"
 
 # Wait for pods
 echo "⏳ Waiting for pods to be ready..."
 kubectl wait --for=condition=ready pod -l app=zookeeper -n ${NAMESPACE} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=kafka -n ${NAMESPACE} --timeout=180s
+kubectl wait --for=condition=ready pod -l app=postgres -n ${NAMESPACE} --timeout=180s
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ingestion-api -n ${NAMESPACE} --timeout=300s
 
 # Show status
@@ -58,6 +60,7 @@ echo ""
 echo "🔗 Access URLs (via k3d port mapping):"
 echo "  Ingestion API: http://localhost:8000"
 echo "  Kafka: localhost:9092"
+echo "  PostgreSQL: localhost:5432"
 echo ""
 echo "🧪 Quick test:"
 echo "  curl http://localhost:8000/healthz"
@@ -66,6 +69,7 @@ echo ""
 echo "📝 Useful commands:"
 echo "  kubectl logs -f deployment/ingestion-api -n ${NAMESPACE}"
 echo "  kubectl exec -it deployment/kafka -n ${NAMESPACE} -- kafka-topics --list --bootstrap-server localhost:9092"
+echo "  kubectl exec -it deployment/postgres -n ${NAMESPACE} -- psql -U loom -d loom"
 echo "  k3d cluster list  # Show clusters"
 echo ""
 echo "🧹 Cleanup:"

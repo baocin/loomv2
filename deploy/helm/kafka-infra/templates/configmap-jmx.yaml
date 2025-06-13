@@ -1,0 +1,17 @@
+{{- if .Values.jmxExporter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kafka-infra.fullname" . }}-jmx
+  labels:
+    {{- include "kafka-infra.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    lowercaseOutputName: true
+    rules:
+      - pattern: 'kafka.server<type=(.+), name=(.+)PerSec, topic=(.+)><>(Count|OneMinuteRate)'
+        name: kafka_$1_$2_per_sec
+        labels:
+          topic: "$3"
+        type: GAUGE
+{{- end }} 

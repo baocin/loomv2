@@ -1,0 +1,18 @@
+apiVersion: v2
+name: kafka-infra
+description: Loom Kafka Infrastructure - Apache Kafka cluster with optional ZooKeeper (or KRaft) for event-driven pipelines
+type: application
+version: 0.1.0
+appVersion: "3.6.0"
+home: https://github.com/mpedersen/loomv2
+keywords:
+  - kafka
+  - streaming
+  - infrastructure
+maintainers:
+  - name: Loom Team
+    email: dev@loom.com
+sources:
+  - https://github.com/mpedersen/loomv2
+annotations:
+  category: Infrastructure 

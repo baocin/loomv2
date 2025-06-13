@@ -11,6 +11,7 @@ deploy/
 └── dev/
     ├── namespace.yaml        # loom-dev namespace
     ├── kafka.yaml           # Zookeeper + Kafka
+    ├── postgres.yaml        # PostgreSQL database
     └── ingestion-api.yaml   # FastAPI service
 ```
 
@@ -30,6 +31,7 @@ deploy/
 # Deploy to existing k3d cluster
 kubectl apply -f deploy/dev/namespace.yaml
 kubectl apply -f deploy/dev/kafka.yaml  
+kubectl apply -f deploy/dev/postgres.yaml
 kubectl apply -f deploy/dev/ingestion-api.yaml
 
 # Check status
@@ -41,6 +43,7 @@ kubectl get pods -n loom-dev
 - **Namespace**: `loom-dev`
 - **Zookeeper**: Kafka coordination (internal)
 - **Kafka**: Message broker (mapped to localhost:9092)
+- **PostgreSQL**: Relational database (mapped to localhost:5432)
 - **Ingestion API**: FastAPI service (mapped to localhost:8000)
 
 ## 🧪 Testing
@@ -63,12 +66,16 @@ kubectl get all -n loom-dev
 # View logs
 kubectl logs -f deployment/ingestion-api -n loom-dev
 kubectl logs -f deployment/kafka -n loom-dev
+kubectl logs -f deployment/postgres -n loom-dev
 
 # Describe problematic pods
 kubectl describe pod <pod-name> -n loom-dev
 
 # Check Kafka topics
 kubectl exec -it deployment/kafka -n loom-dev -- kafka-topics --list --bootstrap-server localhost:9092
+
+# Connect to PostgreSQL
+kubectl exec -it deployment/postgres -n loom-dev -- psql -U loom -d loom
 
 # Check k3d cluster
 k3d cluster list
@@ -88,5 +95,5 @@ k3d cluster delete loom-local
 ## 🎯 Next Steps
 
 - **Sprint 2**: Replace with proper Kafka Helm chart
-- **Sprint 6**: Add TimescaleDB for persistence
+- **Sprint 6**: Add PostgreSQL for persistence
 - **Sprint 7**: Add monitoring and GitOps with Flux 

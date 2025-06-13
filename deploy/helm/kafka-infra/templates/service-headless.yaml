@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kafka-infra.fullname" . }}-headless
+  labels:
+    {{- include "kafka-infra.labels" . | nindent 4 }}
+spec:
+  ports:
+    - name: broker
+      port: 9092
+      targetPort: client
+    - name: inter-broker
+      port: 9093
+      targetPort: internal
+  clusterIP: None
+  selector:
+    {{- include "kafka-infra.selectorLabels" . | nindent 4 }} 
