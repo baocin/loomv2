@@ -141,32 +141,202 @@ The core architectural shift includes:
   - Data export/backup jobs
 - **Estimate**: 8 story points
 
-#### TASK-507: External Data Scrapers
-- **Description**: Scheduled scrapers for external data sources
+#### TASK-507: IMAP Email Sync CronJob
+- **Description**: Scheduled IMAP email synchronization service
 - **Acceptance Criteria**:
-  - Twitter/X scraper producing to `external.twitter.liked.raw`
-  - Calendar events scraper for `external.calendar.events.raw`
-  - Email events scraper for `external.email.events.raw`
-  - Generic URL processor for `task.url.ingest`
-- **Implementation Pattern**:
+  - CronJob runs every 15 minutes (configurable)
+  - Connects to IMAP servers (Gmail, Outlook, custom)
+  - Filters emails by criteria (unread, starred, labels)
+  - Produces to `external.email.events.raw` with full email content
+  - Supports OAuth2 and password authentication
+  - Handles attachments by uploading to object storage
+- **Technical Implementation**:
   ```python
-  # CronJob produces simple messages
   @dataclass
-  class URLIngestTask:
-      url: str
-      scrape_type: str
-      priority: int
-      metadata: Dict[str, Any]
-
-  # Dedicated consumer processes URLs
-  class URLProcessor:
-      async def process_url(self, task: URLIngestTask) -> ProcessedContent
+  class EmailSyncJob:
+      imap_server: str
+      username: str
+      auth_method: str  # oauth2, password
+      filters: List[str]  # unread, starred, label:important
+      last_sync_uid: Optional[int]
+  
+  @dataclass 
+  class EmailEvent:
+      message_id: str
+      from_address: str
+      to_addresses: List[str]
+      subject: str
+      body_text: str
+      body_html: Optional[str]
+      attachments: List[AttachmentRef]
+      labels: List[str]
+      received_date: datetime
   ```
-- **Estimate**: 13 story points
+- **Schedule**: `*/15 * * * *` (every 15 minutes)
+- **Estimate**: 8 story points
+
+#### TASK-508: Google Calendar Sync CronJob
+- **Description**: Scheduled Google Calendar event synchronization
+- **Acceptance Criteria**:
+  - CronJob runs every 30 minutes
+  - Uses Google Calendar API with OAuth2
+  - Syncs events from specified calendars
+  - Handles recurring events properly
+  - Produces to `external.calendar.events.raw`
+  - Tracks event modifications and deletions
+- **Technical Implementation**:
+  ```python
+  @dataclass
+  class CalendarSyncJob:
+      calendar_ids: List[str]
+      sync_window_days: int = 30  # Past and future
+      include_declined: bool = False
+      last_sync_token: Optional[str]
+  
+  @dataclass
+  class CalendarEvent:
+      event_id: str
+      calendar_id: str
+      title: str
+      description: Optional[str]
+      start_time: datetime
+      end_time: datetime
+      location: Optional[str]
+      attendees: List[str]
+      recurrence_rule: Optional[str]
+      status: str  # confirmed, tentative, cancelled
+  ```
+- **Schedule**: `*/30 * * * *` (every 30 minutes)
+- **Estimate**: 8 story points
+
+#### TASK-509: X.com (Twitter) Liked Posts Checker
+- **Description**: Monitors liked/bookmarked posts on X.com
+- **Acceptance Criteria**:
+  - CronJob runs every 2 hours
+  - Uses X.com API v2 with OAuth
+  - Fetches liked tweets and bookmarks
+  - Emits URLs to `task.url.ingest` topic
+  - Tracks last checked tweet ID to avoid duplicates
+  - Handles rate limiting gracefully
+- **Technical Implementation**:
+  ```python
+  @dataclass
+  class TwitterLikedChecker:
+      user_id: str
+      oauth_token: str
+      check_likes: bool = True
+      check_bookmarks: bool = True
+      last_checked_id: Optional[str]
+  
+  @dataclass
+  class TwitterURLTask:
+      url: str  # https://x.com/user/status/123456
+      tweet_id: str
+      author: str
+      liked_at: datetime
+      content_preview: str
+      media_urls: List[str]
+      scrape_type: str = "twitter_post"
+  ```
+- **Schedule**: `0 */2 * * *` (every 2 hours)
+- **Estimate**: 5 story points
+
+#### TASK-510: X.com Post Downloader Consumer
+- **Description**: Processes Twitter/X URLs from task.url.ingest
+- **Acceptance Criteria**:
+  - Kafka consumer for `task.url.ingest` filtering Twitter URLs
+  - Downloads full tweet content and media
+  - Handles threads by following conversation
+  - Archives images/videos to object storage
+  - Produces to `task.url.processed.twitter_archived`
+  - Respects rate limits and implements retry logic
+- **Technical Implementation**:
+  ```python
+  class TwitterPostDownloader:
+      async def process_twitter_url(self, task: TwitterURLTask):
+          # Download tweet content
+          tweet = await self.fetch_tweet(task.tweet_id)
+          
+          # Download media
+          media_refs = await self.download_media(tweet.media_urls)
+          
+          # Get full thread if applicable
+          thread = await self.fetch_thread(tweet) if tweet.is_thread else None
+          
+          # Produce archived result
+          return TwitterArchive(
+              tweet_id=task.tweet_id,
+              full_text=tweet.text,
+              author_data=tweet.author,
+              media_references=media_refs,
+              thread_content=thread,
+              archived_at=datetime.utcnow()
+          )
+  ```
+- **Estimate**: 8 story points
+
+#### TASK-511: Hacker News Saved Posts Checker
+- **Description**: Monitors saved/upvoted posts on Hacker News
+- **Acceptance Criteria**:
+  - CronJob runs every 4 hours  
+  - Uses HN API with user authentication
+  - Fetches saved stories and comments
+  - Emits URLs to `task.url.ingest` topic
+  - Tracks processed item IDs
+  - Handles both stories and comments
+- **Technical Implementation**:
+  ```python
+  @dataclass
+  class HackerNewsSavedChecker:
+      username: str
+      auth_cookie: str
+      check_saved: bool = True
+      check_upvoted: bool = True
+      last_checked_ids: Set[int]
+  
+  @dataclass
+  class HackerNewsURLTask:
+      hn_item_id: int
+      url: Optional[str]  # Some posts are text-only
+      title: str
+      author: str
+      score: int
+      comment_count: int
+      item_type: str  # story, comment
+      scrape_type: str = "hackernews_item"
+  ```
+- **Schedule**: `0 */4 * * *` (every 4 hours)
+- **Estimate**: 5 story points
+
+#### TASK-512: Generic URL Content Processor
+- **Description**: Processes generic web URLs from task.url.ingest
+- **Acceptance Criteria**:
+  - Kafka consumer for non-specific URLs
+  - Extracts article content using readability algorithms
+  - Downloads and processes PDFs
+  - Handles various content types (HTML, PDF, images)
+  - Produces to appropriate processed topics
+  - Implements content type detection
+- **Technical Implementation**:
+  ```python
+  class GenericURLProcessor:
+      async def process_url(self, url: str) -> ProcessedContent:
+          content_type = await self.detect_content_type(url)
+          
+          if content_type == "pdf":
+              return await self.process_pdf(url)
+          elif content_type == "html":
+              return await self.extract_article(url)
+          elif content_type.startswith("image/"):
+              return await self.process_image(url)
+          else:
+              return await self.download_raw(url)
+  ```
+- **Estimate**: 8 story points
 
 ### Epic 4: Remote Control Infrastructure (Week 4)
 
-#### TASK-508: Bidirectional Kafka Topics
+#### TASK-513: Bidirectional Kafka Topics
 - **Description**: Implement command/response pattern for remote device control
 - **Acceptance Criteria**:
   - 13 command topics for device control
@@ -401,6 +571,15 @@ export LOOM_CROSS_DEVICE_SYNC=true
 - Failure recovery and retry logic
 - External API integration testing
 - Data consistency validation
+
+## 📋 CronJob Schedule Summary
+
+| Service | Schedule | Frequency | Topic |
+|---------|----------|-----------|--------|
+| IMAP Email Sync | `*/15 * * * *` | Every 15 minutes | `external.email.events.raw` |
+| Google Calendar | `*/30 * * * *` | Every 30 minutes | `external.calendar.events.raw` |
+| X.com Liked Posts | `0 */2 * * *` | Every 2 hours | `task.url.ingest` |
+| Hacker News Saved | `0 */4 * * *` | Every 4 hours | `task.url.ingest` |
 
 ## 📈 Success Metrics
 

@@ -21,6 +21,8 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: deploy/helm/.*/templates/.*\.yaml$
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict
@@ -35,8 +37,7 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, services/, -f, txt]
-        exclude: tests/
+        args: [-r, ., -f, txt, --exclude, "**/tests/**"]
 
 # Global configuration
 default_stages: [pre-commit]
