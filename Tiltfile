@@ -3,7 +3,7 @@
 # Load Kubernetes YAML
 k8s_yaml([
     'deploy/dev/namespace.yaml',
-    'deploy/dev/kafka.yaml',
+    # 'deploy/dev/kafka.yaml',  # Using Helm chart instead
     'deploy/dev/postgres.yaml',
 ])
 
@@ -25,28 +25,39 @@ k8s_yaml(helm(
         'image.repository=loom/ingestion-api',
         'image.tag=latest',
         'image.pullPolicy=Never',
-    ]
+    ],
+    namespace='loom-dev'
 ))
 
 # Build and deploy kafka-infra
 k8s_yaml(helm(
     'deploy/helm/kafka-infra',
     values=['deploy/helm/kafka-infra/values.yaml'],
+    namespace='loom-dev'
+))
+
+# Deploy kafka-ui for monitoring
+k8s_yaml(helm(
+    'deploy/helm/kafka-ui',
+    values=['deploy/helm/kafka-ui/values.yaml'],
+    namespace='loom-dev'
 ))
 
 # Port forwards for local development
-k8s_resource('ingestion-api', port_forwards='8000:8000')
-k8s_resource('kafka', port_forwards=['9092:9092', '9093:9093'])
+k8s_resource('chart-ingestion-api', port_forwards='8000:8000')
+k8s_resource('kafka-infra-chart', port_forwards=['9092:9092', '9093:9093'])
 k8s_resource('postgres', port_forwards='5432:5432')
+k8s_resource('chart-kafka-ui', port_forwards='8081:8080')
 
 # Resource dependencies
-k8s_resource('ingestion-api', resource_deps=['kafka', 'postgres'])
+k8s_resource('chart-ingestion-api', resource_deps=['kafka-infra-chart', 'postgres'])
+k8s_resource('chart-kafka-ui', resource_deps=['kafka-infra-chart'])
 
 # Custom commands
 local_resource(
     'create-kafka-topics',
     cmd='python scripts/create_kafka_topics.py --bootstrap-servers localhost:9092',
-    resource_deps=['kafka'],
+    resource_deps=['kafka-infra-chart'],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
 )
@@ -54,7 +65,7 @@ local_resource(
 local_resource(
     'test-ingestion-api',
     cmd='cd services/ingestion-api && make test',
-    resource_deps=['ingestion-api'],
+    resource_deps=['chart-ingestion-api'],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
 )
@@ -67,6 +78,7 @@ print("""
 
 Available services:
 - Ingestion API: http://localhost:8000
+- Kafka UI: http://localhost:8081
 - Kafka: localhost:9092
 - PostgreSQL: localhost:5432
 

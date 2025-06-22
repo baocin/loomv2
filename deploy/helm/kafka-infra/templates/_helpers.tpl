@@ -22,4 +22,4 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "kafka-infra.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "kafka-infra.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}} 
+{{- end -}}

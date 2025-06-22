@@ -2,7 +2,7 @@
 
 ## Overview
 
-Loom uses **PostgreSQL 15** as the primary relational database for any structured, durable data.  
+Loom uses **PostgreSQL 15** as the primary relational database for any structured, durable data.
 The decision to use vanilla Postgres (instead of TimescaleDB) dramatically reduces the
 operational overhead and increases portability for contributors who may not need
 time-series extensions.
@@ -41,7 +41,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://loom:loom@localhost:5432/loom"
-    
+
     model_config = {
         "env_prefix": "LOOM_",
         "case_sensitive": False,
@@ -70,4 +70,4 @@ A pre-commit hook will validate that migrations are reversible and idempotent.
 
 > **Next Steps**
 >
-> *Sprint 3* will introduce an abstraction layer (`storage` package) and the first migrations. 
+> *Sprint 3* will introduce an abstraction layer (`storage` package) and the first migrations.

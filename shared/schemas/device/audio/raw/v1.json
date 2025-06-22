@@ -37,4 +37,4 @@
   },
   "required": ["device_id", "timestamp", "encoding", "sample_rate", "channels", "data"],
   "additionalProperties": false
-} 
+}

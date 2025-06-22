@@ -25,13 +25,9 @@ spec:
             - name: KAFKA_CFG_PROCESS_ROLES
               value: "broker,controller"
             - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
-              value: {{- range $i, $e := until (.Values.kafka.replicas | int) -}}
-                {{ if $i }},{{ end }}{{$i}}@{{ include "kafka-infra.fullname" $ }}-{{$i}}.{{ include "kafka-infra.fullname" $ }}-headless:9093
-              {{- end }}
+              value: "0@localhost:9093"
             - name: KAFKA_CFG_NODE_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+              value: "0"
             # Merge additional configuration overrides
             {{- range $key, $val := .Values.kafka.config }}
             - name: {{ $key }}
@@ -86,4 +82,4 @@ spec:
         storageClassName: {{ .Values.kafka.storage.storageClassName }}
         resources:
           requests:
-            storage: {{ .Values.kafka.storage.size }} 
+            storage: {{ .Values.kafka.storage.size }}

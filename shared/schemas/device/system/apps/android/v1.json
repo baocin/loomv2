@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loom.example.com/schemas/device/system/apps/android/v1.json",
+  "title": "Android Application Monitoring Data",
+  "description": "Schema for Android application monitoring data including running applications and their states",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "device_id",
+    "message_id",
+    "running_applications"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the data was collected"
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for the device"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this message"
+    },
+    "running_applications": {
+      "type": "array",
+      "description": "List of currently running applications on the Android system",
+      "minItems": 0,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "pid",
+          "name",
+          "package_name",
+          "active",
+          "hidden"
+        ],
+        "properties": {
+          "pid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999,
+            "description": "Process ID of the application"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Human-readable name of the application"
+          },
+          "package_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[a-zA-Z0-9._-]+$|^unknown$",
+            "description": "Android package name (e.g., com.google.android.apps.maps) or 'unknown'"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the application is currently active/foreground"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "Whether the application is currently hidden/background"
+          },
+          "launch_date": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Unix timestamp when the application was launched, null if unknown"
+          },
+          "version_code": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Android version code of the application, null if unknown"
+          },
+          "version_name": {
+            "type": ["string", "null"],
+            "maxLength": 64,
+            "description": "Android version name of the application, null if unknown"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "timestamp": "2025-06-19T22:56:06.437Z",
+      "device_id": "android-phone-001",
+      "message_id": "550e8400-e29b-41d4-a716-446655440001",
+      "running_applications": [
+        {
+          "pid": 1234,
+          "name": "Chrome",
+          "package_name": "com.android.chrome",
+          "active": true,
+          "hidden": false,
+          "launch_date": 1750358324.074,
+          "version_code": 5735110,
+          "version_name": "119.0.6045.193"
+        },
+        {
+          "pid": 5678,
+          "name": "WhatsApp",
+          "package_name": "com.whatsapp",
+          "active": false,
+          "hidden": true,
+          "launch_date": 1749845718.626,
+          "version_code": 2342160,
+          "version_name": "2.23.25.84"
+        },
+        {
+          "pid": 9012,
+          "name": "System UI",
+          "package_name": "com.android.systemui",
+          "active": false,
+          "hidden": false,
+          "launch_date": null,
+          "version_code": null,
+          "version_name": null
+        }
+      ]
+    }
+  ]
+}

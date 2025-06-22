@@ -1,6 +1,6 @@
 ---
 description: sprint 0
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_0

@@ -1,6 +1,6 @@
 ---
 description: Core architectural principles for the event-driven microservices system including service patterns, Redis usage, and model storage conventions.
-globs: 
+globs:
 alwaysApply: false
 ---
 Follow the event-driven micro-services architecture described in system.md.

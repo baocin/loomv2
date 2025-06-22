@@ -6,20 +6,20 @@ from uuid import uuid4
 import pytest
 
 from app.models import (
+    AccelerometerReading,
     AudioChunk,
     GPSReading,
-    AccelerometerReading,
+    HealthCheck,
     HeartRateReading,
     PowerState,
     SensorReading,
     WebSocketMessage,
-    HealthCheck,
 )
 
 
 class TestBaseMessage:
     """Test the BaseMessage functionality."""
-    
+
     def test_audio_chunk_creation(self):
         """Test AudioChunk model creation."""
         audio_chunk = AudioChunk(
@@ -30,7 +30,7 @@ class TestBaseMessage:
             format="wav",
             duration_ms=1000,
         )
-        
+
         assert audio_chunk.device_id == "test-device"
         assert audio_chunk.chunk_data == b"test audio data"
         assert audio_chunk.sample_rate == 44100
@@ -40,7 +40,7 @@ class TestBaseMessage:
         assert audio_chunk.schema_version == "1.0"
         assert isinstance(audio_chunk.timestamp, datetime)
         assert isinstance(audio_chunk.message_id, str)
-    
+
     def test_audio_chunk_with_file_id(self):
         """Test AudioChunk with file_id for chunking."""
         file_id = str(uuid4())
@@ -51,13 +51,13 @@ class TestBaseMessage:
             duration_ms=500,
             file_id=file_id,
         )
-        
+
         assert audio_chunk.file_id == file_id
 
 
 class TestSensorModels:
     """Test sensor-specific models."""
-    
+
     def test_gps_reading(self):
         """Test GPSReading model."""
         gps_reading = GPSReading(
@@ -69,7 +69,7 @@ class TestSensorModels:
             heading=180.0,
             speed=10.5,
         )
-        
+
         assert gps_reading.device_id == "test-device"
         assert gps_reading.latitude == 37.7749
         assert gps_reading.longitude == -122.4194
@@ -77,7 +77,7 @@ class TestSensorModels:
         assert gps_reading.accuracy == 5.0
         assert gps_reading.heading == 180.0
         assert gps_reading.speed == 10.5
-    
+
     def test_gps_reading_minimal(self):
         """Test GPSReading with minimal required fields."""
         gps_reading = GPSReading(
@@ -85,12 +85,12 @@ class TestSensorModels:
             latitude=37.7749,
             longitude=-122.4194,
         )
-        
+
         assert gps_reading.latitude == 37.7749
         assert gps_reading.longitude == -122.4194
         assert gps_reading.altitude is None
         assert gps_reading.accuracy is None
-    
+
     def test_accelerometer_reading(self):
         """Test AccelerometerReading model."""
         accel_reading = AccelerometerReading(
@@ -99,12 +99,12 @@ class TestSensorModels:
             y=-0.3,
             z=9.8,
         )
-        
+
         assert accel_reading.device_id == "test-device"
         assert accel_reading.x == 0.5
         assert accel_reading.y == -0.3
         assert accel_reading.z == 9.8
-    
+
     def test_heart_rate_reading(self):
         """Test HeartRateReading model."""
         hr_reading = HeartRateReading(
@@ -112,11 +112,11 @@ class TestSensorModels:
             bpm=72,
             confidence=0.95,
         )
-        
+
         assert hr_reading.device_id == "test-device"
         assert hr_reading.bpm == 72
         assert hr_reading.confidence == 0.95
-    
+
     def test_power_state(self):
         """Test PowerState model."""
         power_state = PowerState(
@@ -125,12 +125,12 @@ class TestSensorModels:
             is_charging=True,
             power_source="USB",
         )
-        
+
         assert power_state.device_id == "test-device"
         assert power_state.battery_level == 85.5
         assert power_state.is_charging is True
         assert power_state.power_source == "USB"
-    
+
     def test_generic_sensor_reading(self):
         """Test generic SensorReading model."""
         sensor_reading = SensorReading(
@@ -140,7 +140,7 @@ class TestSensorModels:
             unit="celsius",
             accuracy=0.1,
         )
-        
+
         assert sensor_reading.device_id == "test-device"
         assert sensor_reading.sensor_type == "temperature"
         assert sensor_reading.value["temperature"] == 23.5
@@ -151,7 +151,7 @@ class TestSensorModels:
 
 class TestWebSocketMessage:
     """Test WebSocket message wrapper."""
-    
+
     def test_websocket_message_creation(self):
         """Test WebSocketMessage creation."""
         message = WebSocketMessage(
@@ -162,7 +162,7 @@ class TestWebSocketMessage:
                 "duration_ms": 1000,
             },
         )
-        
+
         assert message.message_type == "audio_chunk"
         assert message.data["chunk_data"] == "base64encodeddata"
         assert message.data["sample_rate"] == 44100
@@ -171,7 +171,7 @@ class TestWebSocketMessage:
 
 class TestHealthCheck:
     """Test health check model."""
-    
+
     def test_health_check_creation(self):
         """Test HealthCheck model creation."""
         health = HealthCheck(
@@ -179,16 +179,16 @@ class TestHealthCheck:
             version="0.1.0",
             kafka_connected=True,
         )
-        
+
         assert health.status == "healthy"
         assert health.version == "0.1.0"
         assert health.kafka_connected is True
         assert isinstance(health.timestamp, datetime)
-    
+
     def test_health_check_defaults(self):
         """Test HealthCheck with default values."""
         health = HealthCheck(kafka_connected=False)
-        
+
         assert health.status == "healthy"
         assert health.version == "0.1.0"
         assert health.kafka_connected is False
@@ -196,7 +196,7 @@ class TestHealthCheck:
 
 class TestModelValidation:
     """Test model validation and error handling."""
-    
+
     def test_missing_required_field(self):
         """Test validation error for missing required field."""
         with pytest.raises(ValueError):
@@ -206,7 +206,7 @@ class TestModelValidation:
                 sample_rate=44100,
                 duration_ms=1000,
             )
-    
+
     def test_invalid_gps_coordinates(self):
         """Test GPS coordinate validation."""
         # This should work - no validation constraints set
@@ -215,7 +215,7 @@ class TestModelValidation:
             latitude=200.0,  # Invalid latitude (should be -90 to 90)
             longitude=200.0,  # Invalid longitude (should be -180 to 180)
         )
-        
+
         # Note: Add coordinate validation constraints to the model if needed
         assert gps_reading.latitude == 200.0
-        assert gps_reading.longitude == 200.0 
+        assert gps_reading.longitude == 200.0

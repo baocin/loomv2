@@ -25,4 +25,4 @@ shared/schemas/
 
 1. Create a new file following the directory structure and naming convention.
 2. Run `make validate-schemas` to ensure the schema is valid JSON and passes linting.
-3. Commit the schema with a descriptive message (e.g., `feat(schema): add device.audio.raw v2`). 
+3. Commit the schema with a descriptive message (e.g., `feat(schema): add device.audio.raw v2`).

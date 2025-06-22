@@ -47,4 +47,4 @@ else
     echo "Logs:"
     docker logs loom-api-simple
     exit 1
-fi 
+fi

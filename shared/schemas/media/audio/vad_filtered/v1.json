@@ -62,15 +62,15 @@
     }
   },
   "required": [
-    "schema_version", 
-    "timestamp", 
-    "device_id", 
-    "file_id", 
-    "chunk_index", 
-    "audio_data", 
-    "sample_rate", 
-    "channels", 
-    "duration_ms", 
+    "schema_version",
+    "timestamp",
+    "device_id",
+    "file_id",
+    "chunk_index",
+    "audio_data",
+    "sample_rate",
+    "channels",
+    "duration_ms",
     "vad_confidence"
   ],
   "additionalProperties": false

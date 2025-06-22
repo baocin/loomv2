@@ -1,6 +1,6 @@
 ---
 description: Python dependency management with uv, repository structure, and folder organization standards for services and shared components.
-globs: 
+globs:
 alwaysApply: false
 ---
 **Python Dependency Management (uv):**

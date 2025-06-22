@@ -1,6 +1,6 @@
 ---
 description: sprint 6
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_6

@@ -30,7 +30,7 @@ deploy/
 ```bash
 # Deploy to existing k3d cluster
 kubectl apply -f deploy/dev/namespace.yaml
-kubectl apply -f deploy/dev/kafka.yaml  
+kubectl apply -f deploy/dev/kafka.yaml
 kubectl apply -f deploy/dev/postgres.yaml
 kubectl apply -f deploy/dev/ingestion-api.yaml
 
@@ -96,4 +96,4 @@ k3d cluster delete loom-local
 
 - **Sprint 2**: Replace with proper Kafka Helm chart
 - **Sprint 6**: Add PostgreSQL for persistence
-- **Sprint 7**: Add monitoring and GitOps with Flux 
+- **Sprint 7**: Add monitoring and GitOps with Flux

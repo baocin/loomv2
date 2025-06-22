@@ -53,7 +53,7 @@ k3d cluster create "$CLUSTER_NAME" \
   --k3s-arg "--disable=traefik@server:0" \
   --wait
 
-# Verify cluster is running  
+# Verify cluster is running
 echo "✅ Cluster created successfully!"
 
 # Set kubectl context
@@ -99,4 +99,4 @@ echo "  k3d registry delete $REGISTRY_NAME"
 echo ""
 echo "🚀 Next steps:"
 echo "  ./scripts/deploy-k3s.sh  # Deploy services"
-echo "  kubectl logs -f deployment/ingestion-api -n loom-dev  # Watch logs" 
+echo "  kubectl logs -f deployment/ingestion-api -n loom-dev  # Watch logs"

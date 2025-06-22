@@ -14,4 +14,4 @@ data:
         labels:
           topic: "$3"
         type: GAUGE
-{{- end }} 
+{{- end }}

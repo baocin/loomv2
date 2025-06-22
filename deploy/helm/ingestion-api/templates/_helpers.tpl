@@ -135,4 +135,4 @@ Validate configuration
 {{- if not .Values.config.kafka.sensorTopic -}}
 {{- fail "config.kafka.sensorTopic is required" -}}
 {{- end -}}
-{{- end -}} 
+{{- end -}}

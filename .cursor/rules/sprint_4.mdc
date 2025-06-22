@@ -1,6 +1,6 @@
 ---
 description: sprint 4
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_4

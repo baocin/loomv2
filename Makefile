@@ -9,6 +9,8 @@ help: ## Show this help message
 # Development environment
 setup: ## Set up development environment
 	@echo "Setting up development environment..."
+	@command -v tilt >/dev/null 2>&1 || { echo "Tilt not found. Install from https://docs.tilt.dev/install.html"; exit 1; }
+	@command -v helm >/dev/null 2>&1 || { echo "Helm not found. Install from https://helm.sh/docs/intro/install/"; exit 1; }
 	@command -v uv >/dev/null 2>&1 || { echo "uv not found. Install from https://docs.astral.sh/uv/"; exit 1; }
 	@command -v pre-commit >/dev/null 2>&1 || pip install pre-commit
 	@pre-commit install

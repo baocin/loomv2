@@ -1,6 +1,6 @@
 ---
 description: Sprint planning timeline, definition of done, pre-commit hook configuration, and retrospective template for the 8-sprint development cycle.
-globs: 
+globs:
 alwaysApply: false
 ---
  **Cadence:** 2-week iterations, starting next Monday.

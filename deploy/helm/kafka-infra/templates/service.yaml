@@ -16,4 +16,4 @@ spec:
       protocol: TCP
       name: kafka
   selector:
-    {{- include "kafka-infra.selectorLabels" . | nindent 4 }} 
+    {{- include "kafka-infra.selectorLabels" . | nindent 4 }}

@@ -35,4 +35,4 @@ def get_model(topic: str) -> Type[BaseModel]:
         raise RuntimeError(f"Model class missing in module '{module_path}'")
 
     _CACHE[topic] = model_cls  # type: ignore[assignment]
-    return model_cls 
+    return model_cls

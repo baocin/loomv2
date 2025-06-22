@@ -91,4 +91,4 @@ ci: lint-check type-check test security
 
 # Generate requirements-locked.txt
 lock:
-	uv pip compile pyproject.toml -o requirements-locked.txt 
+	uv pip compile pyproject.toml -o requirements-locked.txt

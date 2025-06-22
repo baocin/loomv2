@@ -149,14 +149,14 @@ data:
     work_mem = 4MB
     min_wal_size = 1GB
     max_wal_size = 4GB
-    
+
     # Logging
     log_destination = 'stderr'
     logging_collector = off
     log_statement = 'none'
     log_duration = off
     log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
-    
+
     # Development settings
     fsync = off
     synchronous_commit = off

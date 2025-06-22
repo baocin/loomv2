@@ -23,9 +23,9 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 wait_for_health() {
     local max_attempts=30
     local attempt=1
-    
+
     log_info "Waiting for health check..."
-    
+
     while [ $attempt -le $max_attempts ]; do
         if curl -f -s "http://localhost:$API_PORT/healthz" > /dev/null 2>&1; then
             log_success "API is healthy!"
@@ -35,7 +35,7 @@ wait_for_health() {
         sleep 2
         attempt=$((attempt + 1))
     done
-    
+
     log_error "Health check failed after $max_attempts attempts"
     return 1
 }
@@ -53,16 +53,16 @@ stop_container() {
 main() {
     echo "🚀 Testing Ingestion API"
     echo "======================="
-    
+
     # Stop existing
     stop_container
-    
+
     # Build image
     log_info "Building Docker image..."
     cd services/ingestion-api
     docker build -t "$IMAGE_NAME" .
     cd ../..
-    
+
     # Run container (without Kafka for quick testing)
     log_info "Starting container..."
     docker run -d \
@@ -71,31 +71,31 @@ main() {
         -e LOOM_LOG_LEVEL=DEBUG \
         -e LOOM_KAFKA_BOOTSTRAP_SERVERS=dummy:9092 \
         "$IMAGE_NAME"
-    
+
     # Wait for health
     if wait_for_health; then
         log_success "Container is running!"
-        
+
         # Show status
         echo ""
         echo "📊 Status:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep "$CONTAINER_NAME"
-        
+
         echo ""
         echo "🌐 URLs:"
         echo "  API: http://localhost:$API_PORT"
         echo "  Docs: http://localhost:$API_PORT/docs"
         echo "  Health: http://localhost:$API_PORT/healthz"
-        
+
         echo ""
         echo "🧪 Quick Test:"
         curl -s "http://localhost:$API_PORT/healthz" | jq '.' 2>/dev/null || curl -s "http://localhost:$API_PORT/healthz"
-        
+
         echo ""
         echo "📝 Commands:"
         echo "  docker logs -f $CONTAINER_NAME"
         echo "  docker stop $CONTAINER_NAME"
-        
+
     else
         log_error "Container failed to start"
         echo "Logs:"
@@ -113,4 +113,4 @@ if [[ "$1" == "cleanup" || "$1" == "clean" ]]; then
 fi
 
 # Run main
-main 
+main

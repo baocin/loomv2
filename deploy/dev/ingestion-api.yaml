@@ -105,4 +105,4 @@ spec:
     port: 8000
     targetPort: 8000
     nodePort: 32080
-  type: NodePort 
+  type: NodePort

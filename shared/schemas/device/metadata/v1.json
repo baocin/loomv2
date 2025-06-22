@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loom.example.com/schemas/device/metadata/v1.json",
+  "title": "Device Metadata",
+  "description": "Schema for arbitrary device metadata storage including hardware specs, capabilities, and configuration",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "device_id",
+    "message_id",
+    "metadata_type",
+    "metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the metadata was collected"
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for the device"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this message"
+    },
+    "metadata_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Type of metadata being stored",
+      "enum": [
+        "device_capabilities",
+        "hardware_specs",
+        "software_config",
+        "network_info",
+        "custom"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Flexible metadata object containing device-specific information",
+      "minProperties": 1,
+      "additionalProperties": true,
+      "oneOf": [
+        {
+          "if": {
+            "properties": {
+              "metadata_type": {
+                "const": "device_capabilities"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "properties": {
+                  "sensors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["accelerometer", "gyroscope", "magnetometer", "gps", "proximity", "light", "temperature", "humidity", "pressure"]
+                    }
+                  },
+                  "cameras": {
+                    "type": "object",
+                    "properties": {
+                      "front": {"type": "boolean"},
+                      "rear": {"type": "boolean"},
+                      "resolution": {"type": "string"}
+                    }
+                  },
+                  "audio": {
+                    "type": "object",
+                    "properties": {
+                      "microphone": {"type": "boolean"},
+                      "speakers": {"type": "boolean"},
+                      "sample_rates": {
+                        "type": "array",
+                        "items": {"type": "integer"}
+                      }
+                    }
+                  },
+                  "connectivity": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["wifi", "bluetooth", "cellular", "ethernet", "usb", "nfc"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metadata_type": {
+                "const": "hardware_specs"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "object",
+                    "properties": {
+                      "model": {"type": "string"},
+                      "cores": {"type": "integer", "minimum": 1},
+                      "frequency": {"type": "string"}
+                    }
+                  },
+                  "memory": {
+                    "type": "object",
+                    "properties": {
+                      "total_gb": {"type": "number", "minimum": 0},
+                      "type": {"type": "string"}
+                    }
+                  },
+                  "storage": {
+                    "type": "object",
+                    "properties": {
+                      "total_gb": {"type": "number", "minimum": 0},
+                      "type": {"type": "string"}
+                    }
+                  },
+                  "display": {
+                    "type": "object",
+                    "properties": {
+                      "resolution": {"type": "string"},
+                      "size_inches": {"type": "number", "minimum": 0}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metadata_type": {
+                "const": "software_config"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "properties": {
+                  "os": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string"},
+                      "version": {"type": "string"},
+                      "build": {"type": "string"}
+                    }
+                  },
+                  "runtime": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"}
+                  },
+                  "timezone": {"type": "string"},
+                  "locale": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metadata_type": {
+                "const": "network_info"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "properties": {
+                  "wifi": {
+                    "type": "object",
+                    "properties": {
+                      "ssid": {"type": "string"},
+                      "signal_strength": {"type": "integer"},
+                      "frequency": {"type": "string"}
+                    }
+                  },
+                  "cellular": {
+                    "type": "object",
+                    "properties": {
+                      "carrier": {"type": "string"},
+                      "signal_strength": {"type": "integer"},
+                      "technology": {"type": "string"}
+                    }
+                  },
+                  "ip_addresses": {
+                    "type": "object",
+                    "properties": {
+                      "ipv4": {"type": "string", "format": "ipv4"},
+                      "ipv6": {"type": "string", "format": "ipv6"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metadata_type": {
+                "const": "custom"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "description": "Custom metadata specific to application or use case",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "timestamp": "2025-06-19T22:56:06.437Z",
+      "device_id": "macbook-pro-001",
+      "message_id": "550e8400-e29b-41d4-a716-446655440002",
+      "metadata_type": "hardware_specs",
+      "metadata": {
+        "cpu": {
+          "model": "Apple M1 Pro",
+          "cores": 10,
+          "frequency": "3.2GHz"
+        },
+        "memory": {
+          "total_gb": 16,
+          "type": "LPDDR5"
+        },
+        "storage": {
+          "total_gb": 512,
+          "type": "NVMe SSD"
+        },
+        "display": {
+          "resolution": "3024x1964",
+          "size_inches": 16.2
+        }
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "timestamp": "2025-06-19T22:56:06.437Z",
+      "device_id": "android-phone-001",
+      "message_id": "550e8400-e29b-41d4-a716-446655440003",
+      "metadata_type": "device_capabilities",
+      "metadata": {
+        "sensors": ["accelerometer", "gyroscope", "magnetometer", "gps", "proximity", "light"],
+        "cameras": {
+          "front": true,
+          "rear": true,
+          "resolution": "4032x3024"
+        },
+        "audio": {
+          "microphone": true,
+          "speakers": true,
+          "sample_rates": [44100, 48000]
+        },
+        "connectivity": ["wifi", "bluetooth", "cellular", "nfc"]
+      }
+    }
+  ]
+}

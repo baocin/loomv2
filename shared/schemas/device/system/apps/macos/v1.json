@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loom.example.com/schemas/device/system/apps/macos/v1.json",
+  "title": "macOS Application Monitoring Data",
+  "description": "Schema for macOS application monitoring data including running applications and their states",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "device_id",
+    "message_id",
+    "running_applications"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the data was collected"
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for the device"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this message"
+    },
+    "running_applications": {
+      "type": "array",
+      "description": "List of currently running applications on the macOS system",
+      "minItems": 0,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "pid",
+          "name",
+          "bundle_id",
+          "active",
+          "hidden"
+        ],
+        "properties": {
+          "pid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999,
+            "description": "Process ID of the application"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Human-readable name of the application"
+          },
+          "bundle_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[a-zA-Z0-9._-]+$|^unknown$",
+            "description": "macOS bundle identifier (e.g., com.apple.Safari) or 'unknown'"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the application is currently active/focused"
+          },
+          "hidden": {
+            "type": "boolean",
+            "description": "Whether the application is currently hidden"
+          },
+          "launch_date": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Unix timestamp when the application was launched, null if unknown"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "timestamp": "2025-06-19T22:56:06.437Z",
+      "device_id": "macbook-pro-001",
+      "message_id": "550e8400-e29b-41d4-a716-446655440000",
+      "running_applications": [
+        {
+          "pid": 390,
+          "name": "loginwindow",
+          "bundle_id": "com.apple.loginwindow",
+          "active": false,
+          "hidden": false,
+          "launch_date": null
+        },
+        {
+          "pid": 22914,
+          "name": "Preview",
+          "bundle_id": "com.apple.Preview",
+          "active": true,
+          "hidden": false,
+          "launch_date": 1750358324.0742068
+        },
+        {
+          "pid": 625,
+          "name": "Microsoft Teams",
+          "bundle_id": "com.microsoft.teams2",
+          "active": false,
+          "hidden": false,
+          "launch_date": 1749845718.6262279
+        }
+      ]
+    }
+  ]
+}

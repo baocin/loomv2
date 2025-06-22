@@ -4,18 +4,24 @@
 # Adjust as required per environment via values overrides.
 
 kafka:
-  replicas: 3
+  replicas: 1
   image:
     repository: bitnami/kafka
     tag: 3.6.0-debian-11-r0
     pullPolicy: IfNotPresent
   config:
     # Example broker configuration
-    KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
-    KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "3"
-    KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "3"
-    KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "3"
-    KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "2"
+    KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "1"
+    KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+    KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+    KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+    # KRaft mode required configurations
+    KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+    KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+    KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+    KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://:9092"
+    KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
   resources:
     requests:
       cpu: "500m"
@@ -24,8 +30,8 @@ kafka:
       cpu: "1"
       memory: "2Gi"
   storage:
-    size: 10Gi
-    storageClassName: standard
+    size: 1Gi
+    storageClassName: hostpath
   listener:
     external:
       enabled: false  # Override to true with proper load balancer in production
@@ -52,7 +58,7 @@ zookeeper:
 
 # Monitoring via JMX exporter sidecar
 jmxExporter:
-  enabled: true
+  enabled: false  # Disable for local development
   image:
     repository: bitnami/jmx-exporter
     tag: 0.21.0-debian-11-r0
@@ -69,4 +75,4 @@ affinity: {}
 
 service:
   type: ClusterIP
-  annotations: {} 
+  annotations: {}

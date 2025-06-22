@@ -1,6 +1,6 @@
 ---
 description: Code formatting standards using Black and Ruff, docstring conventions, commit message format, and general coding practices for consistent code quality.
-globs: 
+globs:
 alwaysApply: false
 ---
 Follow **Black** (line length 88) for formatting; enforced via pre-commit.

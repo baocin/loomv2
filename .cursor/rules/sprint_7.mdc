@@ -1,6 +1,6 @@
 ---
 description: sprint 7
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_7
@@ -111,7 +111,7 @@ Description: Sprint 7 (Observability + GitOps) - Detailed task checklist for Pro
 - [ ] Set up Flux v2 for GitOps deployment
 - [ ] Create `deploy/overlays/` directory structure:
   - [ ] `overlays/dev/` - Development environment
-  - [ ] `overlays/staging/` - Staging environment  
+  - [ ] `overlays/staging/` - Staging environment
   - [ ] `overlays/prod/` - Production environment
 - [ ] Configure Flux source controllers
 - [ ] Set up Helm controller for chart deployments

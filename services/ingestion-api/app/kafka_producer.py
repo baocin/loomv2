@@ -1,8 +1,7 @@
 """Kafka producer service for sending messages to topics."""
 
 import json
-import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from aiokafka import AIOKafkaProducer
@@ -16,44 +15,38 @@ logger = structlog.get_logger(__name__)
 
 class KafkaProducerService:
     """Async Kafka producer for sending messages to topics."""
-    
+
     def __init__(self) -> None:
         """Initialize the Kafka producer service."""
-        self._producer: Optional[AIOKafkaProducer] = None
+        self._producer: AIOKafkaProducer | None = None
         self._is_connected = False
-    
+
     async def start(self) -> None:
         """Start the Kafka producer connection."""
         try:
             self._producer = AIOKafkaProducer(
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 client_id=settings.kafka_client_id,
-                compression_type=settings.kafka_compression_type,
                 value_serializer=self._serialize_message,
                 key_serializer=self._serialize_key,
-                # Performance settings
-                batch_size=16384,
-                linger_ms=5,  # Small delay to batch messages
+                # Basic configuration only - remove problematic parameters
                 request_timeout_ms=30000,
-                # Error handling
-                retries=3,
-                retry_backoff_ms=100,
             )
-            
+
             await self._producer.start()
             self._is_connected = True
-            
+
             logger.info(
                 "Kafka producer started",
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 client_id=settings.kafka_client_id,
             )
-            
+
         except Exception as e:
             logger.error("Failed to start Kafka producer", error=str(e))
             self._is_connected = False
             raise
-    
+
     async def stop(self) -> None:
         """Stop the Kafka producer connection."""
         if self._producer:
@@ -63,34 +56,36 @@ class KafkaProducerService:
                 logger.info("Kafka producer stopped")
             except Exception as e:
                 logger.error("Error stopping Kafka producer", error=str(e))
-    
+
     async def send_message(
-        self, 
-        topic: str, 
+        self,
+        topic: str,
         message: BaseMessage,
-        key: Optional[str] = None,
+        key: str | None = None,
     ) -> None:
         """Send a message to a Kafka topic.
-        
+
         Args:
+        ----
             topic: Kafka topic name
             message: Message to send (will be serialized to JSON)
             key: Optional message key (defaults to device_id)
+
         """
         if not self._is_connected or not self._producer:
             raise RuntimeError("Kafka producer not connected")
-        
+
         try:
             # Use device_id as key if no key provided
             message_key = key or message.device_id
-            
+
             # Send message
             record_metadata = await self._producer.send(
                 topic=topic,
                 value=message,
                 key=message_key,
             )
-            
+
             logger.debug(
                 "Message sent to Kafka",
                 topic=topic,
@@ -99,7 +94,7 @@ class KafkaProducerService:
                 device_id=message.device_id,
                 message_id=message.message_id,
             )
-            
+
         except KafkaError as e:
             logger.error(
                 "Failed to send message to Kafka",
@@ -116,14 +111,14 @@ class KafkaProducerService:
                 error=str(e),
             )
             raise
-    
+
     async def send_audio_chunk(self, audio_chunk: Any) -> None:
         """Send audio chunk to the audio topic."""
         await self.send_message(
             topic=settings.topic_device_audio_raw,
             message=audio_chunk,
         )
-    
+
     async def send_sensor_data(self, sensor_data: Any, sensor_type: str) -> None:
         """Send sensor data to the appropriate sensor topic."""
         topic = settings.topic_device_sensor_raw.format(sensor_type=sensor_type)
@@ -131,19 +126,19 @@ class KafkaProducerService:
             topic=topic,
             message=sensor_data,
         )
-    
+
     async def send_image_data(self, image_data: Any) -> None:
         """Send image data to the image topic."""
         await self.send_message(
             topic=settings.topic_device_image_raw,
             message=image_data,
         )
-    
+
     @property
     def is_connected(self) -> bool:
         """Check if producer is connected to Kafka."""
         return self._is_connected
-    
+
     @staticmethod
     def _serialize_message(message: BaseMessage) -> bytes:
         """Serialize message to JSON bytes."""
@@ -153,9 +148,9 @@ class KafkaProducerService:
             return json.dumps(message_dict).encode("utf-8")
         else:
             return json.dumps(message).encode("utf-8")
-    
-    @staticmethod 
-    def _serialize_key(key: Optional[str]) -> Optional[bytes]:
+
+    @staticmethod
+    def _serialize_key(key: str | None) -> bytes | None:
         """Serialize message key to bytes."""
         if key is None:
             return None
@@ -163,4 +158,4 @@ class KafkaProducerService:
 
 
 # Global producer instance
-kafka_producer = KafkaProducerService() 
+kafka_producer = KafkaProducerService()

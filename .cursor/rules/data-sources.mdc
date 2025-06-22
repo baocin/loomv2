@@ -1,6 +1,6 @@
 ---
 description: Comprehensive list of all data sources feeding into the personal informatics pipeline including device sensors, OS events, and external integrations.
-globs: 
+globs:
 alwaysApply: false
 ---
 **Device Sensors (Real-time & Periodic):**

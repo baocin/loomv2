@@ -1,6 +1,6 @@
 ---
 description: Comprehensive overview of all AI processing pipelines including audio transcription, image analysis, 3D reconstruction, and context inference with specific models and data flows.
-globs: 
+globs:
 alwaysApply: false
 ---
 **Audio Processing Pipeline:**

@@ -1,0 +1,117 @@
+# Default values for kafka-ui
+# This is a YAML-formatted file.
+
+# Image configuration
+image:
+  repository: provectuslabs/kafka-ui
+  tag: "v0.7.2"
+  pullPolicy: IfNotPresent
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Deployment configuration
+replicaCount: 1
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Kafka UI needs to write temp files
+  runAsNonRoot: true
+  runAsUser: 1001
+
+# Application configuration
+config:
+  # Server settings
+  port: 8080
+
+  # Kafka cluster configuration
+  kafka:
+    clusters:
+      - name: "loom-dev"
+        bootstrapServers: "kafka-infra-chart:9092"
+
+  # Authentication (disabled for development)
+  auth:
+    type: "DISABLED"
+
+  # Logging
+  logging:
+    level: INFO
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kafka-ui.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Health probes
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Environment variables
+env: []
+
+# Environment variables from secrets/configmaps
+envFrom: []

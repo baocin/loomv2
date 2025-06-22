@@ -24,6 +24,8 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+  # Whether to automount the service account token
+  automount: false
 
 # Pod security context
 podSecurityContext:
@@ -48,18 +50,18 @@ config:
   port: 8000
   logLevel: "INFO"
   environment: "development"
-  
+
   # Kafka settings
   kafka:
-    bootstrapServers: "kafka:9092"
+    bootstrapServers: "kafka-infra-chart:9092"
     audioTopic: "device.audio.raw"
     sensorTopic: "device.sensor.{type}.raw"
-    compressionType: "lz4"
+    compressionType: "none"
     batchSize: 16384
     lingerMs: 10
     retryBackoffMs: 100
     maxRetries: 3
-  
+
   # Monitoring settings
   metricsEnabled: true
   enableCors: true
@@ -227,4 +229,4 @@ tests:
   image:
     repository: curlimages/curl
     tag: "7.85.0"
-    pullPolicy: IfNotPresent 
+    pullPolicy: IfNotPresent

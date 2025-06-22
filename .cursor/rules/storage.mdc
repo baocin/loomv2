@@ -1,6 +1,6 @@
 ---
 description: Data persistence patterns using Redis for transient state, TimescaleDB for time-series data, and Trino for federated querying across data sources.
-globs: 
+globs:
 alwaysApply: false
 ---
 **Redis:** For transient data like `file_id` association with audio/video chunks, and possibly buffering for 3D reconstruction. It acts as a fast cache and temporary state store.

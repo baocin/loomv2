@@ -1,7 +1,5 @@
 """REST endpoints for sensor data ingestion."""
 
-from typing import List
-
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -9,11 +7,10 @@ from fastapi.responses import JSONResponse
 from ..kafka_producer import kafka_producer
 from ..models import (
     AccelerometerReading,
-    GPSReading, 
+    GPSReading,
     HeartRateReading,
     PowerState,
     SensorReading,
-    ImageData,
 )
 
 logger = structlog.get_logger(__name__)
@@ -24,16 +21,19 @@ router = APIRouter(prefix="/sensor", tags=["sensors"])
 @router.post("/gps", status_code=status.HTTP_201_CREATED)
 async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
     """Ingest GPS coordinate data.
-    
+
     Args:
+    ----
         gps_reading: GPS reading data
-        
+
     Returns:
+    -------
         Success response with message ID
+
     """
     try:
         await kafka_producer.send_sensor_data(gps_reading, "gps")
-        
+
         logger.info(
             "GPS data ingested",
             device_id=gps_reading.device_id,
@@ -41,7 +41,7 @@ async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
             latitude=gps_reading.latitude,
             longitude=gps_reading.longitude,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -50,7 +50,7 @@ async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
                 "topic": "device.sensor.gps.raw",
             },
         )
-        
+
     except Exception as e:
         logger.error(
             "Failed to ingest GPS data",
@@ -64,18 +64,23 @@ async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
 
 
 @router.post("/accelerometer", status_code=status.HTTP_201_CREATED)
-async def ingest_accelerometer_data(accel_reading: AccelerometerReading) -> JSONResponse:
+async def ingest_accelerometer_data(
+    accel_reading: AccelerometerReading,
+) -> JSONResponse:
     """Ingest accelerometer sensor data.
-    
+
     Args:
+    ----
         accel_reading: Accelerometer reading data
-        
+
     Returns:
+    -------
         Success response with message ID
+
     """
     try:
         await kafka_producer.send_sensor_data(accel_reading, "accelerometer")
-        
+
         logger.info(
             "Accelerometer data ingested",
             device_id=accel_reading.device_id,
@@ -84,16 +89,16 @@ async def ingest_accelerometer_data(accel_reading: AccelerometerReading) -> JSON
             y=accel_reading.y,
             z=accel_reading.z,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
-                "status": "success", 
+                "status": "success",
                 "message_id": accel_reading.message_id,
                 "topic": "device.sensor.accelerometer.raw",
             },
         )
-        
+
     except Exception as e:
         logger.error(
             "Failed to ingest accelerometer data",
@@ -109,23 +114,26 @@ async def ingest_accelerometer_data(accel_reading: AccelerometerReading) -> JSON
 @router.post("/heartrate", status_code=status.HTTP_201_CREATED)
 async def ingest_heartrate_data(hr_reading: HeartRateReading) -> JSONResponse:
     """Ingest heart rate sensor data.
-    
+
     Args:
+    ----
         hr_reading: Heart rate reading data
-        
+
     Returns:
+    -------
         Success response with message ID
+
     """
     try:
         await kafka_producer.send_sensor_data(hr_reading, "heartrate")
-        
+
         logger.info(
             "Heart rate data ingested",
             device_id=hr_reading.device_id,
             message_id=hr_reading.message_id,
             bpm=hr_reading.bpm,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -134,7 +142,7 @@ async def ingest_heartrate_data(hr_reading: HeartRateReading) -> JSONResponse:
                 "topic": "device.health.heartrate.raw",
             },
         )
-        
+
     except Exception as e:
         logger.error(
             "Failed to ingest heart rate data",
@@ -150,16 +158,19 @@ async def ingest_heartrate_data(hr_reading: HeartRateReading) -> JSONResponse:
 @router.post("/power", status_code=status.HTTP_201_CREATED)
 async def ingest_power_state(power_state: PowerState) -> JSONResponse:
     """Ingest device power state data.
-    
+
     Args:
+    ----
         power_state: Power state data
-        
+
     Returns:
+    -------
         Success response with message ID
+
     """
     try:
         await kafka_producer.send_sensor_data(power_state, "power")
-        
+
         logger.info(
             "Power state data ingested",
             device_id=power_state.device_id,
@@ -167,7 +178,7 @@ async def ingest_power_state(power_state: PowerState) -> JSONResponse:
             battery_level=power_state.battery_level,
             is_charging=power_state.is_charging,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -176,7 +187,7 @@ async def ingest_power_state(power_state: PowerState) -> JSONResponse:
                 "topic": "device.state.power.raw",
             },
         )
-        
+
     except Exception as e:
         logger.error(
             "Failed to ingest power state data",
@@ -192,23 +203,29 @@ async def ingest_power_state(power_state: PowerState) -> JSONResponse:
 @router.post("/generic", status_code=status.HTTP_201_CREATED)
 async def ingest_generic_sensor(sensor_reading: SensorReading) -> JSONResponse:
     """Ingest generic sensor data.
-    
+
     Args:
+    ----
         sensor_reading: Generic sensor reading data
-        
+
     Returns:
+    -------
         Success response with message ID
+
     """
     try:
-        await kafka_producer.send_sensor_data(sensor_reading, sensor_reading.sensor_type)
-        
+        await kafka_producer.send_sensor_data(
+            sensor_reading,
+            sensor_reading.sensor_type,
+        )
+
         logger.info(
             "Generic sensor data ingested",
             device_id=sensor_reading.device_id,
             message_id=sensor_reading.message_id,
             sensor_type=sensor_reading.sensor_type,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -217,7 +234,7 @@ async def ingest_generic_sensor(sensor_reading: SensorReading) -> JSONResponse:
                 "topic": f"device.sensor.{sensor_reading.sensor_type}.raw",
             },
         )
-        
+
     except Exception as e:
         logger.error(
             "Failed to ingest generic sensor data",
@@ -232,25 +249,28 @@ async def ingest_generic_sensor(sensor_reading: SensorReading) -> JSONResponse:
 
 
 @router.post("/batch", status_code=status.HTTP_201_CREATED)
-async def ingest_sensor_batch(sensor_readings: List[SensorReading]) -> JSONResponse:
+async def ingest_sensor_batch(sensor_readings: list[SensorReading]) -> JSONResponse:
     """Ingest a batch of sensor readings.
-    
+
     Args:
+    ----
         sensor_readings: List of sensor readings
-        
+
     Returns:
+    -------
         Success response with processed count
+
     """
     if not sensor_readings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty batch not allowed",
         )
-    
+
     try:
         processed_count = 0
         failed_count = 0
-        
+
         for reading in sensor_readings:
             try:
                 await kafka_producer.send_sensor_data(reading, reading.sensor_type)
@@ -263,14 +283,14 @@ async def ingest_sensor_batch(sensor_readings: List[SensorReading]) -> JSONRespo
                     error=str(e),
                 )
                 failed_count += 1
-        
+
         logger.info(
             "Sensor batch processed",
             total=len(sensor_readings),
             processed=processed_count,
             failed=failed_count,
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -280,10 +300,10 @@ async def ingest_sensor_batch(sensor_readings: List[SensorReading]) -> JSONRespo
                 "failed": failed_count,
             },
         )
-        
+
     except Exception as e:
         logger.error("Failed to process sensor batch", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process sensor batch",
-        ) from e 
+        ) from e

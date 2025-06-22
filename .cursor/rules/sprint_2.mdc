@@ -1,6 +1,6 @@
 ---
 description: sprint 2
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_2
@@ -162,7 +162,7 @@ Description: Sprint 2 (Kafka Core) - Detailed task checklist for Kafka infrastru
 
 ### 🔧 Technical Standards
 - Follow Kafka topic naming rules from kafka.mdc
-- Implement Kubernetes standards from kubernetes.mdc  
+- Implement Kubernetes standards from kubernetes.mdc
 - Use Helm chart standards for deployment
 - Follow testing requirements with testcontainers
 - Implement monitoring per observability standards

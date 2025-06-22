@@ -76,7 +76,11 @@ def parse_args() -> argparse.Namespace:
 def maybe_create_topics(admin: AdminClient, topics: List[str]):
     existing_topics = set(admin.list_topics(timeout=10).topics.keys())
     to_create = [
-        NewTopic(t, num_partitions=DEFAULT_PARTITIONS, replication_factor=DEFAULT_REPLICATION_FACTOR)
+        NewTopic(
+            t,
+            num_partitions=DEFAULT_PARTITIONS,
+            replication_factor=DEFAULT_REPLICATION_FACTOR,
+        )
         for t in topics
         if t not in existing_topics
     ]
@@ -109,4 +113,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

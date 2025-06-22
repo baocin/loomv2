@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
 **Commit Early & Often:**
@@ -24,7 +24,7 @@ tilt up  # Deploys to local k8s cluster
 kubectl get pods -n loom-dev
 kubectl logs -f deployment/vad-consumer -n loom-dev
 
-# 4. Commit atomically  
+# 4. Commit atomically
 git add services/vad/app/main.py
 git commit -m "feat(vad): add silence detection threshold"
 

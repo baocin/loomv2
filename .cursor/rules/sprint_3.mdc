@@ -1,6 +1,6 @@
 ---
 description: sprint 3
-globs: 
+globs:
 alwaysApply: false
 ---
 Rule Name: sprint_3
@@ -47,7 +47,7 @@ Description: Sprint 3 (VAD Consumer) - Detailed task checklist for Speech detect
 - [ ] Create silence trimming and padding logic
 - [ ] Add audio debugging and visualization tools
 
-#### Kafka Producer Integration  
+#### Kafka Producer Integration
 - [ ] Create producer for `media.audio.vad_filtered` topic
 - [ ] Implement filtered audio chunk publishing
 - [ ] Add metadata enrichment (VAD confidence, timestamps)

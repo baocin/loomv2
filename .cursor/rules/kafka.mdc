@@ -1,6 +1,6 @@
 ---
 description: Kafka topic naming conventions, contracts, and comprehensive topic hierarchy for raw and processed data streams.
-globs: 
+globs:
 alwaysApply: false
 ---
 Use the canonical pattern `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated). Never invent new prefixes; extend existing hierarchies.

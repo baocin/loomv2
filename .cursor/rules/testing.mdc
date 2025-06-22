@@ -1,6 +1,6 @@
 ---
 description: Testing strategy including unit and integration test requirements, coverage standards, CI matrix, and quality gates for merging pull requests.
-globs: 
+globs:
 alwaysApply: false
 ---
 **Unit tests:** `pytest -q`; cover business logic with ≥ 80% coverage.

@@ -1,20 +1,19 @@
 """Main FastAPI application for the ingestion service."""
 
-import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import generate_latest, Counter, Histogram, CONTENT_TYPE_LATEST
-from fastapi import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from .config import settings
 from .kafka_producer import kafka_producer
+from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, sensors
+from .routers import audio, sensors, system
 
 # Configure structured logging
 structlog.configure(
@@ -59,26 +58,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup and shutdown."""
     # Startup
     logger.info("Starting ingestion API service", version="0.1.0")
-    
+
     try:
+        # Start Kafka topic manager first
+        await topic_manager.start()
+        logger.info("Kafka topic manager started successfully")
+
         # Start Kafka producer
         await kafka_producer.start()
         logger.info("Kafka producer started successfully")
-        
+
     except Exception as e:
         logger.error("Failed to start dependencies", error=str(e))
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down ingestion API service")
-    
+
     try:
         # Stop Kafka producer
         await kafka_producer.stop()
         logger.info("Kafka producer stopped successfully")
-        
+
+        # Stop Kafka topic manager
+        await topic_manager.stop()
+        logger.info("Kafka topic manager stopped successfully")
+
     except Exception as e:
         logger.error("Error during shutdown", error=str(e))
 
@@ -103,6 +110,7 @@ app.add_middleware(
 # Include routers
 app.include_router(audio.router)
 app.include_router(sensors.router)
+app.include_router(system.router)
 
 
 @app.get("/", status_code=status.HTTP_200_OK)
@@ -120,6 +128,8 @@ async def root() -> JSONResponse:
                 "audio_websocket": "/audio/stream/{device_id}",
                 "audio_upload": "/audio/upload",
                 "sensor_endpoints": "/sensor/*",
+                "system_app_monitoring": "/system/apps/*",
+                "device_metadata": "/system/metadata",
                 "metrics": "/metrics",
                 "docs": "/docs",
             },
@@ -130,9 +140,11 @@ async def root() -> JSONResponse:
 @app.get("/healthz", status_code=status.HTTP_200_OK)
 async def health_check() -> HealthCheck:
     """Kubernetes liveness probe endpoint.
-    
-    Returns:
+
+    Returns
+    -------
         Health status of the service
+
     """
     # Basic health check - service is running
     return HealthCheck(
@@ -145,13 +157,15 @@ async def health_check() -> HealthCheck:
 @app.get("/readyz", status_code=status.HTTP_200_OK)
 async def readiness_check() -> HealthCheck:
     """Kubernetes readiness probe endpoint.
-    
-    Returns:
+
+    Returns
+    -------
         Readiness status of the service and dependencies
+
     """
     # Check if all dependencies are ready
     kafka_ready = kafka_producer.is_connected
-    
+
     if not kafka_ready:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -162,10 +176,10 @@ async def readiness_check() -> HealthCheck:
                 "details": "Kafka producer not connected",
             },
         )
-    
+
     return HealthCheck(
         status="ready",
-        version="0.1.0", 
+        version="0.1.0",
         kafka_connected=kafka_ready,
     )
 
@@ -183,16 +197,16 @@ async def get_metrics() -> Response:
 async def add_metrics_middleware(request, call_next):
     """Middleware to collect HTTP request metrics."""
     import time
-    
+
     method = request.method
     path = request.url.path
-    
+
     # Start timer
     start_time = time.time()
-    
+
     # Process request
     response = await call_next(request)
-    
+
     # Record metrics
     duration = time.time() - start_time
     request_duration.labels(method=method, endpoint=path).observe(duration)
@@ -201,7 +215,7 @@ async def add_metrics_middleware(request, call_next):
         endpoint=path,
         status_code=response.status_code,
     ).inc()
-    
+
     return response
 
 
@@ -216,7 +230,7 @@ async def general_exception_handler(request, exc):
         error=str(exc),
         exc_info=True,
     )
-    
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -229,11 +243,11 @@ async def general_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,
         port=settings.port,
         log_level=settings.log_level.lower(),
         reload=False,  # Set to True for development
-    ) 
+    )
