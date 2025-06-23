@@ -104,12 +104,13 @@ graph LR
 
         subgraph "⚙️ Processed Topics"
             KAFKA_VAD["media.audio.vad_filtered<br/>Voice Detected"]
-            KAFKA_TRANSCRIBED["media.text.transcribed.words<br/>Speech-to-Text"]
-            KAFKA_VISION["media.image.analysis.minicpm_results<br/>Vision Analysis"]
-            KAFKA_EMOTION_AUDIO["analysis.audio.emotion_results<br/>Speech Emotion"]
-            KAFKA_EMOTION_FACE["analysis.image.emotion_results<br/>Face Emotion"]
-            KAFKA_REASONING["analysis.inferred_context.mistral_results<br/>Context Analysis"]
-            KAFKA_URL_PROCESSED["task.url.processed.*<br/>Processed URLs"]
+            KAFKA_VOICE_SEGMENTS["media.audio.voice_segments<br/>7 days → Auto-DB"]
+            KAFKA_WORD_TIMESTAMPS["media.text.word_timestamps<br/>15 days → Auto-DB"]
+            KAFKA_VISION_ANNOTATIONS["media.image.vision_annotations<br/>15 days → Auto-DB"]
+            KAFKA_EMOTION_SCORES["analysis.audio.emotion_scores<br/>30 days → Auto-DB"]
+            KAFKA_FACE_EMOTIONS["analysis.image.face_emotions<br/>30 days → Auto-DB"]
+            KAFKA_REASONING_CHAINS["analysis.context.reasoning_chains<br/>90 days → Auto-DB"]
+            KAFKA_PROCESSED_CONTENT["task.url.processed_content<br/>180 days → Auto-DB"]
         end
 
     end
@@ -134,11 +135,17 @@ graph LR
         end
     end
 
-    %% Column 5: Storage
-    subgraph "Column 5: TimescaleDB Storage"
+    %% Column 5: Auto-Consumer
+    subgraph "Column 5: Kafka-to-DB Consumer"
+        direction TB
+        KAFKA_TO_DB["🔄 Kafka-to-DB Consumer<br/>Auto-ingestion Service<br/>Port 8001"]
+    end
+
+    %% Column 6: Storage
+    subgraph "Column 6: TimescaleDB Storage"
         direction TB
 
-        subgraph "📊 Raw Tables"
+        subgraph "📊 Raw Data (Hierarchical Retention)"
             DB_DEVICE_AUDIO["device_audio_raw<br/>🔒 RLS + Compression<br/>⏰ 7 days"]
             DB_DEVICE_VIDEO["device_video_screen_raw<br/>🔒 RLS + Compression<br/>⏰ 7 days"]
             DB_DEVICE_SENSORS["device_sensor_*_raw<br/>🔒 RLS + Compression<br/>⏰ 30-60 days"]
@@ -147,11 +154,14 @@ graph LR
             DB_EXTERNAL_DATA["external_*_raw<br/>🔒 RLS + Compression<br/>⏰ 30-365 days"]
         end
 
-        subgraph "🎯 Processed Tables"
-            DB_MEDIA_ANALYSIS["media_*_analysis<br/>Vision & Audio Results<br/>🔒 RLS + Compression"]
-            DB_TEXT_RESULTS["text_*_results<br/>Transcription & NLP<br/>🔒 RLS + Compression"]
-            DB_ANALYSIS_RESULTS["analysis_*_results<br/>AI Model Outputs<br/>🔒 RLS + Compression"]
-            DB_TASK_RESULTS["task_*_processed<br/>URL Processing<br/>🔒 RLS + Compression"]
+        subgraph "🎯 Processed Results (Tiered Retention)"
+            DB_VOICE_SEGMENTS["voice_segments_raw<br/>7d → 1min agg (30d) → 1h agg (365d)"]
+            DB_WORD_TIMESTAMPS["word_timestamps_raw<br/>15d → 5min agg (90d) → 1h agg (365d)"]
+            DB_VISION_ANNOTATIONS["vision_annotations_raw<br/>15d → 10min agg (90d) → 1h agg (365d)"]
+            DB_EMOTION_SCORES["emotion_scores_raw<br/>30d → 1h agg (365d)"]
+            DB_FACE_EMOTIONS["face_emotions_raw<br/>30d → 1h agg (365d)"]
+            DB_REASONING_CHAINS["reasoning_chains_raw<br/>90d → 1d agg (2y)"]
+            DB_PROCESSED_CONTENT["processed_content_raw<br/>180d → 1d agg (2y)"]
         end
     end
 
@@ -213,25 +223,35 @@ graph LR
     %% AI Processing Pipeline
     KAFKA_AUDIO --> SILERO_VAD
     SILERO_VAD --> KAFKA_VAD
+    KAFKA_VAD --> KAFKA_VOICE_SEGMENTS
 
     KAFKA_VAD --> PARAKEET_STT
-    PARAKEET_STT --> KAFKA_TRANSCRIBED
+    PARAKEET_STT --> KAFKA_WORD_TIMESTAMPS
 
     KAFKA_VAD --> BUD_E_EMOTION
-    BUD_E_EMOTION --> KAFKA_EMOTION_AUDIO
+    BUD_E_EMOTION --> KAFKA_EMOTION_SCORES
 
     KAFKA_IMAGE --> MINICPM_VISION
     KAFKA_VIDEO --> MINICPM_VISION
-    MINICPM_VISION --> KAFKA_VISION
+    MINICPM_VISION --> KAFKA_VISION_ANNOTATIONS
 
-    KAFKA_VISION --> FACE_EMOTION
-    FACE_EMOTION --> KAFKA_EMOTION_FACE
+    KAFKA_VISION_ANNOTATIONS --> FACE_EMOTION
+    FACE_EMOTION --> KAFKA_FACE_EMOTIONS
 
-    KAFKA_TRANSCRIBED --> MISTRAL_REASONING
-    KAFKA_URL_PROCESSED --> MISTRAL_REASONING
-    MISTRAL_REASONING --> KAFKA_REASONING
+    KAFKA_WORD_TIMESTAMPS --> MISTRAL_REASONING
+    KAFKA_PROCESSED_CONTENT --> MISTRAL_REASONING
+    MISTRAL_REASONING --> KAFKA_REASONING_CHAINS
 
-    KAFKA_URL_TASKS --> KAFKA_URL_PROCESSED
+    KAFKA_URL_TASKS --> KAFKA_PROCESSED_CONTENT
+
+    %% Auto-Consumer to Database
+    KAFKA_VOICE_SEGMENTS --> KAFKA_TO_DB
+    KAFKA_WORD_TIMESTAMPS --> KAFKA_TO_DB
+    KAFKA_VISION_ANNOTATIONS --> KAFKA_TO_DB
+    KAFKA_EMOTION_SCORES --> KAFKA_TO_DB
+    KAFKA_FACE_EMOTIONS --> KAFKA_TO_DB
+    KAFKA_REASONING_CHAINS --> KAFKA_TO_DB
+    KAFKA_PROCESSED_CONTENT --> KAFKA_TO_DB
 
     %% Kafka to Database Storage
     KAFKA_AUDIO --> DB_DEVICE_AUDIO
@@ -248,13 +268,13 @@ graph LR
     KAFKA_TWITTER_EXT --> DB_EXTERNAL_DATA
     KAFKA_WEB_EXT --> DB_EXTERNAL_DATA
 
-    KAFKA_VAD --> DB_MEDIA_ANALYSIS
-    KAFKA_VISION --> DB_MEDIA_ANALYSIS
-    KAFKA_TRANSCRIBED --> DB_TEXT_RESULTS
-    KAFKA_EMOTION_AUDIO --> DB_ANALYSIS_RESULTS
-    KAFKA_EMOTION_FACE --> DB_ANALYSIS_RESULTS
-    KAFKA_REASONING --> DB_ANALYSIS_RESULTS
-    KAFKA_URL_PROCESSED --> DB_TASK_RESULTS
+    KAFKA_TO_DB --> DB_VOICE_SEGMENTS
+    KAFKA_TO_DB --> DB_WORD_TIMESTAMPS
+    KAFKA_TO_DB --> DB_VISION_ANNOTATIONS
+    KAFKA_TO_DB --> DB_EMOTION_SCORES
+    KAFKA_TO_DB --> DB_FACE_EMOTIONS
+    KAFKA_TO_DB --> DB_REASONING_CHAINS
+    KAFKA_TO_DB --> DB_PROCESSED_CONTENT
 
 
     %% Styling
@@ -266,6 +286,7 @@ graph LR
 
     class AUDIO_DEV,SCREEN_DEV,CAMERA_DEV,GPS_DEV,ACCEL_DEV,HEART_DEV,POWER_DEV,APPS_DEV,WIFI_DEV,BT_DEV,TEMP_DEV,PRESSURE_DEV,OS_LIFECYCLE,OS_NOTIF,CLIPBOARD,EMAIL,TWITTER,HN,REDDIT,CALENDAR,WEB,URL_TASKS source
     class AUDIO_WS,AUDIO_UPLOAD,IMAGE_UPLOAD,SCREENSHOT,IMAGE_BATCH,GPS_SENSOR,ACCEL_SENSOR,HEART_SENSOR,POWER_SENSOR,GENERIC_SENSOR,SENSOR_BATCH,MACOS_APPS,ANDROID_APPS,METADATA,NOTES_UPLOAD,NOTES_BATCH,SCHEDULED_CONSUMERS endpoint
-    class KAFKA_AUDIO,KAFKA_VIDEO,KAFKA_IMAGE,KAFKA_GPS,KAFKA_ACCEL,KAFKA_HEART,KAFKA_POWER,KAFKA_APPS,KAFKA_NETWORK,KAFKA_TEMP,KAFKA_PRESSURE,KAFKA_EMAIL_EXT,KAFKA_TWITTER_EXT,KAFKA_WEB_EXT,KAFKA_CLIPBOARD,KAFKA_URL_TASKS,KAFKA_VAD,KAFKA_TRANSCRIBED,KAFKA_VISION,KAFKA_EMOTION_AUDIO,KAFKA_EMOTION_FACE,KAFKA_REASONING,KAFKA_URL_PROCESSED kafka
+    class KAFKA_AUDIO,KAFKA_VIDEO,KAFKA_IMAGE,KAFKA_GPS,KAFKA_ACCEL,KAFKA_HEART,KAFKA_POWER,KAFKA_APPS,KAFKA_NETWORK,KAFKA_TEMP,KAFKA_PRESSURE,KAFKA_EMAIL_EXT,KAFKA_TWITTER_EXT,KAFKA_WEB_EXT,KAFKA_CLIPBOARD,KAFKA_URL_TASKS,KAFKA_VAD,KAFKA_VOICE_SEGMENTS,KAFKA_WORD_TIMESTAMPS,KAFKA_VISION_ANNOTATIONS,KAFKA_EMOTION_SCORES,KAFKA_FACE_EMOTIONS,KAFKA_REASONING_CHAINS,KAFKA_PROCESSED_CONTENT kafka
     class SILERO_VAD,PARAKEET_STT,BUD_E_EMOTION,MINICPM_VISION,FACE_EMOTION,MISTRAL_REASONING ai
-    class DB_DEVICE_AUDIO,DB_DEVICE_VIDEO,DB_DEVICE_SENSORS,DB_DEVICE_HEALTH,DB_DEVICE_SYSTEM,DB_EXTERNAL_DATA,DB_MEDIA_ANALYSIS,DB_TEXT_RESULTS,DB_ANALYSIS_RESULTS,DB_TASK_RESULTS storage
+    class DB_DEVICE_AUDIO,DB_DEVICE_VIDEO,DB_DEVICE_SENSORS,DB_DEVICE_HEALTH,DB_DEVICE_SYSTEM,DB_EXTERNAL_DATA,DB_VOICE_SEGMENTS,DB_WORD_TIMESTAMPS,DB_VISION_ANNOTATIONS,DB_EMOTION_SCORES,DB_FACE_EMOTIONS,DB_REASONING_CHAINS,DB_PROCESSED_CONTENT storage
+    class KAFKA_TO_DB endpoint

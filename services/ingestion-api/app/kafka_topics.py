@@ -174,6 +174,63 @@ class KafkaTopicManager:
                     "cleanup.policy": "compact",  # Keep latest status per job
                 },
             },
+            # AI Processing Result Topics (renamed from *_results)
+            "media.audio.voice_segments": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "media.text.word_timestamps": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "1296000000",  # 15 days
+                    "compression.type": "producer",
+                },
+            },
+            "media.image.vision_annotations": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "1296000000",  # 15 days
+                    "compression.type": "producer",
+                },
+            },
+            "analysis.audio.emotion_scores": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "analysis.image.face_emotions": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "analysis.context.reasoning_chains": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
+            "task.url.processed_content": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "15552000000",  # 180 days
+                    "compression.type": "producer",
+                },
+            },
         }
 
     async def start(self) -> None:
