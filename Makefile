@@ -37,6 +37,12 @@ test-integration: ## Run integration tests
 	@echo "Running integration tests..."
 	@cd services/ingestion-api && make test-integration
 
+test-e2e: ## Run end-to-end pipeline test
+	@echo "Installing script dependencies..."
+	@pip install -r scripts/requirements.txt
+	@echo "Running end-to-end pipeline test..."
+	@python3 scripts/e2e_test_pipeline.py
+
 # Code quality
 lint: ## Run linting on all services
 	@echo "Running pre-commit hooks..."

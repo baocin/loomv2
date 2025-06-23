@@ -2,11 +2,13 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class WordTimestamp(BaseModel):
     """Word timestamp from STT processing."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
@@ -23,6 +25,7 @@ class WordTimestamp(BaseModel):
 
 class ProcessedContent(BaseModel):
     """Processed URL content."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
@@ -41,6 +44,7 @@ class ProcessedContent(BaseModel):
 
 class EmotionScore(BaseModel):
     """Audio emotion analysis result."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
@@ -56,6 +60,7 @@ class EmotionScore(BaseModel):
 
 class FaceEmotion(BaseModel):
     """Face emotion analysis result."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
@@ -70,6 +75,7 @@ class FaceEmotion(BaseModel):
 
 class ReasoningStep(BaseModel):
     """Individual step in reasoning chain."""
+
     step_number: int
     step_type: str  # "observation", "inference", "hypothesis", "conclusion"
     content: str
@@ -79,6 +85,7 @@ class ReasoningStep(BaseModel):
 
 class ContextualInsight(BaseModel):
     """High-level contextual insight."""
+
     insight_type: str  # "pattern", "anomaly", "trend", "correlation"
     description: str
     confidence: float = Field(ge=0.0, le=1.0)
@@ -88,41 +95,44 @@ class ContextualInsight(BaseModel):
 
 class ReasoningChain(BaseModel):
     """Complete reasoning chain analysis."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
     message_id: str
     reasoning_id: str
-    
+
     # Context classification
     context_type: str
     context_confidence: float = Field(ge=0.0, le=1.0)
-    
+
     # Reasoning process
     reasoning_chain: List[ReasoningStep]
     conclusion_text: str
     confidence_score: float = Field(ge=0.0, le=1.0)
-    
+
     # Input sources and metadata
     input_sources: List[Dict[str, Any]] = Field(default_factory=list)
     data_timespan_minutes: Optional[float] = None
-    
+
     # Extracted information
     key_topics: List[str] = Field(default_factory=list)
-    entities_mentioned: Dict[str, List[str]] = Field(default_factory=dict)  # {type: [entities]}
-    
+    entities_mentioned: Dict[str, List[str]] = Field(
+        default_factory=dict
+    )  # {type: [entities]}
+
     # Contextual insights
     insights: List[ContextualInsight] = Field(default_factory=list)
-    
+
     # Temporal and spatial context
     temporal_context: Optional[Dict[str, Any]] = None
     spatial_context: Optional[Dict[str, Any]] = None
-    
+
     # Processing metadata
     processing_duration_ms: Optional[float] = None
     model_version: str
     prompt_version: str = "v1.0"
-    
+
     # Additional metadata
     metadata: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -2,12 +2,13 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-import base64
 
 
 class VisionAnnotation(BaseModel):
     """Vision annotation from MiniCPM processing."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
@@ -27,6 +28,7 @@ class VisionAnnotation(BaseModel):
 
 class FaceBoundingBox(BaseModel):
     """Face bounding box coordinates."""
+
     x: float
     y: float
     width: float
@@ -36,6 +38,7 @@ class FaceBoundingBox(BaseModel):
 
 class FacialLandmarks(BaseModel):
     """Facial landmarks for detailed analysis."""
+
     left_eye: Optional[Dict[str, float]] = None
     right_eye: Optional[Dict[str, float]] = None
     nose: Optional[Dict[str, float]] = None
@@ -45,41 +48,42 @@ class FacialLandmarks(BaseModel):
 
 class FaceEmotionAnalysis(BaseModel):
     """Face emotion analysis result."""
+
     device_id: str
     timestamp: datetime
     schema_version: str = "v1"
     message_id: str
     face_id: str
-    
+
     # Primary emotion prediction
     emotion_label: str
     confidence_score: float = Field(ge=0.0, le=1.0)
-    
+
     # Face detection information
     face_bounding_box: FaceBoundingBox
     facial_landmarks: Optional[FacialLandmarks] = None
-    
+
     # Demographics (if available)
     age_estimate: Optional[int] = None
     gender_estimate: Optional[str] = None
-    
+
     # All emotion scores
     emotion_intensities: Dict[str, float] = Field(default_factory=dict)
-    
+
     # Face quality metrics
     face_quality_score: Optional[float] = None
     face_size_pixels: Optional[int] = None
     face_angle: Optional[Dict[str, float]] = None  # pitch, yaw, roll
-    
+
     # Processing metadata
     processing_duration_ms: Optional[float] = None
     model_version: str
-    
+
     # Source annotation information
     source_annotation_id: str
     source_object_class: str
     source_bounding_box: Optional[Dict[str, float]] = None
-    
+
     # Metadata
     metadata: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)

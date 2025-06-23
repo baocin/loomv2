@@ -1,9 +1,10 @@
 """REST endpoints for sensor data ingestion."""
 
 import structlog
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 
+from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
 from ..models import (
     AccelerometerReading,
@@ -19,7 +20,10 @@ router = APIRouter(prefix="/sensor", tags=["sensors"])
 
 
 @router.post("/gps", status_code=status.HTTP_201_CREATED)
-async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
+async def ingest_gps_data(
+    gps_reading: GPSReading,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Ingest GPS coordinate data.
 
     Args:
@@ -67,6 +71,7 @@ async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
 @router.post("/accelerometer", status_code=status.HTTP_201_CREATED)
 async def ingest_accelerometer_data(
     accel_reading: AccelerometerReading,
+    api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest accelerometer sensor data.
 
@@ -113,7 +118,10 @@ async def ingest_accelerometer_data(
 
 
 @router.post("/heartrate", status_code=status.HTTP_201_CREATED)
-async def ingest_heartrate_data(hr_reading: HeartRateReading) -> JSONResponse:
+async def ingest_heartrate_data(
+    hr_reading: HeartRateReading,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Ingest heart rate sensor data.
 
     Args:
@@ -157,7 +165,10 @@ async def ingest_heartrate_data(hr_reading: HeartRateReading) -> JSONResponse:
 
 
 @router.post("/power", status_code=status.HTTP_201_CREATED)
-async def ingest_power_state(power_state: PowerState) -> JSONResponse:
+async def ingest_power_state(
+    power_state: PowerState,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Ingest device power state data.
 
     Args:
@@ -202,7 +213,10 @@ async def ingest_power_state(power_state: PowerState) -> JSONResponse:
 
 
 @router.post("/generic", status_code=status.HTTP_201_CREATED)
-async def ingest_generic_sensor(sensor_reading: SensorReading) -> JSONResponse:
+async def ingest_generic_sensor(
+    sensor_reading: SensorReading,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Ingest generic sensor data.
 
     Args:
@@ -250,7 +264,10 @@ async def ingest_generic_sensor(sensor_reading: SensorReading) -> JSONResponse:
 
 
 @router.post("/batch", status_code=status.HTTP_201_CREATED)
-async def ingest_sensor_batch(sensor_readings: list[SensorReading]) -> JSONResponse:
+async def ingest_sensor_batch(
+    sensor_readings: list[SensorReading],
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Ingest a batch of sensor readings.
 
     Args:

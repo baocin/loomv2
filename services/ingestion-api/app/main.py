@@ -13,7 +13,7 @@ from .config import settings
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, images, notes, sensors, system
+from .routers import audio, images, notes, sensors, system, urls
 
 # Configure structured logging
 structlog.configure(
@@ -113,6 +113,7 @@ app.include_router(images.router)
 app.include_router(notes.router)
 app.include_router(sensors.router)
 app.include_router(system.router)
+app.include_router(urls.router)
 
 
 @app.get("/", status_code=status.HTTP_200_OK)

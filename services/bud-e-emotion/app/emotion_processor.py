@@ -1,22 +1,23 @@
 """Audio emotion recognition using Laion BUD-E-Whisper."""
 
 import asyncio
-import base64
-import io
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, Optional, Tuple
 
 import librosa
 import numpy as np
 import structlog
 import torch
-import torchaudio
-from transformers import pipeline, AutoConfig, AutoModelForAudioClassification, AutoProcessor
+from transformers import (
+    AutoModelForAudioClassification,
+    AutoProcessor,
+    pipeline,
+)
 
 from app.config import settings
-from app.models import VADFilteredAudio, AudioEmotionAnalysis
+from app.models import AudioEmotionAnalysis, VADFilteredAudio
 
 logger = structlog.get_logger(__name__)
 
@@ -29,7 +30,9 @@ class EmotionProcessor:
         self.processor = None
         self.pipeline = None
         self.device = settings.model_device
-        self.executor = ThreadPoolExecutor(max_workers=settings.max_concurrent_processes)
+        self.executor = ThreadPoolExecutor(
+            max_workers=settings.max_concurrent_processes
+        )
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -69,13 +72,11 @@ class EmotionProcessor:
 
             # Also load model components for detailed analysis
             self.processor = AutoProcessor.from_pretrained(
-                settings.model_name,
-                cache_dir=settings.model_cache_dir
+                settings.model_name, cache_dir=settings.model_cache_dir
             )
 
             self.model = AutoModelForAudioClassification.from_pretrained(
-                settings.model_name,
-                cache_dir=settings.model_cache_dir
+                settings.model_name, cache_dir=settings.model_cache_dir
             )
 
             # Move to device if available
@@ -93,19 +94,21 @@ class EmotionProcessor:
             logger.error("Failed to load BUD-E model", error=str(e))
             raise
 
-    async def process_audio(self, vad_audio: VADFilteredAudio) -> Optional[AudioEmotionAnalysis]:
+    async def process_audio(
+        self, vad_audio: VADFilteredAudio
+    ) -> Optional[AudioEmotionAnalysis]:
         """Process audio segment for emotion recognition."""
         if not self._initialized:
             await self.initialize()
 
         # Process in thread pool to avoid blocking
         return await asyncio.get_event_loop().run_in_executor(
-            self.executor,
-            self._process_audio_sync,
-            vad_audio
+            self.executor, self._process_audio_sync, vad_audio
         )
 
-    def _process_audio_sync(self, vad_audio: VADFilteredAudio) -> Optional[AudioEmotionAnalysis]:
+    def _process_audio_sync(
+        self, vad_audio: VADFilteredAudio
+    ) -> Optional[AudioEmotionAnalysis]:
         """Synchronous audio emotion processing."""
         start_time = time.time()
 
@@ -127,7 +130,9 @@ class EmotionProcessor:
             emotion_results = self.pipeline(audio_array, sampling_rate=sample_rate)
 
             # Get detailed features and scores
-            detailed_analysis = self._extract_detailed_features(audio_array, sample_rate)
+            detailed_analysis = self._extract_detailed_features(
+                audio_array, sample_rate
+            )
 
             # Process results
             if not emotion_results:
@@ -194,7 +199,9 @@ class EmotionProcessor:
             )
             return None
 
-    def _load_audio_from_bytes(self, audio_bytes: bytes, sample_rate: int) -> Tuple[np.ndarray, int]:
+    def _load_audio_from_bytes(
+        self, audio_bytes: bytes, sample_rate: int
+    ) -> Tuple[np.ndarray, int]:
         """Load audio from bytes and prepare for processing."""
         try:
             # Convert bytes to numpy array (assuming 16-bit PCM)
@@ -206,7 +213,7 @@ class EmotionProcessor:
                 audio_array = librosa.resample(
                     audio_array,
                     orig_sr=sample_rate,
-                    target_sr=settings.target_sample_rate
+                    target_sr=settings.target_sample_rate,
                 )
                 sample_rate = settings.target_sample_rate
 
@@ -221,7 +228,9 @@ class EmotionProcessor:
             logger.error("Failed to load audio from bytes", error=str(e))
             raise
 
-    def _extract_detailed_features(self, audio_array: np.ndarray, sample_rate: int) -> Dict[str, Any]:
+    def _extract_detailed_features(
+        self, audio_array: np.ndarray, sample_rate: int
+    ) -> Dict[str, Any]:
         """Extract additional audio features for analysis."""
         try:
             features = {}

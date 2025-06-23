@@ -2,6 +2,7 @@
 
 import os
 from typing import List, Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,8 +46,13 @@ class Settings(BaseSettings):
 
     # Emotion settings
     emotion_classes: List[str] = [
-        "anger", "disgust", "fear", "happiness", 
-        "sadness", "surprise", "neutral"
+        "anger",
+        "disgust",
+        "fear",
+        "happiness",
+        "sadness",
+        "surprise",
+        "neutral",
     ]
     confidence_threshold: float = 0.1
 

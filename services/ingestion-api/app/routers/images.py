@@ -3,8 +3,9 @@
 import base64
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
 from ..models import APIResponse, ImageData
 
@@ -13,7 +14,10 @@ router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.post("/upload", response_model=APIResponse)
-async def upload_image(image: ImageData) -> APIResponse:
+async def upload_image(
+    image: ImageData,
+    api_key: str = Depends(verify_api_key),
+) -> APIResponse:
     """Upload an image or photo.
 
     Args:

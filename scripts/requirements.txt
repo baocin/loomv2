@@ -1,0 +1,14 @@
+# Requirements for Loom v2 scripts
+# Used by e2e_test_pipeline.py and other utility scripts
+
+# Async HTTP client for API testing
+aiohttp>=3.9.0
+
+# PostgreSQL async driver for database verification
+asyncpg>=0.29.0
+
+# Kafka async client for message injection
+aiokafka>=0.10.0
+
+# Structured logging
+structlog>=24.1.0

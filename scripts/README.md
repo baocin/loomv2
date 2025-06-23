@@ -1,95 +1,60 @@
-# Loom Local Development Scripts
+# Loom v2 Scripts
 
-Local development and testing using **k3d** - k3s in Docker containers!
+This directory contains utility scripts for the Loom v2 project.
 
-## 🚀 Quick Start
+## Scripts
 
-**One-time setup:**
+### e2e_test_pipeline.py
+
+End-to-end pipeline test that validates the complete data flow from API → Kafka → Database.
+
+**Features:**
+- Tests all API endpoints with realistic test data
+- Verifies data reaches correct Kafka topics
+- Injects simulated AI-processed data
+- Verifies data persistence in TimescaleDB
+- Provides detailed pass/fail report
+
+**Requirements:**
+- Development environment running (`make dev-up`)
+- Python dependencies installed (`pip install -r scripts/requirements.txt`)
+
+**Usage:**
 ```bash
-# 1. Setup k3d cluster (installs k3d if needed)
-./scripts/setup-k3s-local.sh
+# Run the e2e test
+make test-e2e
 
-# 2. Deploy everything to k3d
-./scripts/deploy-k3s.sh
-
-# 3. Test directly
-curl http://localhost:8000/healthz
+# Or run directly
+python scripts/e2e_test_pipeline.py
 ```
 
-> **Note**: Scripts can be run from any directory - they auto-detect the project root.
+**Test Coverage:**
+- Audio upload endpoint
+- Image/screenshot upload endpoints
+- All sensor endpoints (GPS, accelerometer, heart rate, power)
+- System monitoring endpoints (macOS apps, device metadata)
+- Notes endpoints (device notes, digital notes)
+- URL ingestion endpoint
+- Processed data injection for AI pipeline simulation
 
-## 📁 Scripts
+### create_topics.sh
 
-| Script | Purpose |
-|--------|---------|
-| `setup-k3s-local.sh` | Install k3d + create cluster (one-time) |
-| `deploy-k3s.sh` | Deploy to k3d cluster |
-| `test-simple.sh` | Quick Docker-only API test |
-| `test-api.sh` | API testing with health checks |
+Creates all required Kafka topics for the Loom v2 pipeline.
 
-## 🎯 Development Workflow
-
-1. **Setup** (once): `./scripts/setup-k3s-local.sh`
-2. **Code** → **Deploy**: `./scripts/deploy-k3s.sh`
-3. **Test**: `curl http://localhost:8000/healthz`
-4. **Debug**: `kubectl logs -f` or `docker ps`
-
-## ✅ Why k3d?
-
-- ✅ **Fast startup** - containers start in seconds
-- ✅ **Real k3s** - exactly like production k3s
-- ✅ **Port mapping** - direct localhost access
-- ✅ **Easy debugging** - standard Docker tools
-- ✅ **Lightweight** - no VM overhead
-- ✅ **Simple cleanup** - delete cluster instantly
-
-## 🔧 Requirements
-
-- **Docker** (for building images and k3d)
-- **k3d** (auto-installed by setup script)
-- **kubectl** (for deployment)
-- **curl** (for testing)
-
-## 🌐 Access Methods
-
-**Direct via localhost (k3d port mapping):**
+**Usage:**
 ```bash
-curl http://localhost:8000/healthz
-curl http://localhost:8000/docs
+make topics-create
 ```
 
-**Kafka access:**
+## Dependencies
+
+Install script dependencies:
 ```bash
-# Connect to Kafka at localhost:9092
+pip install -r scripts/requirements.txt
 ```
 
-## 🧹 Cleanup Options
-
-```bash
-# Just remove our apps
-kubectl delete namespace loom-dev
-
-# Remove entire cluster (instant reset)
-k3d cluster delete loom-local
-
-# Stop cluster (keep for later)
-k3d cluster stop loom-local
-```
-
-## 🐞 Debugging
-
-```bash
-# Check cluster status
-k3d cluster list
-
-# Check Docker containers
-docker ps | grep k3d
-
-# Kubernetes debugging
-kubectl get pods -n loom-dev
-kubectl logs -f deployment/ingestion-api -n loom-dev
-kubectl describe pod <pod-name> -n loom-dev
-
-# Access cluster nodes
-docker exec -it k3d-loom-local-server-0 sh
-```
+Required packages:
+- `aiohttp` - Async HTTP client for API testing
+- `asyncpg` - PostgreSQL async driver
+- `aiokafka` - Kafka async client
+- `structlog` - Structured logging

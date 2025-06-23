@@ -3,9 +3,17 @@
 import json
 
 import structlog
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import JSONResponse
 
+from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
 from ..models import AudioChunk, WebSocketMessage
 
@@ -171,7 +179,10 @@ async def audio_stream_websocket(websocket: WebSocket, device_id: str) -> None:
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
-async def upload_audio_file(audio_chunk: AudioChunk) -> JSONResponse:
+async def upload_audio_file(
+    audio_chunk: AudioChunk,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Upload a single audio chunk via REST.
 
     Args:
@@ -216,7 +227,7 @@ async def upload_audio_file(audio_chunk: AudioChunk) -> JSONResponse:
 
 
 @router.get("/connections", status_code=status.HTTP_200_OK)
-async def get_connection_status() -> JSONResponse:
+async def get_connection_status(api_key: str = Depends(verify_api_key)) -> JSONResponse:
     """Get the current WebSocket connection status.
 
     Returns

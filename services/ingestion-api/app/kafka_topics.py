@@ -100,6 +100,14 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            "digital.notes.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days (documents, markdown files)
+                    "compression.type": "producer",
+                },
+            },
             "device.image.camera.raw": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,
@@ -172,6 +180,15 @@ class KafkaTopicManager:
                     "retention.ms": "604800000",  # 7 days
                     "compression.type": "producer",
                     "cleanup.policy": "compact",  # Keep latest status per job
+                },
+            },
+            # URL Processing Tasks
+            "task.url.ingest": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days (processing queue)
+                    "compression.type": "producer",
                 },
             },
             # AI Processing Intermediate Topics

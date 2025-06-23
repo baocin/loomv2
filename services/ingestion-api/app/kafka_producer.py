@@ -79,7 +79,9 @@ class KafkaProducerService:
 
         try:
             # Use device_id as key if no key provided
-            message_key = key or message.device_id
+            message_key = key or (
+                message.device_id if hasattr(message, "device_id") else "unknown"
+            )
 
             # Send message and wait for confirmation
             await self._producer.send(
@@ -89,17 +91,23 @@ class KafkaProducerService:
             )
 
             # Log without accessing future attributes
+            device_id_for_log = (
+                message.device_id if hasattr(message, "device_id") else "unknown"
+            )
             logger.info(
                 "Message sent to Kafka successfully",
                 topic=topic,
-                device_id=message.device_id,
+                device_id=device_id_for_log,
             )
 
         except KafkaError as e:
+            device_id_for_log = (
+                message.device_id if hasattr(message, "device_id") else "unknown"
+            )
             logger.error(
                 "Failed to send message to Kafka",
                 topic=topic,
-                device_id=message.device_id,
+                device_id=device_id_for_log,
                 error=str(e),
             )
             raise

@@ -1,6 +1,7 @@
 """Configuration for MiniCPM-Vision service."""
 
 from typing import List, Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

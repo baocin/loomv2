@@ -3,9 +3,10 @@
 import json
 
 import structlog
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 
+from ..auth import verify_api_key
 from ..config import settings
 from ..kafka_producer import kafka_producer
 from ..models import (
@@ -25,7 +26,10 @@ router = APIRouter(prefix="/system", tags=["system"])
     status_code=status.HTTP_201_CREATED,
     response_model=APIResponse,
 )
-async def upload_macos_app_monitoring(app_data: MacOSAppMonitoring) -> JSONResponse:
+async def upload_macos_app_monitoring(
+    app_data: MacOSAppMonitoring,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Upload macOS application monitoring data.
 
     This endpoint accepts data about currently running applications on macOS systems,
@@ -61,15 +65,11 @@ async def upload_macos_app_monitoring(app_data: MacOSAppMonitoring) -> JSONRespo
                 detail=f"Too many applications in request. Maximum allowed: {settings.app_monitoring_max_apps_per_request}",
             )
 
-        # Convert to JSON for Kafka
-        message_data = app_data.model_dump()
-        message_json = json.dumps(message_data, default=str)
-
         # Send to Kafka
         await kafka_producer.send_message(
             topic=settings.topic_device_system_apps_macos,
             key=app_data.device_id,
-            value=message_json,
+            message=app_data,
         )
 
         logger.info(
@@ -110,7 +110,10 @@ async def upload_macos_app_monitoring(app_data: MacOSAppMonitoring) -> JSONRespo
     status_code=status.HTTP_201_CREATED,
     response_model=APIResponse,
 )
-async def upload_android_app_monitoring(app_data: AndroidAppMonitoring) -> JSONResponse:
+async def upload_android_app_monitoring(
+    app_data: AndroidAppMonitoring,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Upload Android application monitoring data.
 
     This endpoint accepts data about currently running applications on Android systems,
@@ -146,15 +149,11 @@ async def upload_android_app_monitoring(app_data: AndroidAppMonitoring) -> JSONR
                 detail=f"Too many applications in request. Maximum allowed: {settings.app_monitoring_max_apps_per_request}",
             )
 
-        # Convert to JSON for Kafka
-        message_data = app_data.model_dump()
-        message_json = json.dumps(message_data, default=str)
-
         # Send to Kafka
         await kafka_producer.send_message(
             topic=settings.topic_device_system_apps_android,
             key=app_data.device_id,
-            value=message_json,
+            message=app_data,
         )
 
         logger.info(
@@ -223,7 +222,10 @@ async def get_app_monitoring_stats() -> JSONResponse:
     status_code=status.HTTP_201_CREATED,
     response_model=APIResponse,
 )
-async def upload_device_metadata(metadata: DeviceMetadata) -> JSONResponse:
+async def upload_device_metadata(
+    metadata: DeviceMetadata,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Upload arbitrary device metadata.
 
     This endpoint accepts flexible metadata about devices, allowing storage of
@@ -252,15 +254,11 @@ async def upload_device_metadata(metadata: DeviceMetadata) -> JSONResponse:
                 detail="Metadata object too large. Maximum size: 1MB",
             )
 
-        # Convert to JSON for Kafka
-        message_data = metadata.model_dump()
-        message_json = json.dumps(message_data, default=str)
-
         # Send to Kafka
         await kafka_producer.send_message(
             topic=settings.topic_device_metadata,
             key=metadata.device_id,
-            value=message_json,
+            message=metadata,
         )
 
         logger.info(

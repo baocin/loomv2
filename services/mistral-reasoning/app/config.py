@@ -1,6 +1,7 @@
 """Configuration for Mistral reasoning service."""
 
-from typing import List, Optional
+from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,11 +49,11 @@ class Settings(BaseSettings):
     reasoning_window_minutes: int = 10  # Window for collecting related data
     max_input_tokens: int = 6000  # Maximum tokens for input context
     min_confidence_threshold: float = 0.3
-    
+
     # Context types
     context_types: List[str] = [
         "conversation",
-        "activity", 
+        "activity",
         "location",
         "emotion",
         "focus",

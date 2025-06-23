@@ -1,22 +1,24 @@
 """Face emotion recognition using Laion Empathic-Insight-Face."""
 
 import asyncio
-import base64
-import io
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
 import structlog
 import torch
 from PIL import Image
-from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
+from transformers import AutoImageProcessor, AutoModelForImageClassification, pipeline
 
 from app.config import settings
-from app.models import VisionAnnotation, FaceEmotionAnalysis, FaceBoundingBox, FacialLandmarks
+from app.models import (
+    FaceBoundingBox,
+    FaceEmotionAnalysis,
+    FacialLandmarks,
+    VisionAnnotation,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +32,9 @@ class FaceEmotionProcessor:
         self.pipeline = None
         self.face_cascade = None
         self.device = settings.model_device
-        self.executor = ThreadPoolExecutor(max_workers=settings.max_concurrent_processes)
+        self.executor = ThreadPoolExecutor(
+            max_workers=settings.max_concurrent_processes
+        )
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -70,13 +74,11 @@ class FaceEmotionProcessor:
 
             # Also load model components for detailed analysis
             self.processor = AutoImageProcessor.from_pretrained(
-                settings.model_name,
-                cache_dir=settings.model_cache_dir
+                settings.model_name, cache_dir=settings.model_cache_dir
             )
 
             self.model = AutoModelForImageClassification.from_pretrained(
-                settings.model_name,
-                cache_dir=settings.model_cache_dir
+                settings.model_name, cache_dir=settings.model_cache_dir
             )
 
             # Move to device if available
@@ -90,7 +92,7 @@ class FaceEmotionProcessor:
 
             # Load OpenCV face cascade for face detection fallback
             self.face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
             )
 
             logger.info("Face emotion model loaded successfully")
@@ -117,17 +119,14 @@ class FaceEmotionProcessor:
 
         # Process in thread pool to avoid blocking
         return await asyncio.get_event_loop().run_in_executor(
-            self.executor,
-            self._process_annotation_sync,
-            annotation
+            self.executor, self._process_annotation_sync, annotation
         )
 
     def _contains_faces(self, annotation: VisionAnnotation) -> bool:
         """Check if annotation likely contains faces."""
         face_classes = ["person", "face", "human", "people"]
         return any(
-            face_class in annotation.object_class.lower()
-            for face_class in face_classes
+            face_class in annotation.object_class.lower() for face_class in face_classes
         )
 
     def _process_annotation_sync(
@@ -145,7 +144,7 @@ class FaceEmotionProcessor:
             )
 
             # Extract image from annotation (this is a placeholder - actual implementation
-            # would need to get the original image data, possibly from metadata or 
+            # would need to get the original image data, possibly from metadata or
             # by reconstructing from the vision processing pipeline)
             image = self._extract_image_from_annotation(annotation)
             if image is None:
@@ -224,9 +223,11 @@ class FaceEmotionProcessor:
             )
             return None
 
-    def _extract_image_from_annotation(self, annotation: VisionAnnotation) -> Optional[np.ndarray]:
+    def _extract_image_from_annotation(
+        self, annotation: VisionAnnotation
+    ) -> Optional[np.ndarray]:
         """Extract image data from vision annotation.
-        
+
         Note: This is a placeholder implementation. In practice, we would need
         to either:
         1. Store the original image data in the annotation metadata
@@ -238,13 +239,15 @@ class FaceEmotionProcessor:
             "Image extraction not implemented - using placeholder",
             annotation_id=annotation.annotation_id,
         )
-        
+
         # Placeholder: create a dummy image for testing
         # In production, this would extract the actual image
         if annotation.image_width and annotation.image_height:
-            dummy_image = np.zeros((annotation.image_height, annotation.image_width, 3), dtype=np.uint8)
+            dummy_image = np.zeros(
+                (annotation.image_height, annotation.image_width, 3), dtype=np.uint8
+            )
             return dummy_image
-        
+
         return None
 
     def _detect_faces(
@@ -265,10 +268,10 @@ class FaceEmotionProcessor:
             )
 
             results = []
-            for i, (x, y, w, h) in enumerate(faces[:settings.max_faces_per_image]):
+            for i, (x, y, w, h) in enumerate(faces[: settings.max_faces_per_image]):
                 # Extract face region
-                face_image = image[y:y+h, x:x+w]
-                
+                face_image = image[y : y + h, x : x + w]
+
                 # Create bounding box
                 face_bbox = FaceBoundingBox(
                     x=float(x),
@@ -314,7 +317,7 @@ class FaceEmotionProcessor:
             # Convert numpy array to PIL Image
             if face_image.dtype != np.uint8:
                 face_image = (face_image * 255).astype(np.uint8)
-            
+
             pil_image = Image.fromarray(face_image)
 
             # Resize if necessary
@@ -338,7 +341,9 @@ class FaceEmotionProcessor:
             }
 
             # Calculate quality score (simplified)
-            quality_score = min(confidence_score * 1.2, 1.0)  # Boost confidence slightly
+            quality_score = min(
+                confidence_score * 1.2, 1.0
+            )  # Boost confidence slightly
 
             return {
                 "emotion": predicted_emotion,

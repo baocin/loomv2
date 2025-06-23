@@ -2,15 +2,14 @@
 
 import asyncio
 import json
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Any, Dict, Optional
+
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from aiokafka.errors import KafkaError
 
 from app.config import settings
-from app.models import VisionAnnotation, FaceEmotionAnalysis
 from app.face_processor import FaceEmotionProcessor
+from app.models import VisionAnnotation
 
 logger = structlog.get_logger(__name__)
 
@@ -108,9 +107,7 @@ class KafkaFaceEmotionConsumer:
                 for tp, partition_messages in messages.items():
                     for msg in partition_messages:
                         # Create task for processing
-                        task = asyncio.create_task(
-                            self._process_message(msg)
-                        )
+                        task = asyncio.create_task(self._process_message(msg))
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
 
@@ -134,7 +131,9 @@ class KafkaFaceEmotionConsumer:
             )
 
             # Process through face emotion analysis
-            face_analyses = await self.face_processor.process_vision_annotation(annotation)
+            face_analyses = await self.face_processor.process_vision_annotation(
+                annotation
+            )
 
             if not face_analyses:
                 logger.debug(

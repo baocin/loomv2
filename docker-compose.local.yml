@@ -8,6 +8,10 @@ services:
       POSTGRES_USER: loom
       POSTGRES_PASSWORD: loom
       TIMESCALEDB_TELEMETRY: 'off'
+      # Fix authentication for external connections
+      POSTGRES_HOST_AUTH_METHOD: md5
+      # Ensure PostgreSQL listens on all addresses
+      POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=trust"
     ports:
       - "5432:5432"
     volumes:
@@ -18,6 +22,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: |
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
