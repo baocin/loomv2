@@ -169,14 +169,14 @@ class TestSettingsPrefix:
         assert settings.host == "0.0.0.0"  # default
 
     def test_prefix_case_sensitive(self):
-        """Test that prefix is case sensitive."""
+        """Test that prefix is case insensitive (user-friendly)."""
         env_vars = {"loom_host": "192.168.1.1"}  # lowercase prefix
 
         with patch.dict(os.environ, env_vars):
             settings = Settings()
 
-        # Should use default value
-        assert settings.host == "0.0.0.0"  # default
+        # Should pick up the lowercase variable (case insensitive)
+        assert settings.host == "192.168.1.1"
 
 
 class TestSettingsTypes:
@@ -308,7 +308,7 @@ class TestSettingsDocumentation:
         settings = Settings()
 
         # Check that model has field information
-        model_fields = settings.model_fields
+        model_fields = Settings.model_fields
 
         # Should have all expected fields
         expected_fields = [

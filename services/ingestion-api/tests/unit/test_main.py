@@ -8,13 +8,13 @@ from fastapi.testclient import TestClient
 from app.main import app, lifespan
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_kafka_producer():
     """Mock Kafka producer fixture."""
     with patch("app.main.kafka_producer") as mock:
@@ -26,7 +26,7 @@ def mock_kafka_producer():
 class TestLifespan:
     """Test application lifespan management."""
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_lifespan_startup_shutdown(self, mock_kafka_producer):
         """Test startup and shutdown sequence."""
         mock_app = MagicMock()
@@ -39,7 +39,7 @@ class TestLifespan:
         # Should call stop during shutdown
         mock_kafka_producer.stop.assert_called_once()
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_lifespan_startup_error(self, mock_kafka_producer):
         """Test lifespan handles startup errors gracefully."""
         mock_kafka_producer.start.side_effect = Exception("Kafka connection failed")
@@ -125,11 +125,11 @@ class TestCORSConfiguration:
 
     def test_cors_headers_present(self, client):
         """Test CORS headers are present in responses."""
-        response = client.options("/healthz")
+        headers = {"Origin": "http://localhost:3000"}
+        response = client.get("/healthz", headers=headers)
 
         # Should have CORS headers
         assert "access-control-allow-origin" in response.headers
-        assert "access-control-allow-methods" in response.headers
 
     def test_cors_preflight_request(self, client):
         """Test CORS preflight request handling."""

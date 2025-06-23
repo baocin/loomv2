@@ -52,10 +52,12 @@ class KafkaProducerService:
         if self._producer:
             try:
                 await self._producer.stop()
-                self._is_connected = False
                 logger.info("Kafka producer stopped")
             except Exception as e:
                 logger.error("Error stopping Kafka producer", error=str(e))
+            finally:
+                self._is_connected = False
+                self._producer = None
 
     async def send_message(
         self,
@@ -79,20 +81,18 @@ class KafkaProducerService:
             # Use device_id as key if no key provided
             message_key = key or message.device_id
 
-            # Send message
-            record_metadata = await self._producer.send(
+            # Send message and wait for confirmation
+            await self._producer.send(
                 topic=topic,
                 value=message,
                 key=message_key,
             )
 
-            logger.debug(
-                "Message sent to Kafka",
+            # Log without accessing future attributes
+            logger.info(
+                "Message sent to Kafka successfully",
                 topic=topic,
-                partition=record_metadata.partition,
-                offset=record_metadata.offset,
                 device_id=message.device_id,
-                message_id=message.message_id,
             )
 
         except KafkaError as e:
@@ -104,11 +104,14 @@ class KafkaProducerService:
             )
             raise
         except Exception as e:
+            # Don't log complex objects that might cause issues
+            error_msg = str(e)
             logger.error(
                 "Unexpected error sending message",
                 topic=topic,
-                device_id=message.device_id,
-                error=str(e),
+                device_id=getattr(message, "device_id", "unknown"),
+                error=error_msg,
+                error_type=type(e).__name__,
             )
             raise
 
@@ -146,8 +149,7 @@ class KafkaProducerService:
             # Convert pydantic model to dict, handling datetime and bytes
             message_dict = message.model_dump(mode="json")
             return json.dumps(message_dict).encode("utf-8")
-        else:
-            return json.dumps(message).encode("utf-8")
+        return json.dumps(message).encode("utf-8")
 
     @staticmethod
     def _serialize_key(key: str | None) -> bytes | None:

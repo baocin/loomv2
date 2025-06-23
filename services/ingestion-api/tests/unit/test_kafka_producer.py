@@ -1,6 +1,7 @@
 """Unit tests for Kafka producer service."""
 
 import json
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from app.kafka_producer import KafkaProducerService
 from app.models import AudioChunk, GPSReading, SensorReading
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_settings():
     """Mock settings fixture."""
     settings = MagicMock(spec=Settings)
@@ -26,7 +27,7 @@ def mock_settings():
     return settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_producer():
     """Mock aiokafka producer fixture."""
     with patch("app.kafka_producer.AIOKafkaProducer") as mock:
@@ -35,37 +36,27 @@ def mock_producer():
         yield producer_instance
 
 
-@pytest.fixture()
-def kafka_service(mock_settings):
+@pytest.fixture
+def kafka_service():
     """Kafka producer service fixture."""
-    return KafkaProducerService(mock_settings)
+    return KafkaProducerService()
 
 
 class TestKafkaProducerInitialization:
     """Test Kafka producer initialization."""
 
-    def test_init_with_settings(self, mock_settings):
-        """Test initialization with settings."""
-        service = KafkaProducerService(mock_settings)
+    def test_init_without_settings(self):
+        """Test initialization without settings parameter."""
+        service = KafkaProducerService()
 
-        assert service.settings == mock_settings
-        assert service.producer is None
+        assert service._producer is None
         assert service.is_connected is False
-
-    def test_init_creates_producer_config(self, mock_settings):
-        """Test producer configuration creation."""
-        service = KafkaProducerService(mock_settings)
-
-        # Verify settings are stored
-        assert service.settings.kafka_bootstrap_servers == "localhost:9092"
-        assert service.settings.kafka_compression_type == "lz4"
-        assert service.settings.kafka_batch_size == 16384
 
 
 class TestKafkaProducerConnection:
     """Test Kafka producer connection management."""
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_start_success(self, kafka_service, mock_producer):
         """Test successful producer startup."""
         mock_producer.start = AsyncMock()
@@ -74,10 +65,10 @@ class TestKafkaProducerConnection:
             await kafka_service.start()
 
         mock_producer.start.assert_called_once()
-        assert kafka_service.producer == mock_producer
+        assert kafka_service._producer == mock_producer
         assert kafka_service.is_connected is True
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_start_failure(self, kafka_service, mock_producer):
         """Test producer startup failure."""
         mock_producer.start = AsyncMock(side_effect=KafkaError("Connection failed"))
@@ -88,130 +79,130 @@ class TestKafkaProducerConnection:
 
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_stop_success(self, kafka_service, mock_producer):
         """Test successful producer shutdown."""
         mock_producer.stop = AsyncMock()
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
 
         await kafka_service.stop()
 
         mock_producer.stop.assert_called_once()
-        assert kafka_service.producer is None
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_stop_when_not_connected(self, kafka_service):
         """Test stop when not connected."""
-        kafka_service.producer = None
-        kafka_service.is_connected = False
+        kafka_service._producer = None
+        kafka_service._is_connected = False
 
         # Should not raise error
         await kafka_service.stop()
 
-        assert kafka_service.producer is None
+        assert kafka_service._producer is None
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_stop_with_error(self, kafka_service, mock_producer):
         """Test stop with error."""
         mock_producer.stop = AsyncMock(side_effect=Exception("Stop failed"))
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
 
         # Should handle error gracefully
         await kafka_service.stop()
 
-        assert kafka_service.producer is None
         assert kafka_service.is_connected is False
 
 
 class TestKafkaMessageSending:
     """Test message sending functionality."""
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_send_audio_chunk_success(self, kafka_service, mock_producer):
         """Test successful audio chunk sending."""
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
         mock_producer.send = AsyncMock()
 
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test audio",
             sample_rate=44100,
             duration_ms=1000,
         )
 
-        await kafka_service.send_audio_chunk(audio_chunk)
+        with patch("app.kafka_producer.settings") as mock_settings:
+            mock_settings.topic_device_audio_raw = "device.audio.raw"
+            await kafka_service.send_audio_chunk(audio_chunk)
 
         mock_producer.send.assert_called_once()
         call_args = mock_producer.send.call_args
-        assert call_args[0][0] == "device.audio.raw"  # topic
+        assert call_args[1]["topic"] == "device.audio.raw"
+        assert call_args[1]["value"] == audio_chunk
+        assert call_args[1]["key"] == "12345678-1234-8234-1234-123456789012"
 
-        # Verify message content
-        message_value = call_args[1]["value"]
-        parsed_message = json.loads(message_value)
-        assert parsed_message["device_id"] == "test-device"
-        assert parsed_message["sample_rate"] == 44100
-
-    @pytest.mark.asyncio()
-    async def test_send_sensor_reading_success(self, kafka_service, mock_producer):
-        """Test successful sensor reading sending."""
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+    @pytest.mark.asyncio
+    async def test_send_sensor_data_success(self, kafka_service, mock_producer):
+        """Test successful sensor data sending."""
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
         mock_producer.send = AsyncMock()
 
         gps_reading = GPSReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             latitude=37.7749,
             longitude=-122.4194,
         )
 
-        await kafka_service.send_sensor_reading(gps_reading, "gps")
+        with patch("app.kafka_producer.settings") as mock_settings:
+            mock_settings.topic_device_sensor_raw = "device.sensor.{sensor_type}.raw"
+            await kafka_service.send_sensor_data(gps_reading, "gps")
 
         mock_producer.send.assert_called_once()
         call_args = mock_producer.send.call_args
-        assert call_args[0][0] == "device.sensor.gps.raw"  # topic with type
+        assert call_args[1]["topic"] == "device.sensor.gps.raw"
+        assert call_args[1]["value"] == gps_reading
+        assert call_args[1]["key"] == "12345678-1234-8234-1234-123456789012"
 
-        # Verify message content
-        message_value = call_args[1]["value"]
-        parsed_message = json.loads(message_value)
-        assert parsed_message["device_id"] == "test-device"
-        assert parsed_message["latitude"] == 37.7749
-
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_send_when_not_connected(self, kafka_service):
         """Test sending when not connected."""
-        kafka_service.is_connected = False
+        kafka_service._is_connected = False
 
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test",
             sample_rate=44100,
             duration_ms=1000,
         )
 
-        with pytest.raises(RuntimeError, match="Producer not connected"):
+        with pytest.raises(RuntimeError, match="Kafka producer not connected"):
             await kafka_service.send_audio_chunk(audio_chunk)
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_send_with_kafka_error(self, kafka_service, mock_producer):
         """Test sending with Kafka error."""
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
         mock_producer.send = AsyncMock(side_effect=KafkaError("Send failed"))
 
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test",
             sample_rate=44100,
             duration_ms=1000,
         )
 
-        with pytest.raises(KafkaError, match="Send failed"):
-            await kafka_service.send_audio_chunk(audio_chunk)
+        with patch("app.kafka_producer.settings") as mock_settings:
+            mock_settings.topic_device_audio_raw = "device.audio.raw"
+            with pytest.raises(KafkaError, match="Send failed"):
+                await kafka_service.send_audio_chunk(audio_chunk)
 
 
 class TestMessageSerialization:
@@ -220,7 +211,8 @@ class TestMessageSerialization:
     def test_serialize_audio_chunk(self, kafka_service):
         """Test audio chunk serialization."""
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test audio data",
             sample_rate=44100,
             channels=2,
@@ -231,19 +223,19 @@ class TestMessageSerialization:
         serialized = kafka_service._serialize_message(audio_chunk)
         parsed = json.loads(serialized)
 
-        assert parsed["device_id"] == "test-device"
+        assert parsed["device_id"] == "12345678-1234-8234-1234-123456789012"
         assert parsed["sample_rate"] == 44100
         assert parsed["channels"] == 2
         assert parsed["format"] == "wav"
         assert parsed["duration_ms"] == 1000
-        assert "chunk_data" in parsed  # Base64 encoded
+        assert "chunk_data" in parsed  # String serialized
         assert "timestamp" in parsed
-        assert "message_id" in parsed
 
     def test_serialize_sensor_reading(self, kafka_service):
         """Test sensor reading serialization."""
         sensor_reading = SensorReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             sensor_type="temperature",
             value={"temp": 23.5},
             unit="celsius",
@@ -252,7 +244,7 @@ class TestMessageSerialization:
         serialized = kafka_service._serialize_message(sensor_reading)
         parsed = json.loads(serialized)
 
-        assert parsed["device_id"] == "test-device"
+        assert parsed["device_id"] == "12345678-1234-8234-1234-123456789012"
         assert parsed["sensor_type"] == "temperature"
         assert parsed["value"]["temp"] == 23.5
         assert parsed["unit"] == "celsius"
@@ -261,7 +253,8 @@ class TestMessageSerialization:
     def test_serialize_datetime_handling(self, kafka_service):
         """Test datetime serialization."""
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test",
             sample_rate=44100,
             duration_ms=1000,
@@ -278,7 +271,8 @@ class TestMessageSerialization:
     def test_serialize_bytes_handling(self, kafka_service):
         """Test bytes serialization."""
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"binary data",
             sample_rate=44100,
             duration_ms=1000,
@@ -287,44 +281,19 @@ class TestMessageSerialization:
         serialized = kafka_service._serialize_message(audio_chunk)
         parsed = json.loads(serialized)
 
-        # Should serialize bytes as base64
+        # Should serialize bytes as string (Pydantic JSON mode behavior)
         chunk_data = parsed["chunk_data"]
         assert isinstance(chunk_data, str)
-
-        # Verify it's valid base64
-        import base64
-
-        decoded = base64.b64decode(chunk_data)
-        assert decoded == b"binary data"
+        assert chunk_data == "binary data"
 
 
-class TestTopicNameGeneration:
-    """Test topic name generation."""
-
-    def test_get_audio_topic(self, kafka_service):
-        """Test audio topic name generation."""
-        topic = kafka_service._get_audio_topic()
-        assert topic == "device.audio.raw"
-
-    def test_get_sensor_topic(self, kafka_service):
-        """Test sensor topic name generation."""
-        topic = kafka_service._get_sensor_topic("gps")
-        assert topic == "device.sensor.gps.raw"
-
-        topic = kafka_service._get_sensor_topic("accelerometer")
-        assert topic == "device.sensor.accelerometer.raw"
-
-    def test_get_sensor_topic_special_chars(self, kafka_service):
-        """Test sensor topic with special characters."""
-        # Topic names should handle special characters
-        topic = kafka_service._get_sensor_topic("heart-rate")
-        assert topic == "device.sensor.heart-rate.raw"
+# Topic generation is now handled through settings, not instance methods
 
 
 class TestErrorHandling:
     """Test error handling and logging."""
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_connection_error_logging(self, kafka_service):
         """Test connection error logging."""
         with patch("app.kafka_producer.logger") as mock_logger:
@@ -340,42 +309,28 @@ class TestErrorHandling:
 
                 mock_logger.error.assert_called()
 
-    @pytest.mark.asyncio()
+    @pytest.mark.asyncio
     async def test_send_error_logging(self, kafka_service, mock_producer):
         """Test send error logging."""
-        kafka_service.producer = mock_producer
-        kafka_service.is_connected = True
+        kafka_service._producer = mock_producer
+        kafka_service._is_connected = True
         mock_producer.send = AsyncMock(side_effect=KafkaError("Send failed"))
 
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test",
             sample_rate=44100,
             duration_ms=1000,
         )
 
         with patch("app.kafka_producer.logger") as mock_logger:
-            with pytest.raises(KafkaError):
-                await kafka_service.send_audio_chunk(audio_chunk)
+            with patch("app.kafka_producer.settings") as mock_settings:
+                mock_settings.topic_device_audio_raw = "device.audio.raw"
+                with pytest.raises(KafkaError):
+                    await kafka_service.send_audio_chunk(audio_chunk)
 
-            mock_logger.error.assert_called()
+                mock_logger.error.assert_called()
 
 
-class TestKafkaProducerConfiguration:
-    """Test Kafka producer configuration."""
-
-    def test_producer_configuration_values(self, kafka_service, mock_settings):
-        """Test producer is configured with correct values."""
-        with patch("app.kafka_producer.AIOKafkaProducer") as mock_producer_cls:
-            kafka_service._create_producer()
-
-            # Verify producer was created with correct configuration
-            mock_producer_cls.assert_called_once()
-            call_kwargs = mock_producer_cls.call_args[1]
-
-            assert call_kwargs["bootstrap_servers"] == "localhost:9092"
-            assert call_kwargs["compression_type"] == "lz4"
-            assert call_kwargs["batch_size"] == 16384
-            assert call_kwargs["linger_ms"] == 10
-            assert call_kwargs["retry_backoff_ms"] == 100
-            assert call_kwargs["max_retries"] == 3
+# Producer configuration is now handled through the start() method

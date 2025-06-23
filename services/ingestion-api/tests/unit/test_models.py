@@ -1,6 +1,6 @@
 """Unit tests for pydantic models."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -23,7 +23,8 @@ class TestBaseMessage:
     def test_audio_chunk_creation(self):
         """Test AudioChunk model creation."""
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test audio data",
             sample_rate=44100,
             channels=1,
@@ -31,7 +32,7 @@ class TestBaseMessage:
             duration_ms=1000,
         )
 
-        assert audio_chunk.device_id == "test-device"
+        assert audio_chunk.device_id == "12345678-1234-8234-1234-123456789012"
         assert audio_chunk.chunk_data == b"test audio data"
         assert audio_chunk.sample_rate == 44100
         assert audio_chunk.channels == 1
@@ -45,7 +46,8 @@ class TestBaseMessage:
         """Test AudioChunk with file_id for chunking."""
         file_id = str(uuid4())
         audio_chunk = AudioChunk(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             chunk_data=b"test chunk",
             sample_rate=16000,
             duration_ms=500,
@@ -61,7 +63,8 @@ class TestSensorModels:
     def test_gps_reading(self):
         """Test GPSReading model."""
         gps_reading = GPSReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             latitude=37.7749,
             longitude=-122.4194,
             altitude=50.0,
@@ -70,7 +73,7 @@ class TestSensorModels:
             speed=10.5,
         )
 
-        assert gps_reading.device_id == "test-device"
+        assert gps_reading.device_id == "12345678-1234-8234-1234-123456789012"
         assert gps_reading.latitude == 37.7749
         assert gps_reading.longitude == -122.4194
         assert gps_reading.altitude == 50.0
@@ -81,7 +84,8 @@ class TestSensorModels:
     def test_gps_reading_minimal(self):
         """Test GPSReading with minimal required fields."""
         gps_reading = GPSReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             latitude=37.7749,
             longitude=-122.4194,
         )
@@ -94,13 +98,14 @@ class TestSensorModels:
     def test_accelerometer_reading(self):
         """Test AccelerometerReading model."""
         accel_reading = AccelerometerReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             x=0.5,
             y=-0.3,
             z=9.8,
         )
 
-        assert accel_reading.device_id == "test-device"
+        assert accel_reading.device_id == "12345678-1234-8234-1234-123456789012"
         assert accel_reading.x == 0.5
         assert accel_reading.y == -0.3
         assert accel_reading.z == 9.8
@@ -108,25 +113,27 @@ class TestSensorModels:
     def test_heart_rate_reading(self):
         """Test HeartRateReading model."""
         hr_reading = HeartRateReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             bpm=72,
             confidence=0.95,
         )
 
-        assert hr_reading.device_id == "test-device"
+        assert hr_reading.device_id == "12345678-1234-8234-1234-123456789012"
         assert hr_reading.bpm == 72
         assert hr_reading.confidence == 0.95
 
     def test_power_state(self):
         """Test PowerState model."""
         power_state = PowerState(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             battery_level=85.5,
             is_charging=True,
             power_source="USB",
         )
 
-        assert power_state.device_id == "test-device"
+        assert power_state.device_id == "12345678-1234-8234-1234-123456789012"
         assert power_state.battery_level == 85.5
         assert power_state.is_charging is True
         assert power_state.power_source == "USB"
@@ -134,14 +141,15 @@ class TestSensorModels:
     def test_generic_sensor_reading(self):
         """Test generic SensorReading model."""
         sensor_reading = SensorReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             sensor_type="temperature",
             value={"temperature": 23.5, "humidity": 45.0},
             unit="celsius",
             accuracy=0.1,
         )
 
-        assert sensor_reading.device_id == "test-device"
+        assert sensor_reading.device_id == "12345678-1234-8234-1234-123456789012"
         assert sensor_reading.sensor_type == "temperature"
         assert sensor_reading.value["temperature"] == 23.5
         assert sensor_reading.value["humidity"] == 45.0
@@ -211,7 +219,8 @@ class TestModelValidation:
         """Test GPS coordinate validation."""
         # This should work - no validation constraints set
         gps_reading = GPSReading(
-            device_id="test-device",
+            device_id="12345678-1234-8234-1234-123456789012",
+            recorded_at=datetime.now(UTC),
             latitude=200.0,  # Invalid latitude (should be -90 to 90)
             longitude=200.0,  # Invalid longitude (should be -180 to 180)
         )
