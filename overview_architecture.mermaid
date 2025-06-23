@@ -112,13 +112,6 @@ graph LR
             KAFKA_URL_PROCESSED["task.url.processed.*<br/>Processed URLs"]
         end
 
-        subgraph "🎮 Command Topics"
-            KAFKA_CMD_KEYS["device.command.keystroke.send<br/>1 day"]
-            KAFKA_CMD_MOUSE["device.command.mouse.send<br/>1 day"]
-            KAFKA_CMD_CLIP["device.command.clipboard.send<br/>1 day"]
-            KAFKA_CMD_FILE["device.command.file.transfer<br/>7 days"]
-            KAFKA_RESP_STATUS["device.response.command.status<br/>Response"]
-        end
     end
 
     %% Column 4: AI Processing
@@ -162,14 +155,6 @@ graph LR
         end
     end
 
-    %% Column 6: Remote Control
-    subgraph "Column 6: Remote Control"
-        direction TB
-        KEYBOARD_CMD["⌨️ Keystroke Commands<br/>Remote Control"]
-        MOUSE_CMD["🖱️ Mouse Commands<br/>Remote Control"]
-        FILE_CMD["📁 File Transfer<br/>Cross-device"]
-        SHELL_CMD["⚡ Shell Commands<br/>Remote Execution"]
-    end
 
     %% Data Flow Connections
 
@@ -271,11 +256,6 @@ graph LR
     KAFKA_REASONING --> DB_ANALYSIS_RESULTS
     KAFKA_URL_PROCESSED --> DB_TASK_RESULTS
 
-    %% Remote Control Flow
-    KAFKA_CMD_KEYS --> KEYBOARD_CMD
-    KAFKA_CMD_MOUSE --> MOUSE_CMD
-    KAFKA_CMD_CLIP --> CLIPBOARD
-    KAFKA_CMD_FILE --> FILE_CMD
 
     %% Styling
     classDef source fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
@@ -283,11 +263,9 @@ graph LR
     classDef kafka fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
     classDef ai fill:#fce4ec,stroke:#c2185b,stroke-width:2px
     classDef storage fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    classDef command fill:#ffebee,stroke:#d32f2f,stroke-width:2px
 
     class AUDIO_DEV,SCREEN_DEV,CAMERA_DEV,GPS_DEV,ACCEL_DEV,HEART_DEV,POWER_DEV,APPS_DEV,WIFI_DEV,BT_DEV,TEMP_DEV,PRESSURE_DEV,OS_LIFECYCLE,OS_NOTIF,CLIPBOARD,EMAIL,TWITTER,HN,REDDIT,CALENDAR,WEB,URL_TASKS source
     class AUDIO_WS,AUDIO_UPLOAD,IMAGE_UPLOAD,SCREENSHOT,IMAGE_BATCH,GPS_SENSOR,ACCEL_SENSOR,HEART_SENSOR,POWER_SENSOR,GENERIC_SENSOR,SENSOR_BATCH,MACOS_APPS,ANDROID_APPS,METADATA,NOTES_UPLOAD,NOTES_BATCH,SCHEDULED_CONSUMERS endpoint
-    class KAFKA_AUDIO,KAFKA_VIDEO,KAFKA_IMAGE,KAFKA_GPS,KAFKA_ACCEL,KAFKA_HEART,KAFKA_POWER,KAFKA_APPS,KAFKA_NETWORK,KAFKA_TEMP,KAFKA_PRESSURE,KAFKA_EMAIL_EXT,KAFKA_TWITTER_EXT,KAFKA_WEB_EXT,KAFKA_CLIPBOARD,KAFKA_URL_TASKS,KAFKA_VAD,KAFKA_TRANSCRIBED,KAFKA_VISION,KAFKA_EMOTION_AUDIO,KAFKA_EMOTION_FACE,KAFKA_REASONING,KAFKA_URL_PROCESSED,KAFKA_CMD_KEYS,KAFKA_CMD_MOUSE,KAFKA_CMD_CLIP,KAFKA_CMD_FILE,KAFKA_RESP_STATUS kafka
+    class KAFKA_AUDIO,KAFKA_VIDEO,KAFKA_IMAGE,KAFKA_GPS,KAFKA_ACCEL,KAFKA_HEART,KAFKA_POWER,KAFKA_APPS,KAFKA_NETWORK,KAFKA_TEMP,KAFKA_PRESSURE,KAFKA_EMAIL_EXT,KAFKA_TWITTER_EXT,KAFKA_WEB_EXT,KAFKA_CLIPBOARD,KAFKA_URL_TASKS,KAFKA_VAD,KAFKA_TRANSCRIBED,KAFKA_VISION,KAFKA_EMOTION_AUDIO,KAFKA_EMOTION_FACE,KAFKA_REASONING,KAFKA_URL_PROCESSED kafka
     class SILERO_VAD,PARAKEET_STT,BUD_E_EMOTION,MINICPM_VISION,FACE_EMOTION,MISTRAL_REASONING ai
     class DB_DEVICE_AUDIO,DB_DEVICE_VIDEO,DB_DEVICE_SENSORS,DB_DEVICE_HEALTH,DB_DEVICE_SYSTEM,DB_EXTERNAL_DATA,DB_MEDIA_ANALYSIS,DB_TEXT_RESULTS,DB_ANALYSIS_RESULTS,DB_TASK_RESULTS storage
-    class KEYBOARD_CMD,MOUSE_CMD,FILE_CMD,SHELL_CMD command
