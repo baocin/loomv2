@@ -1,6 +1,7 @@
 """Pydantic models for ingestion API data structures."""
 
-from datetime import datetime
+import re
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -11,15 +12,62 @@ class BaseMessage(BaseModel):
     """Base message structure for all Kafka messages."""
 
     schema_version: str = Field(default="1.0", description="Message schema version")
+    device_id: str = Field(description="Client device identifier (UUIDv8)")
+    recorded_at: datetime = Field(description="UTC timestamp when data was recorded")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Message timestamp",
+        default_factory=lambda: datetime.now(UTC),
+        description="UTC timestamp when message was processed by server",
     )
-    device_id: str = Field(description="Device identifier")
     message_id: str = Field(
         default_factory=lambda: str(uuid4()),
         description="Unique message ID",
     )
+
+    @validator("device_id")
+    def validate_device_id(cls, v):
+        """Validate device_id is a valid UUID format."""
+        if not v:
+            raise ValueError("device_id is required")
+
+        # Check if it's a valid UUID format (accepts v4, v8, or any standard UUID)
+        # UUIDv8 format: xxxxxxxx-xxxx-8xxx-xxxx-xxxxxxxxxxxx
+        uuid_pattern = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            re.IGNORECASE,
+        )
+        if not uuid_pattern.match(v):
+            raise ValueError(
+                "device_id must be a valid UUID format (preferably UUIDv8)",
+            )
+
+        return v
+
+    @validator("recorded_at")
+    def validate_recorded_at(cls, v):
+        """Validate recorded_at is a UTC timestamp."""
+        if not v:
+            raise ValueError("recorded_at is required")
+
+        # Ensure timezone is UTC or add UTC if naive
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=UTC)
+        elif v.tzinfo != UTC:
+            v = v.astimezone(UTC)
+
+        return v
+
+    @validator("timestamp", pre=True, always=True)
+    def ensure_utc_timestamp(cls, v):
+        """Ensure timestamp is always UTC."""
+        if v is None:
+            v = datetime.now(UTC)
+        elif isinstance(v, datetime):
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=UTC)
+            elif v.tzinfo != UTC:
+                v = v.astimezone(UTC)
+
+        return v
 
 
 class AudioChunk(BaseMessage):
@@ -88,7 +136,7 @@ class PowerState(BaseMessage):
 class ImageData(BaseMessage):
     """Image data from camera or screenshot."""
 
-    image_data: bytes = Field(description="Raw image data")
+    image_data: bytes = Field(description="Base64 encoded image data")
     format: str = Field(default="jpeg", description="Image format")
     width: int = Field(description="Image width in pixels")
     height: int = Field(description="Image height in pixels")
@@ -96,6 +144,37 @@ class ImageData(BaseMessage):
         default=None,
         description="Camera type (front/rear/screen)",
     )
+    file_size: int | None = Field(default=None, description="File size in bytes")
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="EXIF and other image metadata",
+    )
+
+
+class NoteData(BaseMessage):
+    """Text note or memo data."""
+
+    content: str = Field(description="Note content text")
+    title: str | None = Field(default=None, description="Optional note title")
+    note_type: str = Field(
+        default="text",
+        description="Note type (text, markdown, code)",
+    )
+    tags: list[str] = Field(default_factory=list, description="Note tags")
+    word_count: int | None = Field(default=None, description="Word count")
+    language: str | None = Field(default=None, description="Detected language")
+
+    @validator("content")
+    def validate_content(cls, v):
+        if not v or v.strip() == "":
+            raise ValueError("Note content cannot be empty")
+        return v.strip()
+
+    @validator("word_count", pre=True, always=True)
+    def calculate_word_count(cls, v, values):
+        if "content" in values:
+            return len(values["content"].split())
+        return v
 
 
 class WebSocketMessage(BaseModel):

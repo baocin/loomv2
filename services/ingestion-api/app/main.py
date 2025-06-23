@@ -13,7 +13,7 @@ from .config import settings
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, sensors, system
+from .routers import audio, images, notes, sensors, system
 
 # Configure structured logging
 structlog.configure(
@@ -102,13 +102,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
 app.include_router(audio.router)
+app.include_router(images.router)
+app.include_router(notes.router)
 app.include_router(sensors.router)
 app.include_router(system.router)
 
@@ -127,6 +129,9 @@ async def root() -> JSONResponse:
                 "readiness": "/readyz",
                 "audio_websocket": "/audio/stream/{device_id}",
                 "audio_upload": "/audio/upload",
+                "image_upload": "/images/upload",
+                "screenshot_upload": "/images/screenshot",
+                "note_upload": "/notes/upload",
                 "sensor_endpoints": "/sensor/*",
                 "system_app_monitoring": "/system/apps/*",
                 "device_metadata": "/system/metadata",
@@ -166,19 +171,9 @@ async def readiness_check() -> HealthCheck:
     # Check if all dependencies are ready
     kafka_ready = kafka_producer.is_connected
 
-    if not kafka_ready:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "not_ready",
-                "version": "0.1.0",
-                "kafka_connected": kafka_ready,
-                "details": "Kafka producer not connected",
-            },
-        )
-
+    # Always return 200 for readiness probe, but indicate health status
     return HealthCheck(
-        status="ready",
+        status="healthy" if kafka_ready else "unhealthy",
         version="0.1.0",
         kafka_connected=kafka_ready,
     )

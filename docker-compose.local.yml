@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_DB: loom
+      POSTGRES_USER: loom
+      POSTGRES_PASSWORD: loom
+      TIMESCALEDB_TELEMETRY: 'off'
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/ingestion-api/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loom -d loom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports:
+      - "8081:8080"
+    depends_on:
+      - kafka
+
+  ingestion-api:
+    build:
+      context: ./services/ingestion-api
+      dockerfile: Dockerfile
+    environment:
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8000
+      LOOM_LOG_LEVEL: INFO
+      LOOM_ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  silero-vad:
+    build:
+      context: ./services/silero-vad
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: device.audio.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: media.audio.vad_filtered
+      LOOM_VAD_THRESHOLD: "0.5"
+      LOOM_LOG_LEVEL: INFO
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8001/healthz'); r.raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scheduled-consumers:
+    build:
+      context: ./services/scheduled-consumers
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_LOG_LEVEL: INFO
+      LOOM_DEVICE_ID: local-dev-scheduled-consumers
+      LOOM_EMAIL_CHECK_INTERVAL_MINUTES: 30
+      LOOM_SOCIAL_MEDIA_CHECK_INTERVAL_MINUTES: 60
+      LOOM_WEB_ACTIVITY_CHECK_INTERVAL_MINUTES: 15
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  parakeet-tdt:
+    build:
+      context: ./services/parakeet-tdt
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered
+      LOOM_KAFKA_OUTPUT_TOPIC: media.text.transcribed.words
+      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
+      LOOM_LOG_LEVEL: INFO
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8002
+    ports:
+      - "8002:8002"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      silero-vad:
+        condition: service_healthy
+    volumes:
+      - ./models:/models  # Model cache directory
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import httpx; r = httpx.get('http://localhost:8002/healthz'); r.raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Allow time for model download
+
+  minicpm-vision:
+    build:
+      context: ./services/minicpm-vision
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPICS: '["device.image.camera.raw", "device.video.screen.raw"]'
+      LOOM_KAFKA_OUTPUT_TOPIC: media.image.analysis.minicpm_results
+      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
+      LOOM_LOG_LEVEL: INFO
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8000
+    ports:
+      - "8003:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./models:/home/loom/.cache  # Model cache directory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s  # Allow time for model download
+    deploy:
+      resources:
+        limits:
+          memory: 8G  # MiniCPM-V requires significant memory
+        reservations:
+          memory: 4G
+
+volumes:
+  postgres_data:

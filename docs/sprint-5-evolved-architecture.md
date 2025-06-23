@@ -159,8 +159,8 @@ The core architectural shift includes:
       auth_method: str  # oauth2, password
       filters: List[str]  # unread, starred, label:important
       last_sync_uid: Optional[int]
-  
-  @dataclass 
+
+  @dataclass
   class EmailEvent:
       message_id: str
       from_address: str
@@ -192,7 +192,7 @@ The core architectural shift includes:
       sync_window_days: int = 30  # Past and future
       include_declined: bool = False
       last_sync_token: Optional[str]
-  
+
   @dataclass
   class CalendarEvent:
       event_id: str
@@ -227,7 +227,7 @@ The core architectural shift includes:
       check_likes: bool = True
       check_bookmarks: bool = True
       last_checked_id: Optional[str]
-  
+
   @dataclass
   class TwitterURLTask:
       url: str  # https://x.com/user/status/123456
@@ -256,13 +256,13 @@ The core architectural shift includes:
       async def process_twitter_url(self, task: TwitterURLTask):
           # Download tweet content
           tweet = await self.fetch_tweet(task.tweet_id)
-          
+
           # Download media
           media_refs = await self.download_media(tweet.media_urls)
-          
+
           # Get full thread if applicable
           thread = await self.fetch_thread(tweet) if tweet.is_thread else None
-          
+
           # Produce archived result
           return TwitterArchive(
               tweet_id=task.tweet_id,
@@ -278,7 +278,7 @@ The core architectural shift includes:
 #### TASK-511: Hacker News Saved Posts Checker
 - **Description**: Monitors saved/upvoted posts on Hacker News
 - **Acceptance Criteria**:
-  - CronJob runs every 4 hours  
+  - CronJob runs every 4 hours
   - Uses HN API with user authentication
   - Fetches saved stories and comments
   - Emits URLs to `task.url.ingest` topic
@@ -293,7 +293,7 @@ The core architectural shift includes:
       check_saved: bool = True
       check_upvoted: bool = True
       last_checked_ids: Set[int]
-  
+
   @dataclass
   class HackerNewsURLTask:
       hn_item_id: int
@@ -322,7 +322,7 @@ The core architectural shift includes:
   class GenericURLProcessor:
       async def process_url(self, url: str) -> ProcessedContent:
           content_type = await self.detect_content_type(url)
-          
+
           if content_type == "pdf":
               return await self.process_pdf(url)
           elif content_type == "html":

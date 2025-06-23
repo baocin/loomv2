@@ -11,43 +11,58 @@ Loom v2 is a modern data pipeline designed to ingest, process, and store persona
 
 ## 🚀 Quick Start
 
-Get up and running in under 5 minutes:
+Get the complete Loom v2 stack running in one command:
 
 ```bash
-# Clone and setup
+# Clone the repository
 git clone <repository-url>
 cd loomv2
-make setup
 
-# Start the development environment
-make dev-up
+# One-command setup (installs dependencies, builds images, deploys k3s)
+./scripts/setup-local-dev.sh
+```
 
-# Verify everything is working
-curl http://localhost:8000/healthz
+This script will automatically:
+- ✅ Check and install dependencies (k3d, kubectl, uv)
+- ✅ Build Docker images for all services
+- ✅ Create k3s cluster with port mappings
+- ✅ Deploy TimescaleDB with hypertables and compression
+- ✅ Deploy Kafka with topics and UI
+- ✅ Deploy Ingestion API with health checks
+- ✅ Run database migrations
+- ✅ Test the entire deployment
+
+**Manual Setup** (if you prefer step-by-step):
+
+```bash
+# 1. Build images
+./scripts/build-images.sh
+
+# 2. Deploy to k3s
+./scripts/deploy-k3s.sh
+
+# 3. Test deployment
+./scripts/test-deployment.sh
 ```
 
 ## 📋 Prerequisites
 
-Before you begin, ensure you have the following installed:
-
 ### Required
+- **Docker** - [Get Docker](https://docs.docker.com/get-docker/) (must be running)
 - **Python 3.11+** - [Download](https://python.org/downloads/)
-- **Docker** - [Get Docker](https://docs.docker.com/get-docker/)
-- **kubectl** - [Install kubectl](https://kubernetes.io/docs/tasks/tools/)
-- **k3d** - [Install k3d](https://k3d.io/v5.6.0/#installation)
-- **Tilt** - [Install Tilt](https://tilt.dev/)
-- **uv** - [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-### Optional (for development)
-- **Helm** - [Install Helm](https://helm.sh/docs/intro/install/)
-- **pre-commit** - Installed automatically via `make setup`
+### Auto-installed by setup script
+- **k3d** - Lightweight Kubernetes distribution
+- **kubectl** - Kubernetes CLI
+- **uv** - Fast Python package manager
 
 ### System Requirements
-- **Memory**: 4GB+ RAM (8GB recommended)
-- **Storage**: 2GB+ free space
-- **Network**: Internet connection for dependency downloads
+- **Memory**: 4GB+ RAM (8GB recommended for AI services)
+- **Storage**: 5GB+ free space
+- **Network**: Internet connection for downloads
+- **Ports**: 30000, 30081, 30092, 30432 (auto-configured)
 
-## 🛠️ Installation & Setup
+## 🛠️ Architecture Overview
 
 ### 1. Environment Setup
 

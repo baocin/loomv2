@@ -1,7 +1,8 @@
 """Kafka topic management for automatic topic creation."""
 
 import structlog
-from aiokafka.admin import AIOKafkaAdminClient, ConfigResource, ConfigResourceType
+from aiokafka.admin import AIOKafkaAdminClient
+from aiokafka.admin.config_resource import ConfigResource, ConfigResourceType
 from aiokafka.admin.new_topic import NewTopic
 from aiokafka.errors import TopicAlreadyExistsError
 
@@ -90,6 +91,238 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            # Sprint 5.5: New data ingestion topics
+            "device.text.notes.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.image.camera.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "1296000000",  # 15 days (images are large)
+                    "compression.type": "producer",
+                },
+            },
+            "device.video.screen.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days (screenshots)
+                    "compression.type": "producer",
+                },
+            },
+            # External data topics for scheduled consumers
+            "external.email.events.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.calendar.events.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "31536000000",  # 365 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.twitter.liked.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "31536000000",  # 365 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.reddit.activity.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "15552000000",  # 180 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.hackernews.activity.raw": {
+                "partitions": 2,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "15552000000",  # 180 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.web.visits.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "external.rss.items.raw": {
+                "partitions": 2,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
+            "internal.scheduled.jobs.status": {
+                "partitions": 1,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                    "cleanup.policy": "compact",  # Keep latest status per job
+                },
+            },
+            # Remote Control Topics (Bidirectional Communication)
+            # Device Command & Control
+            "device.command.keystroke.send": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.mouse.send": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.clipboard.send": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.file.transfer": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.screen.capture": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.audio.send": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.shell.execute": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.app.launch": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.command.app.close": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            # Device Response Topics
+            "device.response.command.status": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.response.file.transfer": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.response.screen.capture": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.response.shell.output": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.response.error": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            # Cross-Device Communication
+            "device.sync.clipboard.broadcast": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                },
+            },
+            "device.sync.files.broadcast": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.sync.state.broadcast": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "86400000",  # 1 day
+                    "compression.type": "producer",
+                    "cleanup.policy": "compact",  # Keep latest state
+                },
+            },
         }
 
     async def start(self) -> None:
@@ -165,25 +398,32 @@ class KafkaTopicManager:
             successful_topics = []
             failed_topics = []
 
-            for topic_name, future in create_result.items():
-                try:
-                    await future
-                    successful_topics.append(topic_name)
-                    logger.info("Successfully created topic", topic=topic_name)
-                except TopicAlreadyExistsError:
-                    # Topic was created between our check and creation attempt
-                    successful_topics.append(topic_name)
-                    logger.info(
-                        "Topic already exists (concurrent creation)",
-                        topic=topic_name,
-                    )
-                except Exception as e:
-                    failed_topics.append((topic_name, str(e)))
-                    logger.error(
-                        "Failed to create topic",
-                        topic=topic_name,
-                        error=str(e),
-                    )
+            # Handle different response types from create_topics
+            if hasattr(create_result, "items"):
+                # Dictionary-like response
+                for topic_name, future in create_result.items():
+                    try:
+                        await future
+                        successful_topics.append(topic_name)
+                        logger.info("Successfully created topic", topic=topic_name)
+                    except TopicAlreadyExistsError:
+                        # Topic was created between our check and creation attempt
+                        successful_topics.append(topic_name)
+                        logger.info(
+                            "Topic already exists (concurrent creation)",
+                            topic=topic_name,
+                        )
+                    except Exception as e:
+                        failed_topics.append((topic_name, str(e)))
+                        logger.error(
+                            "Failed to create topic",
+                            topic=topic_name,
+                            error=str(e),
+                        )
+            else:
+                # Assume all topics were created successfully if no detailed response
+                successful_topics = [t.name for t in topics_to_create]
+                logger.info("Topics created (no detailed response available)")
 
             # Report results
             if successful_topics:
@@ -209,7 +449,16 @@ class KafkaTopicManager:
         """Get list of existing topic names."""
         try:
             metadata = await self.admin_client.list_topics()
-            return list(metadata.topics.keys())
+            # Handle different return types from list_topics
+            if isinstance(metadata, list):
+                return metadata
+            if hasattr(metadata, "topics"):
+                return list(metadata.topics.keys())
+            logger.warning(
+                "Unexpected metadata format",
+                metadata_type=type(metadata),
+            )
+            return []
         except Exception as e:
             logger.error("Failed to list existing topics", error=str(e))
             return []

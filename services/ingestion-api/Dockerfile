@@ -1,37 +1,65 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Multi-stage Dockerfile for Ingestion API Service
+
+# Stage 1: Build environment
+FROM python:3.11-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster dependency installation
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Copy dependency files
+COPY pyproject.toml ./
+
+# Create virtual environment and install dependencies
+RUN uv venv .venv && \
+    . .venv/bin/activate && \
+    uv pip install -e .
+
+# Stage 2: Runtime environment
+FROM python:3.11-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN pip install uv
+# Create non-root user
+RUN useradd -m -u 1000 -s /bin/bash appuser
 
-# Copy dependency files
-COPY pyproject.toml requirements-locked.txt ./
+# Set working directory
+WORKDIR /app
 
-# Install Python dependencies using uv
-RUN uv pip install --system -r requirements-locked.txt
+# Copy virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
-COPY app/ ./app/
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser migrations/ ./migrations/
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Switch to non-root user
 USER appuser
 
-# Expose ports
-EXPOSE 8000 8001
+# Expose API port
+EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/healthz || exit 1
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the API
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

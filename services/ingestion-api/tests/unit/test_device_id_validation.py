@@ -10,13 +10,13 @@ from app.main import app
 from app.models import BaseMessage
 
 
-@pytest.fixture
+@pytest.fixture()
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer."""
     with patch("app.routers.notes.kafka_producer") as mock:
@@ -133,7 +133,11 @@ class TestRecordedAtValidation:
 
             response = client.post("/notes/upload", json=note_data)
             # Some timestamps may be parsed/converted, others may fail
-            assert response.status_code in [200, 201, 422], f"Unexpected status for timestamp: {timestamp}"
+            assert response.status_code in [
+                200,
+                201,
+                422,
+            ], f"Unexpected status for timestamp: {timestamp}"
 
     def test_missing_recorded_at(self, client, mock_kafka_producer):
         """Test that missing recorded_at is rejected."""

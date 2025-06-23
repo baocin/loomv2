@@ -12,7 +12,7 @@ from app.kafka_producer import KafkaProducerService
 from app.models import AudioChunk, GPSReading, SensorReading
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_settings():
     """Mock settings fixture."""
     settings = MagicMock(spec=Settings)
@@ -27,7 +27,7 @@ def mock_settings():
     return settings
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_producer():
     """Mock aiokafka producer fixture."""
     with patch("app.kafka_producer.AIOKafkaProducer") as mock:
@@ -36,7 +36,7 @@ def mock_producer():
         yield producer_instance
 
 
-@pytest.fixture
+@pytest.fixture()
 def kafka_service():
     """Kafka producer service fixture."""
     return KafkaProducerService()
@@ -56,7 +56,7 @@ class TestKafkaProducerInitialization:
 class TestKafkaProducerConnection:
     """Test Kafka producer connection management."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_success(self, kafka_service, mock_producer):
         """Test successful producer startup."""
         mock_producer.start = AsyncMock()
@@ -68,7 +68,7 @@ class TestKafkaProducerConnection:
         assert kafka_service._producer == mock_producer
         assert kafka_service.is_connected is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_start_failure(self, kafka_service, mock_producer):
         """Test producer startup failure."""
         mock_producer.start = AsyncMock(side_effect=KafkaError("Connection failed"))
@@ -79,7 +79,7 @@ class TestKafkaProducerConnection:
 
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_stop_success(self, kafka_service, mock_producer):
         """Test successful producer shutdown."""
         mock_producer.stop = AsyncMock()
@@ -91,7 +91,7 @@ class TestKafkaProducerConnection:
         mock_producer.stop.assert_called_once()
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_stop_when_not_connected(self, kafka_service):
         """Test stop when not connected."""
         kafka_service._producer = None
@@ -103,7 +103,7 @@ class TestKafkaProducerConnection:
         assert kafka_service._producer is None
         assert kafka_service.is_connected is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_stop_with_error(self, kafka_service, mock_producer):
         """Test stop with error."""
         mock_producer.stop = AsyncMock(side_effect=Exception("Stop failed"))
@@ -119,7 +119,7 @@ class TestKafkaProducerConnection:
 class TestKafkaMessageSending:
     """Test message sending functionality."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_send_audio_chunk_success(self, kafka_service, mock_producer):
         """Test successful audio chunk sending."""
         kafka_service._producer = mock_producer
@@ -144,7 +144,7 @@ class TestKafkaMessageSending:
         assert call_args[1]["value"] == audio_chunk
         assert call_args[1]["key"] == "12345678-1234-8234-1234-123456789012"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_send_sensor_data_success(self, kafka_service, mock_producer):
         """Test successful sensor data sending."""
         kafka_service._producer = mock_producer
@@ -168,7 +168,7 @@ class TestKafkaMessageSending:
         assert call_args[1]["value"] == gps_reading
         assert call_args[1]["key"] == "12345678-1234-8234-1234-123456789012"
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_send_when_not_connected(self, kafka_service):
         """Test sending when not connected."""
         kafka_service._is_connected = False
@@ -184,7 +184,7 @@ class TestKafkaMessageSending:
         with pytest.raises(RuntimeError, match="Kafka producer not connected"):
             await kafka_service.send_audio_chunk(audio_chunk)
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_send_with_kafka_error(self, kafka_service, mock_producer):
         """Test sending with Kafka error."""
         kafka_service._producer = mock_producer
@@ -293,7 +293,7 @@ class TestMessageSerialization:
 class TestErrorHandling:
     """Test error handling and logging."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_connection_error_logging(self, kafka_service):
         """Test connection error logging."""
         with patch("app.kafka_producer.logger") as mock_logger:
@@ -309,7 +309,7 @@ class TestErrorHandling:
 
                 mock_logger.error.assert_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio()
     async def test_send_error_logging(self, kafka_service, mock_producer):
         """Test send error logging."""
         kafka_service._producer = mock_producer

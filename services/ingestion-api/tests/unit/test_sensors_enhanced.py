@@ -9,13 +9,13 @@ from app.main import app
 from tests.test_helpers import generate_test_device_id, generate_test_recorded_at
 
 
-@pytest.fixture
+@pytest.fixture()
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer."""
     with patch("app.routers.sensors.kafka_producer") as mock:

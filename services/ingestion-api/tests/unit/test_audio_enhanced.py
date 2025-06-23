@@ -11,13 +11,13 @@ from app.main import app
 from app.models import AudioChunk
 
 
-@pytest.fixture
+@pytest.fixture()
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer."""
     with patch("app.routers.audio.kafka_producer") as mock:
@@ -25,7 +25,7 @@ def mock_kafka_producer():
         yield mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def sample_audio_data():
     """Sample audio data for testing."""
     from ..test_helpers import create_audio_test_data

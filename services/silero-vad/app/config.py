@@ -1,0 +1,56 @@
+"""Configuration for Silero VAD service."""
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
+
+
+class Settings(BaseSettings):
+    """Application settings with LOOM_ prefix."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="LOOM_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
+
+    # Service settings
+    service_name: str = "silero-vad"
+    host: str = "0.0.0.0"
+    port: int = 8001
+    log_level: str = "INFO"
+    environment: str = "development"
+    debug: bool = False
+
+    # Kafka settings
+    kafka_bootstrap_servers: str = "kafka:29092"
+    kafka_consumer_group: str = "silero-vad-consumer"
+    kafka_input_topic: str = "device.audio.raw"
+    kafka_output_topic: str = "media.audio.vad_filtered"
+    kafka_auto_offset_reset: str = "latest"
+    kafka_enable_auto_commit: bool = False
+    kafka_max_poll_records: int = 10
+    kafka_consumer_timeout_ms: int = 1000
+
+    # VAD settings
+    vad_threshold: float = 0.5
+    vad_min_speech_duration_ms: float = 250.0
+    vad_min_silence_duration_ms: float = 100.0
+    vad_window_size_samples: int = 512  # 16ms at 16kHz
+    vad_sample_rate: int = 16000  # Silero VAD expects 16kHz
+    
+    # Model settings
+    silero_model_name: str = "silero_vad"
+    silero_model_version: str = "v4.0"
+    silero_use_onnx: bool = False  # Use PyTorch by default
+    
+    # Performance settings
+    batch_timeout_ms: int = 100
+    max_batch_size: int = 1  # Process one at a time for now
+    
+    # Health check settings
+    health_check_interval_seconds: int = 30
+    kafka_health_timeout_seconds: int = 5
+
+
+settings = Settings()

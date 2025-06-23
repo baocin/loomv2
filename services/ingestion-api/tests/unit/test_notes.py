@@ -10,13 +10,13 @@ from app.main import app
 from app.models import NoteData
 
 
-@pytest.fixture
+@pytest.fixture()
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer."""
     with patch("app.routers.notes.kafka_producer") as mock:
@@ -24,7 +24,7 @@ def mock_kafka_producer():
         yield mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def sample_note_data():
     """Sample note data for testing."""
     from ..test_helpers import create_note_test_data
@@ -106,7 +106,11 @@ class TestNotesUpload:
 
     def test_upload_note_minimal_data(self, client, mock_kafka_producer):
         """Test note upload with minimal required data."""
-        minimal_note = {"device_id": "12345678-1234-8234-1234-123456789012", "recorded_at": datetime.now(UTC).isoformat(), "content": "Minimal note content"}
+        minimal_note = {
+            "device_id": "12345678-1234-8234-1234-123456789012",
+            "recorded_at": datetime.now(UTC).isoformat(),
+            "content": "Minimal note content",
+        }
 
         response = client.post("/notes/upload", json=minimal_note)
         assert response.status_code == 200

@@ -56,11 +56,12 @@ async def ingest_gps_data(gps_reading: GPSReading) -> JSONResponse:
             "Failed to ingest GPS data",
             device_id=gps_reading.device_id,
             error=str(e),
+            error_type=type(e).__name__,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to ingest GPS data",
-        ) from e
+        )
 
 
 @router.post("/accelerometer", status_code=status.HTTP_201_CREATED)

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
     workers: int = Field(default=1, description="Number of worker processes")
+    environment: str = Field(default="development", description="Application environment")
+    enable_cors: bool = Field(default=True, description="Enable CORS middleware")
 
     # Kafka configuration
     kafka_bootstrap_servers: str = Field(
@@ -22,8 +24,24 @@ class Settings(BaseSettings):
         description="Kafka client ID",
     )
     kafka_compression_type: str = Field(
-        default="none",
+        default="lz4",
         description="Kafka message compression",
+    )
+    kafka_batch_size: int = Field(
+        default=16384,
+        description="Kafka producer batch size",
+    )
+    kafka_linger_ms: int = Field(
+        default=10,
+        description="Kafka producer linger time in ms",
+    )
+    kafka_retry_backoff_ms: int = Field(
+        default=100,
+        description="Kafka retry backoff time in ms",
+    )
+    kafka_max_retries: int = Field(
+        default=3,
+        description="Maximum Kafka retries",
     )
 
     # Kafka topic management
@@ -45,11 +63,19 @@ class Settings(BaseSettings):
         default="device.audio.raw",
         description="Topic for raw audio chunks",
     )
+    kafka_audio_topic: str = Field(
+        default="device.audio.raw",
+        description="Kafka topic for audio data (alias)",
+    )
 
     # Topics - Sensors
     topic_device_sensor_raw: str = Field(
         default="device.sensor.{sensor_type}.raw",
         description="Topic pattern for sensor data",
+    )
+    kafka_sensor_topic: str = Field(
+        default="device.sensor.{type}.raw",
+        description="Kafka topic pattern for sensor data (alias)",
     )
 
     # Topics - Images
@@ -86,6 +112,7 @@ class Settings(BaseSettings):
 
     # Monitoring
     enable_metrics: bool = Field(default=True, description="Enable Prometheus metrics")
+    metrics_enabled: bool = Field(default=True, description="Enable Prometheus metrics (alias)")
     metrics_port: int = Field(default=8001, description="Prometheus metrics port")
 
     # Logging

@@ -1,0 +1,801 @@
+---
+# Loom v2 Complete K3s Deployment
+# Self-contained deployment for local development and testing
+
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: loom
+  labels:
+    app.kubernetes.io/name: loom
+    app.kubernetes.io/part-of: loom-v2
+---
+# ConfigMap for shared configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loom-config
+  namespace: loom
+data:
+  LOOM_ENVIRONMENT: "development"
+  LOOM_LOG_LEVEL: "INFO"
+  LOOM_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  LOOM_DATABASE_URL: "postgresql://loom:loom@timescaledb:5432/loom"
+  LOOM_KAFKA_DEFAULT_PARTITIONS: "3"
+  LOOM_KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
+---
+# Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loom-secrets
+  namespace: loom
+type: Opaque
+stringData:
+  postgres-password: "loom"
+  kafka-password: ""
+---
+# TimescaleDB Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timescaledb
+  namespace: loom
+  labels:
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: timescaledb
+  template:
+    metadata:
+      labels:
+        app: timescaledb
+    spec:
+      containers:
+      - name: timescaledb
+        image: timescale/timescaledb:latest-pg15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: loom
+        - name: POSTGRES_USER
+          value: loom
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: loom-secrets
+              key: postgres-password
+        - name: POSTGRES_INITDB_ARGS
+          value: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - loom
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - loom
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+      - name: init-scripts
+        configMap:
+          name: timescaledb-init
+---
+# TimescaleDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+  namespace: loom
+  labels:
+    app: timescaledb
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+  selector:
+    app: timescaledb
+---
+# TimescaleDB NodePort Service (for external access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb-external
+  namespace: loom
+  labels:
+    app: timescaledb
+spec:
+  type: NodePort
+  ports:
+  - port: 5432
+    targetPort: 5432
+    nodePort: 30432
+    name: postgres
+  selector:
+    app: timescaledb
+---
+# TimescaleDB Initialization ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timescaledb-init
+  namespace: loom
+data:
+  01-init.sql: |
+    -- Enable TimescaleDB extension
+    CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+    
+    -- Create migrations tracking table
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL UNIQUE,
+        executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+---
+# Kafka Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: loom
+  labels:
+    app: kafka
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: bitnami/kafka:latest
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 9093
+          name: kafka-admin
+        env:
+        - name: KAFKA_ENABLE_KRAFT
+          value: "yes"
+        - name: KAFKA_CFG_NODE_ID
+          value: "0"
+        - name: KAFKA_CFG_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_CFG_LISTENERS
+          value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+        - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_CFG_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:9092"
+        - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+          value: "0@kafka:9093"
+        - name: KAFKA_CFG_BROKER_ID
+          value: "0"
+        - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: KAFKA_CFG_DEFAULT_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_CFG_NUM_PARTITIONS
+          value: "3"
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /bitnami/kafka/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: kafka-data
+        emptyDir: {}
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: loom
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka
+  - port: 9093
+    targetPort: 9093
+    name: kafka-admin
+  selector:
+    app: kafka
+---
+# Kafka NodePort Service (for external access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-external
+  namespace: loom
+  labels:
+    app: kafka
+spec:
+  type: NodePort
+  ports:
+  - port: 9092
+    targetPort: 9092
+    nodePort: 30092
+    name: kafka
+  selector:
+    app: kafka
+---
+# Kafka UI Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: loom
+  labels:
+    app: kafka-ui
+    app.kubernetes.io/name: kafka-ui
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+      - name: kafka-ui
+        image: provectuslabs/kafka-ui:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: KAFKA_CLUSTERS_0_NAME
+          value: "loom-local"
+        - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+          value: "kafka:9092"
+        - name: DYNAMIC_CONFIG_ENABLED
+          value: "true"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+# Kafka UI Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+  namespace: loom
+  labels:
+    app: kafka-ui
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30081
+    name: http
+  selector:
+    app: kafka-ui
+---
+# Database Migration Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  namespace: loom
+  labels:
+    app: db-migration
+    app.kubernetes.io/name: db-migration
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  template:
+    metadata:
+      labels:
+        app: db-migration
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-db
+        image: postgres:15
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h timescaledb -p 5432 -U loom; do
+            echo "Waiting for database..."
+            sleep 2
+          done
+          echo "Database is ready!"
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: loom-secrets
+              key: postgres-password
+      containers:
+      - name: migrate
+        image: postgres:15
+        command:
+        - sh
+        - -c
+        - |
+          export PGPASSWORD=loom
+          echo "Running database migrations..."
+          
+          # Run each migration file
+          for file in /migrations/*.sql; do
+            if [ -f "$file" ]; then
+              echo "Running migration: $(basename $file)"
+              psql -h timescaledb -U loom -d loom -f "$file" || exit 1
+            fi
+          done
+          
+          echo "All migrations completed successfully!"
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: loom-secrets
+              key: postgres-password
+        volumeMounts:
+        - name: migration-scripts
+          mountPath: /migrations
+      volumes:
+      - name: migration-scripts
+        configMap:
+          name: db-migrations
+---
+# Database Migrations ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-migrations
+  namespace: loom
+data:
+  001-enable-timescaledb.sql: |
+    -- Enable TimescaleDB extension
+    CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+    SET timescaledb.telemetry_level = 'off';
+    
+    -- Record migration
+    INSERT INTO schema_migrations (filename) VALUES ('001-enable-timescaledb.sql') 
+    ON CONFLICT (filename) DO NOTHING;
+  
+  002-create-raw-data-tables.sql: |
+    -- Device Audio Table
+    CREATE TABLE IF NOT EXISTS device_audio_raw (
+        id BIGSERIAL,
+        device_id TEXT NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL,
+        schema_version TEXT NOT NULL DEFAULT 'v1',
+        chunk_number INT NOT NULL,
+        audio_data TEXT NOT NULL,
+        format TEXT NOT NULL,
+        sample_rate INT NOT NULL,
+        channels INT NOT NULL,
+        duration_ms INT NOT NULL,
+        metadata JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    
+    -- Device Sensor GPS Table
+    CREATE TABLE IF NOT EXISTS device_sensor_gps_raw (
+        id BIGSERIAL,
+        device_id TEXT NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL,
+        schema_version TEXT NOT NULL DEFAULT 'v1',
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        altitude DOUBLE PRECISION,
+        accuracy DOUBLE PRECISION,
+        speed DOUBLE PRECISION,
+        bearing DOUBLE PRECISION,
+        metadata JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    
+    -- Convert to hypertables if not already
+    SELECT create_hypertable('device_audio_raw', 'timestamp', if_not_exists => TRUE);
+    SELECT create_hypertable('device_sensor_gps_raw', 'timestamp', if_not_exists => TRUE);
+    
+    -- Create indexes
+    CREATE INDEX IF NOT EXISTS idx_audio_device_time ON device_audio_raw (device_id, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_gps_device_time ON device_sensor_gps_raw (device_id, timestamp DESC);
+    
+    -- Record migration
+    INSERT INTO schema_migrations (filename) VALUES ('002-create-raw-data-tables.sql') 
+    ON CONFLICT (filename) DO NOTHING;
+  
+  003-configure-compression.sql: |
+    -- Configure compression for device_audio_raw
+    ALTER TABLE device_audio_raw SET (
+        timescaledb.compress,
+        timescaledb.compress_orderby = 'timestamp DESC',
+        timescaledb.compress_segmentby = 'device_id'
+    );
+    SELECT add_compression_policy('device_audio_raw', INTERVAL '1 day', if_not_exists => TRUE);
+    
+    -- Configure compression for device_sensor_gps_raw
+    ALTER TABLE device_sensor_gps_raw SET (
+        timescaledb.compress,
+        timescaledb.compress_orderby = 'timestamp DESC',
+        timescaledb.compress_segmentby = 'device_id'
+    );
+    SELECT add_compression_policy('device_sensor_gps_raw', INTERVAL '7 days', if_not_exists => TRUE);
+    
+    -- Add retention policies
+    SELECT add_retention_policy('device_audio_raw', INTERVAL '7 days', if_not_exists => TRUE);
+    SELECT add_retention_policy('device_sensor_gps_raw', INTERVAL '30 days', if_not_exists => TRUE);
+    
+    -- Record migration
+    INSERT INTO schema_migrations (filename) VALUES ('003-configure-compression.sql') 
+    ON CONFLICT (filename) DO NOTHING;
+---
+# Ingestion API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-api
+  namespace: loom
+  labels:
+    app: ingestion-api
+    app.kubernetes.io/name: ingestion-api
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ingestion-api
+  template:
+    metadata:
+      labels:
+        app: ingestion-api
+    spec:
+      initContainers:
+      - name: wait-for-deps
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for dependencies..."
+          until nc -z timescaledb 5432; do sleep 1; done
+          until nc -z kafka 9092; do sleep 1; done
+          echo "Dependencies are ready!"
+      containers:
+      - name: ingestion-api
+        image: loom/ingestion-api:latest
+        imagePullPolicy: Never  # Use local images
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: loom-config
+        env:
+        - name: LOOM_DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: loom-config
+              key: LOOM_DATABASE_URL
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              name: loom-config
+              key: LOOM_KAFKA_BOOTSTRAP_SERVERS
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+# Ingestion API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-api
+  namespace: loom
+  labels:
+    app: ingestion-api
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30000
+    name: http
+  selector:
+    app: ingestion-api
+---
+# VAD Processor Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vad-processor
+  namespace: loom
+  labels:
+    app: vad-processor
+    app.kubernetes.io/name: vad-processor
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vad-processor
+  template:
+    metadata:
+      labels:
+        app: vad-processor
+    spec:
+      initContainers:
+      - name: wait-for-deps
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for dependencies..."
+          until nc -z timescaledb 5432; do sleep 1; done
+          until nc -z kafka 9092; do sleep 1; done
+          echo "Dependencies are ready!"
+      containers:
+      - name: vad-processor
+        image: loom/vad-processor:latest
+        imagePullPolicy: Never  # Use local images
+        ports:
+        - containerPort: 8001
+          name: metrics
+        env:
+        - name: VAD_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: VAD_DATABASE_URL
+          value: "postgresql://loom:loom@timescaledb:5432/loom"
+        - name: VAD_SERVICE_NAME
+          value: "vad-processor"
+        - name: VAD_LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 8001
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+# VAD Processor Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: vad-processor
+  namespace: loom
+  labels:
+    app: vad-processor
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: 8001
+    name: metrics
+  selector:
+    app: vad-processor
+---
+# Test Data Generator CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: test-data-generator
+  namespace: loom
+  labels:
+    app: test-data-generator
+    app.kubernetes.io/name: test-data-generator
+    app.kubernetes.io/part-of: loom-v2
+spec:
+  schedule: "*/2 * * * *"  # Every 2 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: test-data-generator
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: generator
+            image: python:3.11-slim
+            command:
+            - python3
+            - -c
+            - |
+              import json
+              import base64
+              import numpy as np
+              from datetime import datetime
+              import asyncio
+              import os
+              
+              # Install required packages
+              os.system("pip install aiokafka numpy")
+              
+              from aiokafka import AIOKafkaProducer
+              
+              async def generate_test_data():
+                  producer = AIOKafkaProducer(
+                      bootstrap_servers='kafka:9092',
+                      value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8')
+                  )
+                  await producer.start()
+                  
+                  try:
+                      # Generate synthetic audio
+                      sample_rate = 16000
+                      duration = 2.0
+                      t = np.linspace(0, duration, int(sample_rate * duration))
+                      audio = (np.sin(2 * np.pi * 440 * t) * 16000).astype(np.int16)
+                      audio_bytes = audio.tobytes()
+                      
+                      # Create test messages
+                      messages = [
+                          {
+                              "device_id": f"test-device-{i:03d}",
+                              "timestamp": datetime.utcnow().isoformat(),
+                              "schema_version": "v1",
+                              "chunk_number": 1,
+                              "audio_data": base64.b64encode(audio_bytes).decode('utf-8'),
+                              "format": "pcm16",
+                              "sample_rate": sample_rate,
+                              "channels": 1,
+                              "duration_ms": int(duration * 1000),
+                              "metadata": {"generated": True, "test": True}
+                          }
+                          for i in range(3)
+                      ]
+                      
+                      # Send to Kafka
+                      for msg in messages:
+                          await producer.send_and_wait(
+                              "device.audio.raw",
+                              value=msg,
+                              key=msg["device_id"].encode('utf-8')
+                          )
+                          print(f"Sent test audio for {msg['device_id']}")
+                      
+                      print(f"Generated {len(messages)} test audio chunks")
+                      
+                  finally:
+                      await producer.stop()
+              
+              asyncio.run(generate_test_data())
+            env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loom-ingress
+  namespace: loom
+  labels:
+    app.kubernetes.io/name: loom-ingress
+    app.kubernetes.io/part-of: loom-v2
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: loom.local
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestion-api
+            port:
+              number: 8000
+      - path: /kafka-ui
+        pathType: Prefix
+        backend:
+          service:
+            name: kafka-ui
+            port:
+              number: 8080
