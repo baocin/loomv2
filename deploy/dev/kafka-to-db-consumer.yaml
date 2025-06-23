@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-to-db-consumer
+  namespace: loom-dev
+  labels:
+    app: kafka-to-db-consumer
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-to-db-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-to-db-consumer
+        version: v1
+    spec:
+      containers:
+      - name: kafka-to-db-consumer
+        image: loom/kafka-to-db-consumer:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://loom:loom@postgres:5432/loom"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-infra:9092"
+        - name: KAFKA_GROUP_ID
+          value: "kafka-to-db-consumer"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 12
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-to-db-consumer
+  namespace: loom-dev
+  labels:
+    app: kafka-to-db-consumer
+spec:
+  selector:
+    app: kafka-to-db-consumer
+  ports:
+  - name: http
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  type: ClusterIP

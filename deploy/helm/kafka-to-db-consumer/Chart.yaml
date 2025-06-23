@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kafka-to-db-consumer
+description: A Helm chart for Kafka to TimescaleDB consumer service
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kafka
+  - timescaledb
+  - postgresql
+  - data-ingestion
+home: https://github.com/loomdev/loomv2
+sources:
+  - https://github.com/loomdev/loomv2
+maintainers:
+  - name: Loom Team
+    email: team@loom.dev

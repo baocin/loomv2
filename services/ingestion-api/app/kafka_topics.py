@@ -174,6 +174,15 @@ class KafkaTopicManager:
                     "cleanup.policy": "compact",  # Keep latest status per job
                 },
             },
+            # AI Processing Intermediate Topics
+            "media.audio.vad_filtered": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
             # AI Processing Result Topics (renamed from *_results)
             "media.audio.voice_segments": {
                 "partitions": settings.kafka_default_partitions,

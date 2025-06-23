@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         "device.image.camera.raw",
         "device.video.screen.raw",
     ]
-    kafka_output_topic: str = "media.image.analysis.minicpm_results"
+    kafka_output_topic: str = "media.image.vision_annotations"
     kafka_consumer_group: str = "minicpm-vision-consumer"
     kafka_auto_offset_reset: str = "latest"
     kafka_compression_type: str = "lz4"
