@@ -135,24 +135,7 @@ CREATE TABLE IF NOT EXISTS external_web_visits_raw (
     PRIMARY KEY (device_id, url, timestamp)
 );
 
--- RSS Feed Items Table
-CREATE TABLE IF NOT EXISTS external_rss_items_raw (
-    id BIGSERIAL,
-    device_id TEXT NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL,
-    schema_version TEXT NOT NULL DEFAULT 'v1',
-    message_id TEXT NOT NULL,
-    feed_url TEXT NOT NULL,
-    feed_title TEXT NOT NULL,
-    item_id TEXT NOT NULL,
-    item_title TEXT NOT NULL,
-    item_url TEXT NOT NULL,
-    item_content TEXT,
-    author TEXT,
-    published_at TIMESTAMPTZ NOT NULL,
-    categories TEXT[],
-    PRIMARY KEY (device_id, item_id, timestamp)
-);
+-- RSS Feed Items Table (REMOVED - see migration 016)
 
 -- Job Status Table
 CREATE TABLE IF NOT EXISTS internal_scheduled_jobs_status (
@@ -179,7 +162,7 @@ SELECT create_hypertable('external_twitter_liked_raw', 'timestamp', if_not_exist
 SELECT create_hypertable('external_reddit_activity_raw', 'timestamp', if_not_exists => TRUE);
 SELECT create_hypertable('external_hackernews_activity_raw', 'timestamp', if_not_exists => TRUE);
 SELECT create_hypertable('external_web_visits_raw', 'timestamp', if_not_exists => TRUE);
-SELECT create_hypertable('external_rss_items_raw', 'timestamp', if_not_exists => TRUE);
+-- RSS hypertable removed - see migration 016
 SELECT create_hypertable('internal_scheduled_jobs_status', 'timestamp', if_not_exists => TRUE);
 
 -- Create indexes for common query patterns
@@ -191,7 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_external_twitter_hashtags ON external_twitter_lik
 CREATE INDEX IF NOT EXISTS idx_external_reddit_subreddit ON external_reddit_activity_raw (subreddit, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_external_hn_author ON external_hackernews_activity_raw (author, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_external_web_domain ON external_web_visits_raw (substring(url from 'https?://([^/]+)'), timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_external_rss_feed ON external_rss_items_raw (feed_url, timestamp DESC);
+-- RSS index removed - see migration 016
 CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_type ON internal_scheduled_jobs_status (job_type, timestamp DESC);
 
 -- Configure compression for external data tables
@@ -231,11 +214,7 @@ ALTER TABLE external_web_visits_raw SET (
     timescaledb.compress_orderby = 'timestamp DESC'
 );
 
-ALTER TABLE external_rss_items_raw SET (
-    timescaledb.compress,
-    timescaledb.compress_segmentby = 'device_id',
-    timescaledb.compress_orderby = 'timestamp DESC'
-);
+-- RSS compression config removed - see migration 016
 
 ALTER TABLE internal_scheduled_jobs_status SET (
     timescaledb.compress,
@@ -250,7 +229,7 @@ SELECT add_compression_policy('external_twitter_liked_raw', INTERVAL '7 days');
 SELECT add_compression_policy('external_reddit_activity_raw', INTERVAL '7 days');
 SELECT add_compression_policy('external_hackernews_activity_raw', INTERVAL '7 days');
 SELECT add_compression_policy('external_web_visits_raw', INTERVAL '1 day');
-SELECT add_compression_policy('external_rss_items_raw', INTERVAL '7 days');
+-- RSS compression policy removed - see migration 016
 SELECT add_compression_policy('internal_scheduled_jobs_status', INTERVAL '1 day');
 
 -- Add retention policies based on data importance
@@ -260,16 +239,16 @@ SELECT add_retention_policy('external_twitter_liked_raw', INTERVAL '365 days');
 SELECT add_retention_policy('external_reddit_activity_raw', INTERVAL '180 days');
 SELECT add_retention_policy('external_hackernews_activity_raw', INTERVAL '180 days');
 SELECT add_retention_policy('external_web_visits_raw', INTERVAL '30 days');
-SELECT add_retention_policy('external_rss_items_raw', INTERVAL '90 days');
+-- RSS retention policy removed - see migration 016
 SELECT add_retention_policy('internal_scheduled_jobs_status', INTERVAL '7 days');
 
 -- Show compression and retention policies
-SELECT 
+SELECT
     hypertable_name,
     compression_enabled,
-    (SELECT compress_after FROM timescaledb_information.jobs 
+    (SELECT compress_after FROM timescaledb_information.jobs
      WHERE hypertable_name = h.hypertable_name AND proc_name = 'policy_compression' LIMIT 1) as compress_after,
-    (SELECT drop_after FROM timescaledb_information.jobs 
+    (SELECT drop_after FROM timescaledb_information.jobs
      WHERE hypertable_name = h.hypertable_name AND proc_name = 'policy_retention' LIMIT 1) as retention_period
 FROM timescaledb_information.hypertables h
 WHERE hypertable_name LIKE 'external_%' OR hypertable_name LIKE 'internal_%'

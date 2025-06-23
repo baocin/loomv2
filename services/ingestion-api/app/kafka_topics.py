@@ -165,14 +165,6 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
-            "external.rss.items.raw": {
-                "partitions": 2,
-                "replication_factor": settings.kafka_default_replication_factor,
-                "config": {
-                    "retention.ms": "7776000000",  # 90 days
-                    "compression.type": "producer",
-                },
-            },
             "internal.scheduled.jobs.status": {
                 "partitions": 1,
                 "replication_factor": settings.kafka_default_replication_factor,

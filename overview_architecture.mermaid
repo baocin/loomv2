@@ -1,0 +1,293 @@
+---
+title: "Loom v2 - Complete Data Flow Architecture (Left-to-Right)"
+---
+
+graph LR
+    %% Column 1: Data Sources
+    subgraph "Column 1: Data Sources"
+        direction TB
+
+        subgraph "📱 Device Sources"
+            AUDIO_DEV["🎤 Audio Devices<br/>Microphone Input"]
+            SCREEN_DEV["🖥️ Screen Capture<br/>Screenshots/Video"]
+            CAMERA_DEV["📷 Camera Input<br/>Photos & Images"]
+            GPS_DEV["📍 GPS Sensors<br/>Location Data"]
+            ACCEL_DEV["⚡ Accelerometer<br/>Motion Data"]
+            HEART_DEV["❤️ Heart Rate<br/>Health Metrics"]
+            POWER_DEV["🔋 Power State<br/>Battery & Charging"]
+            APPS_DEV["📱 App Monitoring<br/>macOS/Android"]
+            WIFI_DEV["📶 WiFi State<br/>Network Info"]
+            BT_DEV["🔵 Bluetooth<br/>Nearby Devices"]
+            TEMP_DEV["🌡️ Temperature<br/>Device Sensors"]
+            PRESSURE_DEV["🌪️ Barometer<br/>Atmospheric Data"]
+        end
+
+        subgraph "💻 OS Events"
+            OS_LIFECYCLE["🔄 App Lifecycle<br/>Android Events"]
+            OS_NOTIF["🔔 Notifications<br/>System Alerts"]
+            CLIPBOARD["📋 Clipboard Data<br/>Cross-device"]
+        end
+
+        subgraph "📡 External Sources"
+            EMAIL["📧 Gmail API<br/>Email Events"]
+            TWITTER["🐦 Twitter/X API<br/>Liked Posts"]
+            HN["📰 Hacker News API<br/>User Activity"]
+            REDDIT["💬 Reddit API<br/>User Activity"]
+            CALENDAR["📅 Calendar API<br/>Events & Meetings"]
+            WEB["🌐 Browser History<br/>Chrome/Firefox"]
+            URL_TASKS["🔗 URL Processing<br/>Twitter, PDFs, Web"]
+        end
+    end
+
+    %% Column 2: FastAPI Ingestion
+    subgraph "Column 2: FastAPI Ingestion"
+        direction TB
+
+        subgraph "🎵 Audio"
+            AUDIO_WS["🔌 WebSocket<br/>/audio/stream/{device_id}<br/>→ device.audio.raw"]
+            AUDIO_UPLOAD["📤 POST /audio/upload<br/>→ device.audio.raw"]
+        end
+
+        subgraph "🖼️ Media"
+            IMAGE_UPLOAD["📷 POST /images/upload<br/>→ device.image.camera.raw"]
+            SCREENSHOT["🖥️ POST /images/screenshot<br/>→ device.video.screen.raw"]
+            IMAGE_BATCH["📦 POST /images/batch<br/>→ device.image.camera.raw"]
+        end
+
+        subgraph "📍 Sensors"
+            GPS_SENSOR["🗺️ POST /sensor/gps<br/>→ device.sensor.gps.raw"]
+            ACCEL_SENSOR["⚡ POST /sensor/accelerometer<br/>→ device.sensor.accelerometer.raw"]
+            HEART_SENSOR["❤️ POST /sensor/heartrate<br/>→ device.health.heartrate.raw"]
+            POWER_SENSOR["🔋 POST /sensor/power<br/>→ device.state.power.raw"]
+            GENERIC_SENSOR["⚙️ POST /sensor/generic<br/>→ device.sensor.generic.raw"]
+            SENSOR_BATCH["📦 POST /sensor/batch<br/>→ multiple topics"]
+        end
+
+        subgraph "💻 System"
+            MACOS_APPS["🍎 POST /system/apps/macos<br/>→ device.system.apps.macos.raw"]
+            ANDROID_APPS["🤖 POST /system/apps/android<br/>→ device.system.apps.android.raw"]
+            METADATA["📋 POST /system/metadata<br/>→ device.metadata.raw"]
+        end
+
+        subgraph "📝 Notes"
+            NOTES_UPLOAD["📝 POST /notes/upload<br/>→ digital.clipboard.raw"]
+            NOTES_BATCH["📦 POST /notes/batch<br/>→ digital.clipboard.raw"]
+        end
+
+        subgraph "⏰ Scheduled"
+            SCHEDULED_CONSUMERS["⏰ Scheduled Consumers<br/>CronJob Framework<br/>→ external.*.raw"]
+        end
+    end
+
+    %% Column 3: Kafka Topics
+    subgraph "Column 3: Kafka Topics"
+        direction TB
+
+        subgraph "📥 Raw Topics"
+            KAFKA_AUDIO["device.audio.raw<br/>7 days"]
+            KAFKA_VIDEO["device.video.screen.raw<br/>7 days"]
+            KAFKA_IMAGE["device.image.camera.raw<br/>30 days"]
+            KAFKA_GPS["device.sensor.gps.raw<br/>30 days"]
+            KAFKA_ACCEL["device.sensor.accelerometer.raw<br/>30 days"]
+            KAFKA_HEART["device.health.heartrate.raw<br/>60 days"]
+            KAFKA_POWER["device.state.power.raw<br/>30 days"]
+            KAFKA_APPS["device.system.apps.*.raw<br/>30 days"]
+            KAFKA_NETWORK["device.network.*.raw<br/>30 days"]
+            KAFKA_TEMP["device.sensor.temperature.raw<br/>30 days"]
+            KAFKA_PRESSURE["device.sensor.barometer.raw<br/>30 days"]
+            KAFKA_CLIPBOARD["digital.clipboard.raw<br/>7 days"]
+            KAFKA_EMAIL_EXT["external.email.events.raw<br/>90 days"]
+            KAFKA_TWITTER_EXT["external.twitter.liked.raw<br/>365 days"]
+            KAFKA_WEB_EXT["external.web_analytics.raw<br/>30 days"]
+            KAFKA_URL_TASKS["task.url.ingest<br/>Queue"]
+        end
+
+        subgraph "⚙️ Processed Topics"
+            KAFKA_VAD["media.audio.vad_filtered<br/>Voice Detected"]
+            KAFKA_TRANSCRIBED["media.text.transcribed.words<br/>Speech-to-Text"]
+            KAFKA_VISION["media.image.analysis.minicpm_results<br/>Vision Analysis"]
+            KAFKA_EMOTION_AUDIO["analysis.audio.emotion_results<br/>Speech Emotion"]
+            KAFKA_EMOTION_FACE["analysis.image.emotion_results<br/>Face Emotion"]
+            KAFKA_REASONING["analysis.inferred_context.mistral_results<br/>Context Analysis"]
+            KAFKA_URL_PROCESSED["task.url.processed.*<br/>Processed URLs"]
+        end
+
+        subgraph "🎮 Command Topics"
+            KAFKA_CMD_KEYS["device.command.keystroke.send<br/>1 day"]
+            KAFKA_CMD_MOUSE["device.command.mouse.send<br/>1 day"]
+            KAFKA_CMD_CLIP["device.command.clipboard.send<br/>1 day"]
+            KAFKA_CMD_FILE["device.command.file.transfer<br/>7 days"]
+            KAFKA_RESP_STATUS["device.response.command.status<br/>Response"]
+        end
+    end
+
+    %% Column 4: AI Processing
+    subgraph "Column 4: AI Processing"
+        direction TB
+
+        subgraph "🔊 Audio AI"
+            SILERO_VAD["🎯 Silero VAD<br/>Voice Activity Detection<br/>CPU Optimized"]
+            PARAKEET_STT["🎙️ NVIDIA Parakeet-TDT<br/>Speech-to-Text<br/>GPU Recommended"]
+            BUD_E_EMOTION["😊 Laion BUD-E-Whisper<br/>Speech Emotion<br/>GPU Recommended"]
+        end
+
+        subgraph "👁️ Vision AI"
+            MINICPM_VISION["🖼️ MiniCPM-Llama3-V 2.5<br/>Vision-Language & OCR<br/>GPU Preferred"]
+            FACE_EMOTION["😮 Laion Empathic-Insight-Face<br/>Face Emotion<br/>GPU Required"]
+        end
+
+        subgraph "🧠 Reasoning AI"
+            MISTRAL_REASONING["🎭 Mistral Small 3.2<br/>Context & Reasoning<br/>GPU via Ollama"]
+        end
+    end
+
+    %% Column 5: Storage
+    subgraph "Column 5: TimescaleDB Storage"
+        direction TB
+
+        subgraph "📊 Raw Tables"
+            DB_DEVICE_AUDIO["device_audio_raw<br/>🔒 RLS + Compression<br/>⏰ 7 days"]
+            DB_DEVICE_VIDEO["device_video_screen_raw<br/>🔒 RLS + Compression<br/>⏰ 7 days"]
+            DB_DEVICE_SENSORS["device_sensor_*_raw<br/>🔒 RLS + Compression<br/>⏰ 30-60 days"]
+            DB_DEVICE_HEALTH["device_health_*_raw<br/>🔒 RLS + Compression<br/>⏰ 60 days"]
+            DB_DEVICE_SYSTEM["device_system_*_raw<br/>🔒 RLS + Compression<br/>⏰ 30 days"]
+            DB_EXTERNAL_DATA["external_*_raw<br/>🔒 RLS + Compression<br/>⏰ 30-365 days"]
+        end
+
+        subgraph "🎯 Processed Tables"
+            DB_MEDIA_ANALYSIS["media_*_analysis<br/>Vision & Audio Results<br/>🔒 RLS + Compression"]
+            DB_TEXT_RESULTS["text_*_results<br/>Transcription & NLP<br/>🔒 RLS + Compression"]
+            DB_ANALYSIS_RESULTS["analysis_*_results<br/>AI Model Outputs<br/>🔒 RLS + Compression"]
+            DB_TASK_RESULTS["task_*_processed<br/>URL Processing<br/>🔒 RLS + Compression"]
+        end
+    end
+
+    %% Column 6: Remote Control
+    subgraph "Column 6: Remote Control"
+        direction TB
+        KEYBOARD_CMD["⌨️ Keystroke Commands<br/>Remote Control"]
+        MOUSE_CMD["🖱️ Mouse Commands<br/>Remote Control"]
+        FILE_CMD["📁 File Transfer<br/>Cross-device"]
+        SHELL_CMD["⚡ Shell Commands<br/>Remote Execution"]
+    end
+
+    %% Data Flow Connections
+
+    %% Device Sources to FastAPI Endpoints
+    AUDIO_DEV --> AUDIO_WS
+    AUDIO_DEV --> AUDIO_UPLOAD
+    SCREEN_DEV --> SCREENSHOT
+    CAMERA_DEV --> IMAGE_UPLOAD
+    GPS_DEV --> GPS_SENSOR
+    ACCEL_DEV --> ACCEL_SENSOR
+    HEART_DEV --> HEART_SENSOR
+    POWER_DEV --> POWER_SENSOR
+    APPS_DEV --> MACOS_APPS
+    APPS_DEV --> ANDROID_APPS
+    WIFI_DEV --> GENERIC_SENSOR
+    BT_DEV --> GENERIC_SENSOR
+    TEMP_DEV --> GENERIC_SENSOR
+    PRESSURE_DEV --> GENERIC_SENSOR
+
+    %% OS Events to FastAPI Endpoints
+    OS_LIFECYCLE --> ANDROID_APPS
+    OS_NOTIF --> METADATA
+    CLIPBOARD --> NOTES_UPLOAD
+
+    %% External Sources to Scheduled Consumers
+    EMAIL --> SCHEDULED_CONSUMERS
+    TWITTER --> SCHEDULED_CONSUMERS
+    HN --> SCHEDULED_CONSUMERS
+    REDDIT --> SCHEDULED_CONSUMERS
+    CALENDAR --> SCHEDULED_CONSUMERS
+    WEB --> SCHEDULED_CONSUMERS
+
+    %% FastAPI Endpoints to Kafka Topics
+    AUDIO_WS --> KAFKA_AUDIO
+    AUDIO_UPLOAD --> KAFKA_AUDIO
+    SCREENSHOT --> KAFKA_VIDEO
+    IMAGE_UPLOAD --> KAFKA_IMAGE
+    IMAGE_BATCH --> KAFKA_IMAGE
+    GPS_SENSOR --> KAFKA_GPS
+    ACCEL_SENSOR --> KAFKA_ACCEL
+    HEART_SENSOR --> KAFKA_HEART
+    POWER_SENSOR --> KAFKA_POWER
+    MACOS_APPS --> KAFKA_APPS
+    ANDROID_APPS --> KAFKA_APPS
+    GENERIC_SENSOR --> KAFKA_TEMP
+    GENERIC_SENSOR --> KAFKA_PRESSURE
+    GENERIC_SENSOR --> KAFKA_NETWORK
+    NOTES_UPLOAD --> KAFKA_CLIPBOARD
+    NOTES_BATCH --> KAFKA_CLIPBOARD
+    METADATA --> KAFKA_CLIPBOARD
+    SCHEDULED_CONSUMERS --> KAFKA_EMAIL_EXT
+    SCHEDULED_CONSUMERS --> KAFKA_TWITTER_EXT
+    SCHEDULED_CONSUMERS --> KAFKA_WEB_EXT
+    SCHEDULED_CONSUMERS --> KAFKA_URL_TASKS
+
+    %% AI Processing Pipeline
+    KAFKA_AUDIO --> SILERO_VAD
+    SILERO_VAD --> KAFKA_VAD
+
+    KAFKA_VAD --> PARAKEET_STT
+    PARAKEET_STT --> KAFKA_TRANSCRIBED
+
+    KAFKA_VAD --> BUD_E_EMOTION
+    BUD_E_EMOTION --> KAFKA_EMOTION_AUDIO
+
+    KAFKA_IMAGE --> MINICPM_VISION
+    KAFKA_VIDEO --> MINICPM_VISION
+    MINICPM_VISION --> KAFKA_VISION
+
+    KAFKA_VISION --> FACE_EMOTION
+    FACE_EMOTION --> KAFKA_EMOTION_FACE
+
+    KAFKA_TRANSCRIBED --> MISTRAL_REASONING
+    KAFKA_URL_PROCESSED --> MISTRAL_REASONING
+    MISTRAL_REASONING --> KAFKA_REASONING
+
+    KAFKA_URL_TASKS --> KAFKA_URL_PROCESSED
+
+    %% Kafka to Database Storage
+    KAFKA_AUDIO --> DB_DEVICE_AUDIO
+    KAFKA_VIDEO --> DB_DEVICE_VIDEO
+    KAFKA_GPS --> DB_DEVICE_SENSORS
+    KAFKA_ACCEL --> DB_DEVICE_SENSORS
+    KAFKA_TEMP --> DB_DEVICE_SENSORS
+    KAFKA_PRESSURE --> DB_DEVICE_SENSORS
+    KAFKA_HEART --> DB_DEVICE_HEALTH
+    KAFKA_POWER --> DB_DEVICE_SYSTEM
+    KAFKA_APPS --> DB_DEVICE_SYSTEM
+    KAFKA_NETWORK --> DB_DEVICE_SYSTEM
+    KAFKA_EMAIL_EXT --> DB_EXTERNAL_DATA
+    KAFKA_TWITTER_EXT --> DB_EXTERNAL_DATA
+    KAFKA_WEB_EXT --> DB_EXTERNAL_DATA
+
+    KAFKA_VAD --> DB_MEDIA_ANALYSIS
+    KAFKA_VISION --> DB_MEDIA_ANALYSIS
+    KAFKA_TRANSCRIBED --> DB_TEXT_RESULTS
+    KAFKA_EMOTION_AUDIO --> DB_ANALYSIS_RESULTS
+    KAFKA_EMOTION_FACE --> DB_ANALYSIS_RESULTS
+    KAFKA_REASONING --> DB_ANALYSIS_RESULTS
+    KAFKA_URL_PROCESSED --> DB_TASK_RESULTS
+
+    %% Remote Control Flow
+    KAFKA_CMD_KEYS --> KEYBOARD_CMD
+    KAFKA_CMD_MOUSE --> MOUSE_CMD
+    KAFKA_CMD_CLIP --> CLIPBOARD
+    KAFKA_CMD_FILE --> FILE_CMD
+
+    %% Styling
+    classDef source fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    classDef endpoint fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef kafka fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef ai fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef storage fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    classDef command fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+
+    class AUDIO_DEV,SCREEN_DEV,CAMERA_DEV,GPS_DEV,ACCEL_DEV,HEART_DEV,POWER_DEV,APPS_DEV,WIFI_DEV,BT_DEV,TEMP_DEV,PRESSURE_DEV,OS_LIFECYCLE,OS_NOTIF,CLIPBOARD,EMAIL,TWITTER,HN,REDDIT,CALENDAR,WEB,URL_TASKS source
+    class AUDIO_WS,AUDIO_UPLOAD,IMAGE_UPLOAD,SCREENSHOT,IMAGE_BATCH,GPS_SENSOR,ACCEL_SENSOR,HEART_SENSOR,POWER_SENSOR,GENERIC_SENSOR,SENSOR_BATCH,MACOS_APPS,ANDROID_APPS,METADATA,NOTES_UPLOAD,NOTES_BATCH,SCHEDULED_CONSUMERS endpoint
+    class KAFKA_AUDIO,KAFKA_VIDEO,KAFKA_IMAGE,KAFKA_GPS,KAFKA_ACCEL,KAFKA_HEART,KAFKA_POWER,KAFKA_APPS,KAFKA_NETWORK,KAFKA_TEMP,KAFKA_PRESSURE,KAFKA_EMAIL_EXT,KAFKA_TWITTER_EXT,KAFKA_WEB_EXT,KAFKA_CLIPBOARD,KAFKA_URL_TASKS,KAFKA_VAD,KAFKA_TRANSCRIBED,KAFKA_VISION,KAFKA_EMOTION_AUDIO,KAFKA_EMOTION_FACE,KAFKA_REASONING,KAFKA_URL_PROCESSED,KAFKA_CMD_KEYS,KAFKA_CMD_MOUSE,KAFKA_CMD_CLIP,KAFKA_CMD_FILE,KAFKA_RESP_STATUS kafka
+    class SILERO_VAD,PARAKEET_STT,BUD_E_EMOTION,MINICPM_VISION,FACE_EMOTION,MISTRAL_REASONING ai
+    class DB_DEVICE_AUDIO,DB_DEVICE_VIDEO,DB_DEVICE_SENSORS,DB_DEVICE_HEALTH,DB_DEVICE_SYSTEM,DB_EXTERNAL_DATA,DB_MEDIA_ANALYSIS,DB_TEXT_RESULTS,DB_ANALYSIS_RESULTS,DB_TASK_RESULTS storage
+    class KEYBOARD_CMD,MOUSE_CMD,FILE_CMD,SHELL_CMD command
