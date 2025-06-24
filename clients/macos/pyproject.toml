@@ -1,0 +1,82 @@
+[project]
+name = "loom-macos-client"
+version = "0.1.0"
+description = "Loom v2 macOS Data Collection Client"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.5",
+    "uvicorn[standard]>=0.32.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.10.3",
+    "pydantic-settings>=2.6.1",
+    "structlog>=24.4.0",
+    "pyobjc-framework-Cocoa>=10.3.1",  # macOS system frameworks
+    "pyobjc-framework-ApplicationServices>=10.3.1",  # Screen capture
+    "pyobjc-framework-CoreAudio>=10.3.1",  # Audio capture
+    "pyobjc-framework-CoreLocation>=10.3.1",  # GPS/location
+    "pyobjc-framework-IOKit>=10.3.1",  # System monitoring
+    "pyobjc-framework-SystemConfiguration>=10.3.1",  # Network info
+    "pyaudio>=0.2.11",  # Audio recording
+    "pillow>=10.4.0",  # Image processing
+    "psutil>=6.1.0",  # System metrics
+    "schedule>=1.2.2",  # Task scheduling
+    "requests>=2.32.3",  # HTTP client
+    "websockets>=13.1",  # WebSocket client
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.3",
+    "black>=24.10.0",
+    "mypy>=1.13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+]
