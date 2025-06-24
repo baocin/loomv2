@@ -1,7 +1,7 @@
 """Kafka producer for embedding results."""
 
 import json
-from typing import Dict, Any
+from typing import Any
 
 import structlog
 from aiokafka import AIOKafkaProducer
@@ -49,7 +49,7 @@ class EmbeddingKafkaProducer:
             self.producer = None
             logger.info("Kafka producer stopped")
 
-    async def send_text_embedding(self, embedding_data: Dict[str, Any]) -> None:
+    async def send_text_embedding(self, embedding_data: dict[str, Any]) -> None:
         """Send text embedding to Kafka topic."""
         if not self.producer:
             raise RuntimeError("Producer not started")
@@ -78,7 +78,7 @@ class EmbeddingKafkaProducer:
             logger.error(f"Failed to send text embedding: {e}")
             raise
 
-    async def send_image_embedding(self, embedding_data: Dict[str, Any]) -> None:
+    async def send_image_embedding(self, embedding_data: dict[str, Any]) -> None:
         """Send image embedding to Kafka topic."""
         if not self.producer:
             raise RuntimeError("Producer not started")
@@ -109,7 +109,9 @@ class EmbeddingKafkaProducer:
             raise
 
     async def send_batch_embeddings(
-        self, text_embeddings: list[Dict[str, Any]], image_embeddings: list[Dict[str, Any]]
+        self,
+        text_embeddings: list[dict[str, Any]],
+        image_embeddings: list[dict[str, Any]],
     ) -> None:
         """Send batch of embeddings."""
         try:
@@ -122,7 +124,7 @@ class EmbeddingKafkaProducer:
                 await self.send_image_embedding(embedding)
 
             logger.info(
-                f"Batch embeddings sent",
+                "Batch embeddings sent",
                 text_count=len(text_embeddings),
                 image_count=len(image_embeddings),
             )
@@ -131,7 +133,7 @@ class EmbeddingKafkaProducer:
             logger.error(f"Failed to send batch embeddings: {e}")
             raise
 
-    def _serialize_message(self, data: Dict[str, Any]) -> bytes:
+    def _serialize_message(self, data: dict[str, Any]) -> bytes:
         """Serialize message to JSON bytes."""
         try:
             return json.dumps(data, default=str).encode("utf-8")

@@ -2,10 +2,10 @@
 
 import asyncio
 import json
-from typing import Dict, Any, List
+from typing import Any
 
 import structlog
-from aiokafka import AIOKafkaConsumer, ConsumerRecord
+from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
 from .config import settings
@@ -27,7 +27,7 @@ class EmbeddingKafkaConsumer:
         self.processing_queue: asyncio.Queue = asyncio.Queue(
             maxsize=settings.max_queue_size
         )
-        self.workers: List[asyncio.Task] = []
+        self.workers: list[asyncio.Task] = []
 
     async def start(self) -> None:
         """Start the Kafka consumer and processing workers."""
@@ -124,7 +124,7 @@ class EmbeddingKafkaConsumer:
                         queue_size=self.processing_queue.qsize(),
                     )
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(
                         f"Processing queue full, dropping message from {message.topic}"
                     )
@@ -154,7 +154,7 @@ class EmbeddingKafkaConsumer:
                 # Mark task as done
                 self.processing_queue.task_done()
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Timeout is normal - just continue
                 continue
             except Exception as e:
@@ -164,7 +164,7 @@ class EmbeddingKafkaConsumer:
         logger.info(f"Processing worker {worker_id} stopped")
 
     async def _process_single_message(
-        self, topic: str, message_data: Dict[str, Any], worker_id: str
+        self, topic: str, message_data: dict[str, Any], worker_id: str
     ) -> None:
         """Process a single message and produce embeddings."""
         try:
@@ -200,7 +200,7 @@ class EmbeddingKafkaConsumer:
                 error=str(e),
             )
 
-    def _deserialize_message(self, data: bytes) -> Dict[str, Any]:
+    def _deserialize_message(self, data: bytes) -> dict[str, Any]:
         """Deserialize Kafka message."""
         try:
             return json.loads(data.decode("utf-8"))
@@ -208,7 +208,7 @@ class EmbeddingKafkaConsumer:
             logger.error(f"Failed to deserialize message: {e}")
             return {}
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get consumer status."""
         stats = {}
         if self.processor:
@@ -218,6 +218,7 @@ class EmbeddingKafkaConsumer:
             "running": self.running,
             "queue_size": self.processing_queue.qsize(),
             "active_workers": len(self.workers),
-            "subscribed_topics": settings.text_input_topics + settings.image_input_topics,
+            "subscribed_topics": settings.text_input_topics
+            + settings.image_input_topics,
             **stats,
         }

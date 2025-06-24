@@ -1,7 +1,7 @@
 """Pydantic models for Nomic Embed Vision service."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ class BaseMessage(BaseModel):
     device_id: str = Field(description="Client device identifier")
     recorded_at: datetime = Field(description="UTC timestamp when data was recorded")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="UTC timestamp when message was processed by server",
     )
     message_id: str = Field(
@@ -28,15 +28,15 @@ class TextEmbedding(BaseMessage):
 
     text_content: str = Field(description="Original text content")
     text_length: int = Field(description="Length of text in characters")
-    embedding: List[float] = Field(description="Text embedding vector")
+    embedding: list[float] = Field(description="Text embedding vector")
     embedding_model: str = Field(description="Model used for embedding")
     embedding_dimension: int = Field(description="Dimension of embedding vector")
     source_topic: str = Field(description="Original Kafka topic")
     source_message_id: str = Field(description="Original message ID")
     processing_time_ms: float = Field(description="Processing time in milliseconds")
-    
+
     # Optional metadata from source
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata from source"
     )
 
@@ -48,20 +48,20 @@ class ImageEmbedding(BaseMessage):
     image_width: int = Field(description="Image width in pixels")
     image_height: int = Field(description="Image height in pixels")
     image_size_bytes: int = Field(description="Image size in bytes")
-    embedding: List[float] = Field(description="Image embedding vector")
+    embedding: list[float] = Field(description="Image embedding vector")
     embedding_model: str = Field(description="Model used for embedding")
     embedding_dimension: int = Field(description="Dimension of embedding vector")
     source_topic: str = Field(description="Original Kafka topic")
     source_message_id: str = Field(description="Original message ID")
     processing_time_ms: float = Field(description="Processing time in milliseconds")
-    
+
     # Optional metadata from source
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata from source"
     )
-    
+
     # Optional image analysis results
-    image_description: Optional[str] = Field(
+    image_description: str | None = Field(
         default=None, description="Generated image description"
     )
 
@@ -69,14 +69,14 @@ class ImageEmbedding(BaseMessage):
 class EmbeddingRequest(BaseModel):
     """Direct embedding request for API endpoint."""
 
-    text: Optional[str] = Field(default=None, description="Text to embed")
-    image_data: Optional[str] = Field(
+    text: str | None = Field(default=None, description="Text to embed")
+    image_data: str | None = Field(
         default=None, description="Base64 encoded image data"
     )
     include_description: bool = Field(
         default=False, description="Generate image description"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
 
@@ -84,13 +84,13 @@ class EmbeddingRequest(BaseModel):
 class EmbeddingResponse(BaseModel):
     """Embedding API response."""
 
-    text_embedding: Optional[List[float]] = Field(
+    text_embedding: list[float] | None = Field(
         default=None, description="Text embedding vector"
     )
-    image_embedding: Optional[List[float]] = Field(
+    image_embedding: list[float] | None = Field(
         default=None, description="Image embedding vector"
     )
-    image_description: Optional[str] = Field(
+    image_description: str | None = Field(
         default=None, description="Generated image description"
     )
     embedding_model: str = Field(description="Model used for embedding")
@@ -106,7 +106,7 @@ class HealthCheck(BaseModel):
 
     status: str = Field(default="healthy", description="Service status")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="Check timestamp",
     )
     version: str = Field(default="0.1.0", description="Service version")
@@ -125,9 +125,7 @@ class ProcessingStats(BaseModel):
     total_text_processed: int = Field(
         default=0, description="Total text items processed"
     )
-    total_images_processed: int = Field(
-        default=0, description="Total images processed"
-    )
+    total_images_processed: int = Field(default=0, description="Total images processed")
     average_text_processing_time_ms: float = Field(
         default=0.0, description="Average text processing time"
     )
@@ -144,8 +142,8 @@ class ProcessingStats(BaseModel):
 class BatchEmbeddingRequest(BaseModel):
     """Batch embedding request."""
 
-    texts: List[str] = Field(default_factory=list, description="List of texts to embed")
-    images: List[str] = Field(
+    texts: list[str] = Field(default_factory=list, description="List of texts to embed")
+    images: list[str] = Field(
         default_factory=list, description="List of base64 encoded images"
     )
     include_descriptions: bool = Field(
@@ -159,13 +157,13 @@ class BatchEmbeddingRequest(BaseModel):
 class BatchEmbeddingResponse(BaseModel):
     """Batch embedding response."""
 
-    text_embeddings: List[List[float]] = Field(
+    text_embeddings: list[list[float]] = Field(
         default_factory=list, description="Text embedding vectors"
     )
-    image_embeddings: List[List[float]] = Field(
+    image_embeddings: list[list[float]] = Field(
         default_factory=list, description="Image embedding vectors"
     )
-    image_descriptions: List[Optional[str]] = Field(
+    image_descriptions: list[str | None] = Field(
         default_factory=list, description="Generated image descriptions"
     )
     batch_id: str = Field(description="Batch identifier")

@@ -12,22 +12,22 @@ CREATE TABLE embeddings_text_nomic (
     recorded_at TIMESTAMPTZ NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     message_id TEXT NOT NULL,
-    
+
     -- Text content and metadata
     text_content TEXT NOT NULL,
     text_length INTEGER NOT NULL,
     source_topic TEXT NOT NULL,
     source_message_id TEXT NOT NULL,
-    
+
     -- Embedding data
     embedding vector(768) NOT NULL, -- Nomic Embed Vision dimension
     embedding_model TEXT NOT NULL DEFAULT 'nomic-ai/nomic-embed-vision-v1.5',
     embedding_dimension INTEGER NOT NULL DEFAULT 768,
     processing_time_ms FLOAT,
-    
+
     -- Metadata
     metadata JSONB,
-    
+
     -- Constraints
     CONSTRAINT valid_device_id CHECK (device_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
     CONSTRAINT valid_text_length CHECK (text_length > 0),
@@ -42,7 +42,7 @@ CREATE TABLE embeddings_image_nomic (
     recorded_at TIMESTAMPTZ NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     message_id TEXT NOT NULL,
-    
+
     -- Image metadata
     image_format TEXT NOT NULL,
     image_width INTEGER NOT NULL,
@@ -50,19 +50,19 @@ CREATE TABLE embeddings_image_nomic (
     image_size_bytes INTEGER NOT NULL,
     source_topic TEXT NOT NULL,
     source_message_id TEXT NOT NULL,
-    
+
     -- Embedding data
     embedding vector(768) NOT NULL, -- Nomic Embed Vision dimension
     embedding_model TEXT NOT NULL DEFAULT 'nomic-ai/nomic-embed-vision-v1.5',
     embedding_dimension INTEGER NOT NULL DEFAULT 768,
     processing_time_ms FLOAT,
-    
+
     -- Optional AI-generated description
     image_description TEXT,
-    
+
     -- Metadata
     metadata JSONB,
-    
+
     -- Constraints
     CONSTRAINT valid_device_id CHECK (device_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
     CONSTRAINT valid_image_dimensions CHECK (image_width > 0 AND image_height > 0),
@@ -72,12 +72,12 @@ CREATE TABLE embeddings_image_nomic (
 );
 
 -- Convert to TimescaleDB hypertables for time-series optimization
-SELECT create_hypertable('embeddings_text_nomic', 'timestamp', 
+SELECT create_hypertable('embeddings_text_nomic', 'timestamp',
     chunk_time_interval => INTERVAL '1 day',
     create_default_indexes => FALSE
 );
 
-SELECT create_hypertable('embeddings_image_nomic', 'timestamp', 
+SELECT create_hypertable('embeddings_image_nomic', 'timestamp',
     chunk_time_interval => INTERVAL '1 day',
     create_default_indexes => FALSE
 );
@@ -85,37 +85,37 @@ SELECT create_hypertable('embeddings_image_nomic', 'timestamp',
 -- Create indexes for efficient querying
 
 -- Text embeddings indexes
-CREATE INDEX idx_embeddings_text_nomic_device_time 
+CREATE INDEX idx_embeddings_text_nomic_device_time
     ON embeddings_text_nomic (device_id, timestamp DESC);
 
-CREATE INDEX idx_embeddings_text_nomic_source 
+CREATE INDEX idx_embeddings_text_nomic_source
     ON embeddings_text_nomic (source_topic, timestamp DESC);
 
-CREATE INDEX idx_embeddings_text_nomic_content_search 
+CREATE INDEX idx_embeddings_text_nomic_content_search
     ON embeddings_text_nomic USING gin(to_tsvector('english', text_content));
 
 -- Vector similarity search index (HNSW for fast approximate nearest neighbor)
-CREATE INDEX idx_embeddings_text_nomic_embedding_cosine 
+CREATE INDEX idx_embeddings_text_nomic_embedding_cosine
     ON embeddings_text_nomic USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
 -- Image embeddings indexes
-CREATE INDEX idx_embeddings_image_nomic_device_time 
+CREATE INDEX idx_embeddings_image_nomic_device_time
     ON embeddings_image_nomic (device_id, timestamp DESC);
 
-CREATE INDEX idx_embeddings_image_nomic_source 
+CREATE INDEX idx_embeddings_image_nomic_source
     ON embeddings_image_nomic (source_topic, timestamp DESC);
 
-CREATE INDEX idx_embeddings_image_nomic_dimensions 
+CREATE INDEX idx_embeddings_image_nomic_dimensions
     ON embeddings_image_nomic (image_width, image_height);
 
 -- Vector similarity search index
-CREATE INDEX idx_embeddings_image_nomic_embedding_cosine 
+CREATE INDEX idx_embeddings_image_nomic_embedding_cosine
     ON embeddings_image_nomic USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
 -- Description search index
-CREATE INDEX idx_embeddings_image_nomic_description_search 
+CREATE INDEX idx_embeddings_image_nomic_description_search
     ON embeddings_image_nomic USING gin(to_tsvector('english', image_description))
     WHERE image_description IS NOT NULL;
 
@@ -133,7 +133,7 @@ SELECT add_retention_policy('embeddings_image_nomic', INTERVAL '6 months');
 
 -- Create materialized view for embedding statistics
 CREATE MATERIALIZED VIEW embedding_stats_hourly AS
-SELECT 
+SELECT
     time_bucket('1 hour', timestamp) AS hour,
     COUNT(*) as total_embeddings,
     COUNT(*) FILTER (WHERE source_topic LIKE 'device.text%') as text_from_device,
@@ -168,12 +168,12 @@ CREATE OR REPLACE FUNCTION semantic_search_text(
     timestamp timestamptz,
     source_topic text,
     metadata jsonb
-) 
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         e.id,
         e.device_id,
         e.text_content,
@@ -182,7 +182,7 @@ BEGIN
         e.source_topic,
         e.metadata
     FROM embeddings_text_nomic e
-    WHERE 
+    WHERE
         (device_filter IS NULL OR e.device_id = device_filter)
         AND (time_range_hours IS NULL OR e.timestamp >= NOW() - INTERVAL '1 hour' * time_range_hours)
         AND (1 - (e.embedding <=> query_embedding)) >= similarity_threshold
@@ -209,12 +209,12 @@ CREATE OR REPLACE FUNCTION semantic_search_images(
     timestamp timestamptz,
     source_topic text,
     metadata jsonb
-) 
+)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         e.id,
         e.device_id,
         e.image_format,
@@ -226,7 +226,7 @@ BEGIN
         e.source_topic,
         e.metadata
     FROM embeddings_image_nomic e
-    WHERE 
+    WHERE
         (device_filter IS NULL OR e.device_id = device_filter)
         AND (time_range_hours IS NULL OR e.timestamp >= NOW() - INTERVAL '1 hour' * time_range_hours)
         AND (1 - (e.embedding <=> query_embedding)) >= similarity_threshold

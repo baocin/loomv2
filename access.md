@@ -516,7 +516,7 @@ curl -X POST http://localhost:8001/detect-batch \
         "chunk_id": "chunk_001"
       },
       {
-        "audio_data": "base64-chunk-2", 
+        "audio_data": "base64-chunk-2",
         "sample_rate": 16000,
         "chunk_id": "chunk_002"
       }
@@ -676,7 +676,7 @@ for port in 8080 8001 8002 8003 8004; do
     8003) service_name="MiniCPM Vision" ;;
     8004) service_name="Nomic Embed" ;;
   esac
-  
+
   echo -n "$service_name (port $port): "
   if curl -s -f "http://localhost:$port/health" > /dev/null 2>&1 || curl -s -f "http://localhost:$port/healthz" > /dev/null 2>&1; then
     echo "✅ RUNNING"

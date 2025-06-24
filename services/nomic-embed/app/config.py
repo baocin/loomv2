@@ -1,7 +1,5 @@
 """Configuration for Nomic Embed Vision service."""
 
-import os
-from typing import List
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -19,17 +17,14 @@ class Settings(BaseSettings):
 
     # Model configuration
     model_name: str = Field(
-        default="nomic-ai/nomic-embed-vision-v1.5",
-        alias="NOMIC_EMBED_MODEL_NAME"
+        default="nomic-ai/nomic-embed-vision-v1.5", alias="NOMIC_EMBED_MODEL_NAME"
     )
     device: str = Field(default="auto", alias="NOMIC_EMBED_DEVICE")  # auto, cpu, cuda
     max_batch_size: int = Field(default=32, alias="NOMIC_EMBED_MAX_BATCH_SIZE")
     model_cache_dir: str = Field(
         default="./models", alias="NOMIC_EMBED_MODEL_CACHE_DIR"
     )
-    trust_remote_code: bool = Field(
-        default=True, alias="NOMIC_EMBED_TRUST_REMOTE_CODE"
-    )
+    trust_remote_code: bool = Field(default=True, alias="NOMIC_EMBED_TRUST_REMOTE_CODE")
 
     # Kafka configuration
     kafka_bootstrap_servers: str = Field(
@@ -46,7 +41,7 @@ class Settings(BaseSettings):
     )
 
     # Input topics (text and image data to embed)
-    text_input_topics: List[str] = Field(
+    text_input_topics: list[str] = Field(
         default=[
             "device.text.notes.raw",
             "media.text.transcribed.words",
@@ -54,15 +49,15 @@ class Settings(BaseSettings):
             "task.github.processed.content",
             "task.document.processed.content",
         ],
-        alias="NOMIC_EMBED_TEXT_INPUT_TOPICS"
+        alias="NOMIC_EMBED_TEXT_INPUT_TOPICS",
     )
-    
-    image_input_topics: List[str] = Field(
+
+    image_input_topics: list[str] = Field(
         default=[
             "device.image.camera.raw",
             "device.video.screen.raw",
         ],
-        alias="NOMIC_EMBED_IMAGE_INPUT_TOPICS"
+        alias="NOMIC_EMBED_IMAGE_INPUT_TOPICS",
     )
 
     # Output topics (embedded data)
@@ -75,31 +70,24 @@ class Settings(BaseSettings):
 
     # Database configuration
     database_url: str = Field(
-        default="postgresql://loom:loom@localhost:5432/loom",
-        alias="DATABASE_URL"
+        default="postgresql://loom:loom@localhost:5432/loom", alias="DATABASE_URL"
     )
 
     # Processing configuration
-    max_text_length: int = Field(
-        default=8192, alias="NOMIC_EMBED_MAX_TEXT_LENGTH"
-    )
+    max_text_length: int = Field(default=8192, alias="NOMIC_EMBED_MAX_TEXT_LENGTH")
     max_image_size: int = Field(
-        default=2048, alias="NOMIC_EMBED_MAX_IMAGE_SIZE"  # pixels
+        default=2048,
+        alias="NOMIC_EMBED_MAX_IMAGE_SIZE",  # pixels
     )
     embedding_dimension: int = Field(
-        default=768, alias="NOMIC_EMBED_DIMENSION"  # Nomic embed dimension
+        default=768,
+        alias="NOMIC_EMBED_DIMENSION",  # Nomic embed dimension
     )
-    
+
     # Performance settings
-    worker_concurrency: int = Field(
-        default=4, alias="NOMIC_EMBED_WORKER_CONCURRENCY"
-    )
-    max_queue_size: int = Field(
-        default=1000, alias="NOMIC_EMBED_MAX_QUEUE_SIZE"
-    )
-    batch_timeout_seconds: float = Field(
-        default=1.0, alias="NOMIC_EMBED_BATCH_TIMEOUT"
-    )
+    worker_concurrency: int = Field(default=4, alias="NOMIC_EMBED_WORKER_CONCURRENCY")
+    max_queue_size: int = Field(default=1000, alias="NOMIC_EMBED_MAX_QUEUE_SIZE")
+    batch_timeout_seconds: float = Field(default=1.0, alias="NOMIC_EMBED_BATCH_TIMEOUT")
 
     # Health check configuration
     health_check_timeout: float = Field(
@@ -108,6 +96,7 @@ class Settings(BaseSettings):
 
     class Config:
         """Pydantic configuration."""
+
         env_file = ".env"
         case_sensitive = False
 
