@@ -168,7 +168,7 @@ curl http://localhost:8000/metrics
 
 Example:
 ```bash
-curl -H "X-API-Key: pineapple" http://localhost:8000/audio/upload
+curl -H "X-API-Key: apikeyhere" http://localhost:8000/audio/upload
 ```
 
 ### Audio Endpoints
@@ -177,7 +177,7 @@ curl -H "X-API-Key: pineapple" http://localhost:8000/audio/upload
 ```bash
 curl -X POST http://localhost:8000/audio/upload \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -222,7 +222,7 @@ ws.send(JSON.stringify({
 ```bash
 curl -X POST http://localhost:8000/sensor/gps \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8000/sensor/gps \
 ```bash
 curl -X POST http://localhost:8000/sensor/accelerometer \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -253,7 +253,7 @@ curl -X POST http://localhost:8000/sensor/accelerometer \
 ```bash
 curl -X POST http://localhost:8000/sensor/heartrate \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -266,7 +266,7 @@ curl -X POST http://localhost:8000/sensor/heartrate \
 ```bash
 curl -X POST http://localhost:8000/sensor/power \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -282,7 +282,7 @@ curl -X POST http://localhost:8000/sensor/power \
 ```bash
 curl -X POST http://localhost:8000/images/upload \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -302,7 +302,7 @@ curl -X POST http://localhost:8000/images/upload \
 ```bash
 curl -X POST http://localhost:8000/system/apps/macos \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -329,7 +329,7 @@ curl -X POST http://localhost:8000/system/apps/macos \
 ```bash
 curl -X POST http://localhost:8000/system/metadata \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -353,7 +353,7 @@ curl -X POST http://localhost:8000/system/metadata \
 ```bash
 curl -X POST http://localhost:8000/notes/upload \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: pineapple" \
+  -H "X-API-Key: apikeyhere" \
   -d '{
     "device_id": "12345678-1234-1234-1234-123456789012",
     "recorded_at": "2024-01-23T10:30:00Z",
@@ -362,6 +362,436 @@ curl -X POST http://localhost:8000/notes/upload \
     "note_type": "markdown",
     "tags": ["work", "important"]
   }'
+```
+
+### GitHub Processing Endpoints
+
+**Submit GitHub Repository for Processing:**
+```bash
+curl -X POST http://localhost:8000/github/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: apikeyhere" \
+  -d '{
+    "device_id": "12345678-1234-1234-1234-123456789012",
+    "recorded_at": "2024-01-23T10:30:00Z",
+    "url": "https://github.com/octocat/Hello-World",
+    "repository_type": "repository",
+    "priority": 5,
+    "include_files": ["*.py", "*.md", "*.txt"],
+    "exclude_files": ["*.pyc", "__pycache__/*"],
+    "max_file_size": 1048576,
+    "extract_options": {"extract_readme": true, "extract_code": true}
+  }'
+```
+
+### Document Processing Endpoints
+
+**Upload Document for Processing:**
+```bash
+curl -X POST http://localhost:8000/documents/upload \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: apikeyhere" \
+  -d '{
+    "device_id": "12345678-1234-1234-1234-123456789012",
+    "recorded_at": "2024-01-23T10:30:00Z",
+    "filename": "document.pdf",
+    "file_data": "JVBERi0xLjQKJcOkw7zDssO4CjIgMCBvYmo8PC9MZW5ndGggMyAwIFI+PnN0cmVhbQp4nHPOOOKM",
+    "content_type": "application/pdf",
+    "file_size": 102400,
+    "document_type": "pdf",
+    "priority": 5,
+    "extract_options": {"extract_text": true},
+    "metadata": {"source": "user_upload"}
+  }'
+```
+
+## 🤖 AI Service APIs
+
+### OneFileLLM Service (Port 8080)
+
+**Base URL:** http://localhost:8080
+
+**Health Check:**
+```bash
+# Health status - NO API KEY REQUIRED
+curl http://localhost:8080/health
+```
+
+**Process Text Content:**
+```bash
+curl -X POST http://localhost:8080/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "This is a test document for processing.",
+    "content_type": "text/plain",
+    "options": {
+      "extract_metadata": true,
+      "analyze_content": true,
+      "max_tokens": 1000
+    }
+  }'
+```
+
+**Process GitHub Repository:**
+```bash
+curl -X POST http://localhost:8080/process-github \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://github.com/raphaelsty/onefilellm",
+    "include_files": ["*.py", "*.md"],
+    "exclude_files": ["*.pyc", "__pycache__/*"],
+    "max_file_size": 1048576,
+    "options": {
+      "extract_readme": true,
+      "extract_code": true,
+      "include_comments": true
+    }
+  }'
+```
+
+**Process Document File:**
+```bash
+curl -X POST http://localhost:8080/process-document \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "document.pdf",
+    "file_data": "base64-encoded-content",
+    "content_type": "application/pdf",
+    "options": {
+      "extract_text": true,
+      "extract_metadata": true,
+      "analyze_structure": true
+    }
+  }'
+```
+
+### Silero VAD Service (Port 8001)
+
+**Base URL:** http://localhost:8001
+
+**Health Check:**
+```bash
+# Health status - NO API KEY REQUIRED
+curl http://localhost:8001/healthz
+```
+
+**Voice Activity Detection:**
+```bash
+curl -X POST http://localhost:8001/detect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audio_data": "base64-encoded-audio-data",
+    "sample_rate": 16000,
+    "threshold": 0.5,
+    "min_speech_duration": 0.25,
+    "min_silence_duration": 0.1
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "speech_segments": [
+    {
+      "start": 0.5,
+      "end": 3.2,
+      "confidence": 0.95
+    }
+  ],
+  "has_speech": true,
+  "total_speech_duration": 2.7,
+  "total_duration": 5.0
+}
+```
+
+**Batch VAD Processing:**
+```bash
+curl -X POST http://localhost:8001/detect-batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audio_chunks": [
+      {
+        "audio_data": "base64-chunk-1",
+        "sample_rate": 16000,
+        "chunk_id": "chunk_001"
+      },
+      {
+        "audio_data": "base64-chunk-2", 
+        "sample_rate": 16000,
+        "chunk_id": "chunk_002"
+      }
+    ],
+    "threshold": 0.5
+  }'
+```
+
+### Parakeet TDT ASR Service (Port 8002)
+
+**Base URL:** http://localhost:8002
+
+**Health Check:**
+```bash
+# Health status - NO API KEY REQUIRED
+curl http://localhost:8002/healthz
+```
+
+**Speech-to-Text Transcription:**
+```bash
+curl -X POST http://localhost:8002/transcribe \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audio_data": "base64-encoded-audio-data",
+    "sample_rate": 16000,
+    "language": "en",
+    "return_word_timestamps": true,
+    "return_confidence": true
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "text": "Hello, this is a test transcription.",
+  "language": "en",
+  "confidence": 0.98,
+  "words": [
+    {
+      "word": "Hello",
+      "start": 0.0,
+      "end": 0.5,
+      "confidence": 0.99
+    },
+    {
+      "word": "this",
+      "start": 0.6,
+      "end": 0.8,
+      "confidence": 0.97
+    }
+  ],
+  "duration": 3.5
+}
+```
+
+**Streaming Transcription:**
+```bash
+curl -X POST http://localhost:8002/transcribe-stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audio_data": "base64-encoded-audio-chunk",
+    "sample_rate": 16000,
+    "stream_id": "stream_123",
+    "is_final": false
+  }'
+```
+
+### MiniCPM Vision Service (Port 8003)
+
+**Base URL:** http://localhost:8003
+
+**Health Check:**
+```bash
+# Health status - NO API KEY REQUIRED
+curl http://localhost:8003/healthz
+```
+
+**Image Analysis:**
+```bash
+curl -X POST http://localhost:8003/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_data": "base64-encoded-image-data",
+    "prompt": "Describe what you see in this image in detail.",
+    "max_tokens": 200,
+    "temperature": 0.7
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "description": "This image shows a modern office workspace with a laptop computer, coffee cup, and notebook on a wooden desk.",
+  "objects_detected": [
+    {"object": "laptop", "confidence": 0.95, "bbox": [100, 150, 300, 250]},
+    {"object": "coffee_cup", "confidence": 0.89, "bbox": [350, 200, 380, 280]},
+    {"object": "notebook", "confidence": 0.92, "bbox": [50, 180, 180, 300]}
+  ],
+  "scene_type": "indoor_office",
+  "confidence": 0.94
+}
+```
+
+**OCR Text Extraction:**
+```bash
+curl -X POST http://localhost:8003/ocr \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_data": "base64-encoded-image-data",
+    "extract_text_only": true,
+    "language": "en"
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "text": "Extracted text content from the image",
+  "text_regions": [
+    {
+      "text": "Header Text",
+      "bbox": [10, 20, 200, 50],
+      "confidence": 0.96
+    },
+    {
+      "text": "Body paragraph content",
+      "bbox": [10, 60, 300, 120],
+      "confidence": 0.93
+    }
+  ],
+  "language": "en"
+}
+```
+
+**Vision Question Answering:**
+```bash
+curl -X POST http://localhost:8003/vqa \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_data": "base64-encoded-image-data",
+    "question": "How many people are in this image?",
+    "max_tokens": 50
+  }'
+```
+
+### AI Service Status Dashboard
+
+**Check All AI Services:**
+```bash
+# Health check all services at once
+for port in 8080 8001 8002 8003 8004; do
+  service_name=""
+  case $port in
+    8080) service_name="OneFileLLM" ;;
+    8001) service_name="Silero VAD" ;;
+    8002) service_name="Parakeet TDT" ;;
+    8003) service_name="MiniCPM Vision" ;;
+    8004) service_name="Nomic Embed" ;;
+  esac
+  
+  echo -n "$service_name (port $port): "
+  if curl -s -f "http://localhost:$port/health" > /dev/null 2>&1 || curl -s -f "http://localhost:$port/healthz" > /dev/null 2>&1; then
+    echo "✅ RUNNING"
+  else
+    echo "❌ DOWN"
+  fi
+done
+```
+
+**AI Service Docker Container Management:**
+```bash
+# View AI service containers
+docker ps | grep -E "(onefilellm|silero|parakeet|minicpm|nomic)"
+
+# Restart specific AI service
+docker restart loomv2-onefilellm-1
+docker restart loomv2-silero-vad-1
+docker restart loomv2-parakeet-tdt-1
+docker restart loomv2-minicpm-vision-1
+docker restart loomv2-nomic-embed-1
+
+# View AI service logs
+docker logs -f loomv2-onefilellm-1
+docker logs -f loomv2-silero-vad-1
+docker logs -f loomv2-parakeet-tdt-1
+docker logs -f loomv2-minicpm-vision-1
+docker logs -f loomv2-nomic-embed-1
+```
+
+### Nomic Embed Vision Service (Port 8004)
+
+**Base URL:** http://localhost:8004
+
+**Health Check:**
+```bash
+# Health status - NO API KEY REQUIRED
+curl http://localhost:8004/healthz
+```
+
+**Text Embedding:**
+```bash
+curl -X POST http://localhost:8004/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "This is a sample text for embedding generation",
+    "metadata": {"source": "manual_test"}
+  }'
+```
+
+**Image Embedding:**
+```bash
+curl -X POST http://localhost:8004/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_data": "base64-encoded-image-data",
+    "include_description": true,
+    "metadata": {"source": "manual_test"}
+  }'
+```
+
+**Combined Text & Image Embedding:**
+```bash
+curl -X POST http://localhost:8004/embed \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Describe this image",
+    "image_data": "base64-encoded-image-data",
+    "include_description": true
+  }'
+```
+
+**Response Format:**
+```json
+{
+  "text_embedding": [0.1, 0.2, 0.3, ...],
+  "image_embedding": [0.4, 0.5, 0.6, ...],
+  "image_description": "Description of the image",
+  "embedding_model": "nomic-ai/nomic-embed-vision-v1.5",
+  "embedding_dimension": 768,
+  "processing_time_ms": 45.2,
+  "message_id": "uuid-here"
+}
+```
+
+**Batch Embeddings:**
+```bash
+curl -X POST http://localhost:8004/embed/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "texts": [
+      "First text to embed",
+      "Second text to embed"
+    ],
+    "images": [
+      "base64-image-1",
+      "base64-image-2"
+    ],
+    "include_descriptions": true,
+    "batch_id": "batch-123"
+  }'
+```
+
+**Model Information:**
+```bash
+curl http://localhost:8004/model/info
+```
+
+**Processing Statistics:**
+```bash
+curl http://localhost:8004/stats
+```
+
+**Model Reload:**
+```bash
+curl -X POST http://localhost:8004/model/reload
 ```
 
 ## 📋 Data Source Expected Formats
@@ -414,6 +844,8 @@ All Kafka messages follow this base structure:
 | `/system/apps/macos` | `device.system.apps.macos.raw` | Running applications |
 | `/system/metadata` | `device.metadata.raw` | Device capabilities |
 | `/notes/upload` | `device.text.notes.raw` | Text notes/memos |
+| `/github/ingest` | `task.github.ingest` | GitHub repository processing |
+| `/documents/upload` | `task.document.ingest` | Document processing |
 
 ## 🔬 AI Processing Pipeline Topics
 
@@ -426,6 +858,8 @@ All Kafka messages follow this base structure:
 | `analysis.audio.emotion_scores` | Speech emotion recognition | Laion BUD-E-Whisper |
 | `analysis.image.face_emotions` | Face emotion detection | Empathic-Insight-Face |
 | `task.url.processed_content` | Web content extraction | URL processor |
+| `processed.github.parsed` | Processed GitHub repositories | OneFileLLM GitHub processor |
+| `processed.document.parsed` | Processed documents | OneFileLLM document processor |
 
 ## 🐳 Container Management
 
@@ -583,11 +1017,20 @@ pre-commit autoupdate
 ---
 
 **Quick Access URLs:**
-- API Documentation: http://localhost:8000/docs
-- Kafka UI: http://localhost:8081
-- Database: `postgresql://loom:loom@localhost:5432/loom`
-- Health Check: http://localhost:8000/healthz
-- Metrics: http://localhost:8000/metrics
+- **Main API Documentation:** http://localhost:8000/docs
+- **Kafka UI:** http://localhost:8081
+- **Database:** `postgresql://loom:loom@localhost:5432/loom`
+- **Health Checks:**
+  - Ingestion API: http://localhost:8000/healthz
+  - OneFileLLM: http://localhost:8080/health
+  - Silero VAD: http://localhost:8001/healthz
+  - Parakeet TDT: http://localhost:8002/healthz
+  - MiniCPM Vision: http://localhost:8003/healthz
+  - Nomic Embed: http://localhost:8004/healthz
+- **Monitoring:**
+  - Prometheus Metrics: http://localhost:8000/metrics
+  - API Docs: http://localhost:8000/docs
+  - Redoc: http://localhost:8000/redoc
 
 **Emergency Commands:**
 ```bash

@@ -198,5 +198,45 @@ services:
         reservations:
           memory: 4G
 
+  onefilellm:
+    build:
+      context: ./services/onefilellm
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      TOPIC_GITHUB_INGEST: task.github.ingest
+      TOPIC_DOCUMENT_INGEST: task.document.ingest
+      TOPIC_GITHUB_PARSED: processed.github.parsed
+      TOPIC_DOCUMENT_PARSED: processed.document.parsed
+      LOG_LEVEL: INFO
+      HOST: 0.0.0.0
+      PORT: 8080
+      MAX_FILE_SIZE_MB: 100
+      MAX_REPO_FILES: 1000
+      GITHUB_CLONE_TIMEOUT: 300
+      PROCESSING_TIMEOUT: 600
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./temp_repos:/tmp/repos  # Temporary directory for cloning repos
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8080/health'); r.raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Allow time for OneFileLLM setup
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # OneFileLLM can be memory intensive
+        reservations:
+          memory: 2G
+
 volumes:
   postgres_data:

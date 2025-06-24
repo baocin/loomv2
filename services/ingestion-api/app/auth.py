@@ -10,7 +10,7 @@ logger = structlog.get_logger(__name__)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 # Hardcoded API key as requested
-API_KEY = "pineapple"
+API_KEY = "apikeyhere"
 
 
 async def verify_api_key(

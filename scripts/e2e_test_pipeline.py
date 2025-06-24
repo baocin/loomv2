@@ -52,9 +52,28 @@ logger = structlog.get_logger()
 
 # Test configuration
 TEST_DEVICE_ID = "12345678-1234-1234-1234-123456789012"  # Valid UUID format
-BASE_URL = "http://localhost:8000"
+INGESTION_API_URL = "http://localhost:8000"
+ONEFILELLM_API_URL = "http://localhost:8080"
+SILERO_VAD_URL = "http://localhost:8001"
+PARAKEET_TDT_URL = "http://localhost:8002"
+MINICPM_VISION_URL = "http://localhost:8003"
+NOMIC_EMBED_URL = "http://localhost:8004"
 KAFKA_SERVERS = "localhost:9092"
+KAFKA_UI_URL = "http://localhost:8081"
 DB_URL = "postgresql://loom:loom@localhost:5432/loom"
+
+# Service health endpoints
+SERVICE_ENDPOINTS = {
+    "ingestion-api": f"{INGESTION_API_URL}/healthz",
+    "onefilellm": f"{ONEFILELLM_API_URL}/health",
+    "silero-vad": f"{SILERO_VAD_URL}/healthz",
+    "parakeet-tdt": f"{PARAKEET_TDT_URL}/healthz",
+    "minicpm-vision": f"{MINICPM_VISION_URL}/healthz",
+    "nomic-embed": f"{NOMIC_EMBED_URL}/healthz",
+}
+
+# Backup legacy reference
+BASE_URL = INGESTION_API_URL
 
 # Test data templates
 TEST_DATA = {
@@ -159,6 +178,33 @@ TEST_DATA = {
             },
             "connectivity": ["wifi", "bluetooth", "cellular"],
         },
+    },
+    "github_url": {
+        "device_id": TEST_DEVICE_ID,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "url": "https://github.com/octocat/Hello-World",
+        "repository_type": "repository",
+        "priority": 5,
+        "include_files": ["*.py", "*.md", "*.txt"],
+        "exclude_files": ["*.pyc", "__pycache__/*"],
+        "max_file_size": 1048576,
+        "extract_options": {"extract_readme": True, "extract_code": True},
+    },
+    "document": {
+        "device_id": TEST_DEVICE_ID,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "filename": "test_document.txt",
+        "file_data": base64.b64encode(
+            b"This is a test document for OneFileLLM processing.\n\nIt contains multiple lines and paragraphs to test the document processing functionality."
+        ).decode(),
+        "content_type": "text/plain",
+        "file_size": len(
+            b"This is a test document for OneFileLLM processing.\n\nIt contains multiple lines and paragraphs to test the document processing functionality."
+        ),
+        "document_type": "txt",
+        "priority": 5,
+        "extract_options": {"extract_text": True},
+        "metadata": {"source": "e2e_test", "test": True},
     },
 }
 
@@ -415,35 +461,387 @@ class E2ETestRunner:
 
         return cleanup_results
 
-    async def wait_for_services(self, max_wait: int = 120):
+    async def wait_for_services(self, max_wait: int = 180):
         """Wait for all services to be ready."""
-        logger.info("Waiting for services to be ready", max_wait=max_wait)
-
-        services = [
-            ("Ingestion API", f"{BASE_URL}/healthz"),
-        ]
-
-        # If there's a Kafka consumer service running, add it here
-        # For now we'll just check the ingestion API
+        logger.info("Waiting for all services to be ready", max_wait=max_wait)
 
         start_time = time.time()
+        service_status = {}
 
-        for service_name, health_url in services:
-            while time.time() - start_time < max_wait:
+        for service_name, health_url in SERVICE_ENDPOINTS.items():
+            logger.info(f"Checking {service_name} at {health_url}")
+            service_ready = False
+            
+            while time.time() - start_time < max_wait and not service_ready:
                 try:
-                    async with self.session.get(health_url) as response:
+                    timeout = aiohttp.ClientTimeout(total=10)
+                    async with self.session.get(health_url, timeout=timeout) as response:
                         if response.status == 200:
-                            logger.info(f"{service_name} is ready")
-                            break
-                except:
-                    pass
-                await asyncio.sleep(2)
-            else:
-                raise TimeoutError(f"{service_name} not ready after {max_wait}s")
+                            logger.info(f"✅ {service_name} is ready")
+                            service_status[service_name] = "ready"
+                            service_ready = True
+                        else:
+                            logger.debug(f"⏳ {service_name} not ready: {response.status}")
+                except Exception as e:
+                    logger.debug(f"⏳ {service_name} connection failed: {str(e)}")
+                
+                if not service_ready:
+                    await asyncio.sleep(3)
+            
+            if not service_ready:
+                logger.warning(f"⚠️ {service_name} not ready after {max_wait}s")
+                service_status[service_name] = "timeout"
 
-        # Additional wait for Kafka to be fully ready
-        logger.info("Waiting additional time for Kafka to be fully ready")
-        await asyncio.sleep(10)
+        # Check required services
+        required_services = ["ingestion-api"]
+        for service in required_services:
+            if service_status.get(service) != "ready":
+                raise TimeoutError(f"Required service {service} not ready")
+
+        # Additional wait for Kafka and AI services to be fully ready
+        logger.info("Waiting additional time for Kafka and AI services")
+        await asyncio.sleep(15)
+        
+        return service_status
+
+    async def test_onefilellm_service(self):
+        """Test OneFileLLM service endpoints."""
+        logger.info("Testing OneFileLLM service")
+        
+        # Test health endpoint
+        async with self.session.get(f"{ONEFILELLM_API_URL}/health") as response:
+            assert response.status == 200, f"OneFileLLM health check failed: {response.status}"
+            health_data = await response.json()
+            logger.info("OneFileLLM health", health=health_data)
+
+        # Test process endpoint with a simple text
+        process_data = {
+            "content": "This is a test document for OneFileLLM processing.",
+            "content_type": "text/plain",
+            "options": {"extract_metadata": True}
+        }
+        
+        async with self.session.post(
+            f"{ONEFILELLM_API_URL}/process",
+            json=process_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("OneFileLLM process successful", result=result)
+            else:
+                logger.warning(f"OneFileLLM process endpoint not available: {response.status}")
+
+    async def test_silero_vad_service(self):
+        """Test Silero VAD service endpoints."""
+        logger.info("Testing Silero VAD service")
+        
+        # Test health endpoint
+        async with self.session.get(f"{SILERO_VAD_URL}/healthz") as response:
+            assert response.status == 200, f"Silero VAD health check failed: {response.status}"
+            health_data = await response.json()
+            logger.info("Silero VAD health", health=health_data)
+
+        # Test VAD endpoint with sample audio data
+        vad_data = {
+            "audio_data": base64.b64encode(b"fake_audio_for_vad_test" * 100).decode(),
+            "sample_rate": 16000,
+            "threshold": 0.5
+        }
+        
+        async with self.session.post(
+            f"{SILERO_VAD_URL}/detect",
+            json=vad_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Silero VAD detection successful", result=result)
+            else:
+                logger.warning(f"Silero VAD detect endpoint not available: {response.status}")
+
+    async def test_parakeet_tdt_service(self):
+        """Test Parakeet TDT ASR service endpoints."""
+        logger.info("Testing Parakeet TDT service")
+        
+        # Test health endpoint
+        async with self.session.get(f"{PARAKEET_TDT_URL}/healthz") as response:
+            assert response.status == 200, f"Parakeet TDT health check failed: {response.status}"
+            health_data = await response.json()
+            logger.info("Parakeet TDT health", health=health_data)
+
+        # Test transcription endpoint with sample audio
+        transcribe_data = {
+            "audio_data": base64.b64encode(b"fake_speech_audio_data" * 200).decode(),
+            "sample_rate": 16000,
+            "language": "en"
+        }
+        
+        async with self.session.post(
+            f"{PARAKEET_TDT_URL}/transcribe",
+            json=transcribe_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Parakeet TDT transcription successful", result=result)
+            else:
+                logger.warning(f"Parakeet TDT transcribe endpoint not available: {response.status}")
+
+    async def test_minicpm_vision_service(self):
+        """Test MiniCPM Vision service endpoints."""
+        logger.info("Testing MiniCPM Vision service")
+        
+        # Test health endpoint
+        async with self.session.get(f"{MINICPM_VISION_URL}/healthz") as response:
+            assert response.status == 200, f"MiniCPM Vision health check failed: {response.status}"
+            health_data = await response.json()
+            logger.info("MiniCPM Vision health", health=health_data)
+
+        # Test image analysis endpoint
+        analysis_data = {
+            "image_data": base64.b64encode(b"fake_jpeg_image_data" * 50).decode(),
+            "prompt": "Describe what you see in this image",
+            "max_tokens": 100
+        }
+        
+        async with self.session.post(
+            f"{MINICPM_VISION_URL}/analyze",
+            json=analysis_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("MiniCPM Vision analysis successful", result=result)
+            else:
+                logger.warning(f"MiniCPM Vision analyze endpoint not available: {response.status}")
+
+        # Test OCR endpoint
+        ocr_data = {
+            "image_data": base64.b64encode(b"fake_text_image_data" * 30).decode(),
+            "extract_text_only": True
+        }
+        
+        async with self.session.post(
+            f"{MINICPM_VISION_URL}/ocr",
+            json=ocr_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("MiniCPM Vision OCR successful", result=result)
+            else:
+                logger.warning(f"MiniCPM Vision OCR endpoint not available: {response.status}")
+
+    async def test_nomic_embed_service(self):
+        """Test Nomic Embed Vision service endpoints."""
+        logger.info("Testing Nomic Embed Vision service")
+        
+        # Test health endpoint
+        async with self.session.get(f"{NOMIC_EMBED_URL}/healthz") as response:
+            assert response.status == 200, f"Nomic Embed health check failed: {response.status}"
+            health_data = await response.json()
+            logger.info("Nomic Embed health", health=health_data)
+
+        # Test text embedding
+        text_embed_data = {
+            "text": "This is a test text for embedding generation using Nomic Embed Vision.",
+            "metadata": {"test_type": "e2e_pipeline"}
+        }
+        
+        async with self.session.post(
+            f"{NOMIC_EMBED_URL}/embed",
+            json=text_embed_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Nomic Embed text embedding successful", 
+                           embedding_dim=result.get("embedding_dimension"),
+                           processing_time=result.get("processing_time_ms"))
+            else:
+                logger.warning(f"Nomic Embed text embedding not available: {response.status}")
+
+        # Test image embedding
+        image_embed_data = {
+            "image_data": base64.b64encode(b"fake_jpeg_image_data" * 50).decode(),
+            "include_description": True,
+            "metadata": {"test_type": "e2e_pipeline"}
+        }
+        
+        async with self.session.post(
+            f"{NOMIC_EMBED_URL}/embed",
+            json=image_embed_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Nomic Embed image embedding successful",
+                           embedding_dim=result.get("embedding_dimension"),
+                           has_description=bool(result.get("image_description")),
+                           processing_time=result.get("processing_time_ms"))
+            else:
+                logger.warning(f"Nomic Embed image embedding not available: {response.status}")
+
+        # Test batch embeddings
+        batch_embed_data = {
+            "texts": [
+                "First test text for batch embedding",
+                "Second test text for batch embedding"
+            ],
+            "images": [
+                base64.b64encode(b"fake_image_1" * 30).decode(),
+                base64.b64encode(b"fake_image_2" * 30).decode()
+            ],
+            "include_descriptions": True
+        }
+        
+        async with self.session.post(
+            f"{NOMIC_EMBED_URL}/embed/batch",
+            json=batch_embed_data,
+            headers={"Content-Type": "application/json"}
+        ) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Nomic Embed batch embedding successful",
+                           text_embeddings_count=len(result.get("text_embeddings", [])),
+                           image_embeddings_count=len(result.get("image_embeddings", [])),
+                           total_processing_time=result.get("total_processing_time_ms"))
+            else:
+                logger.warning(f"Nomic Embed batch embedding not available: {response.status}")
+
+        # Test model info endpoint
+        async with self.session.get(f"{NOMIC_EMBED_URL}/model/info") as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Nomic Embed model info", model_info=result)
+            else:
+                logger.warning(f"Nomic Embed model info not available: {response.status}")
+
+        # Test stats endpoint
+        async with self.session.get(f"{NOMIC_EMBED_URL}/stats") as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info("Nomic Embed stats", stats=result)
+            else:
+                logger.warning(f"Nomic Embed stats not available: {response.status}")
+
+    async def test_ai_services(self):
+        """Test all AI services comprehensively."""
+        logger.info("Testing all AI services")
+        
+        ai_results = {}
+        
+        try:
+            logger.info("Testing OneFileLLM service...")
+            await self.test_onefilellm_service()
+            ai_results["onefilellm"] = True
+        except Exception as e:
+            logger.error("OneFileLLM service test failed", error=str(e))
+            ai_results["onefilellm"] = False
+            
+        try:
+            logger.info("Testing Silero VAD service...")
+            await self.test_silero_vad_service()
+            ai_results["silero_vad"] = True
+        except Exception as e:
+            logger.error("Silero VAD service test failed", error=str(e))
+            ai_results["silero_vad"] = False
+            
+        try:
+            logger.info("Testing Parakeet TDT service...")
+            await self.test_parakeet_tdt_service()
+            ai_results["parakeet_tdt"] = True
+        except Exception as e:
+            logger.error("Parakeet TDT service test failed", error=str(e))
+            ai_results["parakeet_tdt"] = False
+            
+        try:
+            logger.info("Testing MiniCPM Vision service...")
+            await self.test_minicpm_vision_service()
+            ai_results["minicpm_vision"] = True
+        except Exception as e:
+            logger.error("MiniCPM Vision service test failed", error=str(e))
+            ai_results["minicpm_vision"] = False
+            
+        try:
+            logger.info("Testing Nomic Embed service...")
+            await self.test_nomic_embed_service()
+            ai_results["nomic_embed"] = True
+        except Exception as e:
+            logger.error("Nomic Embed service test failed", error=str(e))
+            ai_results["nomic_embed"] = False
+            
+        logger.info("AI service testing completed", results=ai_results)
+        return ai_results
+
+    async def test_github_endpoint(self):
+        """Test GitHub URL ingestion endpoint comprehensively."""
+        logger.info("Testing GitHub ingestion endpoint")
+        
+        # Test GitHub repository URL
+        github_data = {
+            "device_id": TEST_DEVICE_ID,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "url": "https://github.com/raphaelsty/onefilellm",
+            "repository_type": "repository",
+            "priority": 5,
+            "include_files": ["*.py", "*.md"],
+            "exclude_files": ["*.pyc", "__pycache__/*"],
+            "max_file_size": 1048576,
+            "extract_options": {"include_comments": True, "extract_metadata": True}
+        }
+        
+        async with self.session.post(
+            f"{INGESTION_API_URL}/github/ingest",
+            json=github_data,
+            headers={"X-API-Key": "apikeyhere", "Content-Type": "application/json"}
+        ) as response:
+            if response.status in [200, 201]:
+                result = await response.json()
+                logger.info("GitHub ingestion successful", result=result)
+                return True
+            else:
+                logger.error(f"GitHub ingestion failed: {response.status}")
+                error_detail = await response.text()
+                logger.error("GitHub error details", details=error_detail)
+                return False
+
+    async def test_document_endpoint(self):
+        """Test document upload endpoint comprehensively."""
+        logger.info("Testing document upload endpoint")
+        
+        # Create a test document (text file)
+        test_content = "This is a test document for OneFileLLM processing.\n\nIt contains multiple lines and should be processed correctly by the system."
+        test_document_b64 = base64.b64encode(test_content.encode()).decode()
+        
+        document_data = {
+            "device_id": TEST_DEVICE_ID,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "filename": "test_document.txt",
+            "file_data": test_document_b64,
+            "content_type": "text/plain",
+            "file_size": len(test_content.encode()),
+            "document_type": "text",
+            "priority": 5,
+            "extract_options": {"extract_metadata": True, "analyze_content": True},
+            "metadata": {"test_type": "e2e_pipeline", "source": "automated_test"}
+        }
+        
+        async with self.session.post(
+            f"{INGESTION_API_URL}/documents/upload",
+            json=document_data,
+            headers={"X-API-Key": "apikeyhere", "Content-Type": "application/json"}
+        ) as response:
+            if response.status in [200, 201]:
+                result = await response.json()
+                logger.info("Document upload successful", result=result)
+                return True
+            else:
+                logger.error(f"Document upload failed: {response.status}")
+                error_detail = await response.text()
+                logger.error("Document error details", details=error_detail)
+                return False
 
     async def test_websocket_audio_stream(self) -> bool:
         """Test WebSocket audio streaming endpoint."""
@@ -525,7 +923,7 @@ class E2ETestRunner:
                 async with self.session.post(
                     f"{BASE_URL}{endpoint}",
                     json=data,
-                    headers={"X-API-Key": "pineapple"},
+                    headers={"X-API-Key": "apikeyhere"},
                 ) as response:
                     response_data = await response.json()
                     response_time = (time.time() - start_time) * 1000  # Convert to ms
@@ -684,6 +1082,8 @@ class E2ETestRunner:
             ),
             ("/system/metadata", TEST_DATA["metadata"], "device.metadata.raw"),
             ("/notes/upload", TEST_DATA["note"], "device.text.notes.raw"),
+            ("/github/ingest", TEST_DATA["github_url"], "task.github.ingest"),
+            ("/documents/upload", TEST_DATA["document"], "task.document.ingest"),
         ]
 
         results = {}
@@ -784,6 +1184,9 @@ class E2ETestRunner:
 
             # Run API tests
             test_results["api_tests"] = await self.run_api_tests()
+
+            # Test AI services
+            test_results["ai_services"] = await self.test_ai_services()
 
             # Inject processed data
             test_results[

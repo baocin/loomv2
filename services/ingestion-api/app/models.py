@@ -352,3 +352,102 @@ class HealthCheck(BaseModel):
     )
     version: str = Field(default="0.1.0", description="Service version")
     kafka_connected: bool = Field(description="Kafka connection status")
+
+
+class GitHubTask(BaseMessage):
+    """GitHub URL processing task."""
+
+    url: str = Field(description="GitHub URL to process")
+    repository_type: str = Field(
+        default="repository",
+        description="Type of GitHub resource (repository, file, issue, pr)",
+    )
+    priority: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Processing priority (1=highest, 10=lowest)",
+    )
+    include_files: list[str] = Field(
+        default_factory=list,
+        description="File patterns to include (e.g., ['*.py', '*.md'])",
+    )
+    exclude_files: list[str] = Field(
+        default_factory=list,
+        description="File patterns to exclude",
+    )
+    max_file_size: int = Field(
+        default=1048576,  # 1MB
+        description="Maximum file size in bytes",
+    )
+    extract_options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Options for content extraction",
+    )
+    callback_webhook: str | None = Field(
+        None,
+        description="Webhook URL for processing completion notification",
+    )
+
+    @validator("url")
+    def validate_github_url(cls, v):
+        """Validate that URL is a GitHub URL."""
+        if not v.startswith(("https://github.com/", "http://github.com/")):
+            raise ValueError("URL must be a GitHub URL")
+        return v
+
+
+class DocumentTask(BaseMessage):
+    """Document upload and processing task."""
+
+    filename: str = Field(description="Original filename")
+    file_data: str = Field(description="Base64 encoded file content")
+    content_type: str = Field(
+        default="application/octet-stream",
+        description="MIME type of the file",
+    )
+    file_size: int = Field(description="File size in bytes")
+    document_type: str = Field(
+        default="general",
+        description="Type of document (pdf, docx, txt, markdown, html)",
+    )
+    priority: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Processing priority (1=highest, 10=lowest)",
+    )
+    extract_options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Options for content extraction",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional document metadata",
+    )
+    callback_webhook: str | None = Field(
+        None,
+        description="Webhook URL for processing completion notification",
+    )
+
+    @validator("file_data")
+    def validate_file_data(cls, v):
+        """Validate base64 encoded file data."""
+        if not v:
+            raise ValueError("file_data is required")
+        try:
+            import base64
+
+            base64.b64decode(v)
+        except Exception:
+            raise ValueError("file_data must be valid base64 encoded content")
+        return v
+
+    @validator("file_size")
+    def validate_file_size(cls, v):
+        """Validate file size is reasonable."""
+        if v <= 0:
+            raise ValueError("file_size must be positive")
+        if v > 100 * 1024 * 1024:  # 100MB limit
+            raise ValueError("file_size exceeds maximum limit of 100MB")
+        return v

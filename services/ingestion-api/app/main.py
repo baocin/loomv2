@@ -13,7 +13,7 @@ from .config import settings
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, images, notes, sensors, system, urls
+from .routers import audio, documents, github, images, notes, sensors, system, urls
 
 # Configure structured logging
 structlog.configure(
@@ -109,6 +109,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(audio.router)
+app.include_router(documents.router)
+app.include_router(github.router)
 app.include_router(images.router)
 app.include_router(notes.router)
 app.include_router(sensors.router)
@@ -133,6 +135,8 @@ async def root() -> JSONResponse:
                 "image_upload": "/images/upload",
                 "screenshot_upload": "/images/screenshot",
                 "note_upload": "/notes/upload",
+                "github_ingest": "/github/ingest",
+                "document_upload": "/documents/upload",
                 "sensor_endpoints": "/sensor/*",
                 "system_app_monitoring": "/system/apps/*",
                 "device_metadata": "/system/metadata",
