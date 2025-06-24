@@ -3,9 +3,14 @@
 # Stage 1: Base image with CUDA support
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS base
 
+# Set timezone and locale to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install Python 3.11
 RUN apt-get update && apt-get install -y \
     software-properties-common \
+    tzdata \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
     python3.11 \

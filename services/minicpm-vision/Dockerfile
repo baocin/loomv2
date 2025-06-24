@@ -1,11 +1,16 @@
 # Multi-stage build for MiniCPM-Vision service
 FROM python:3.11-slim as builder
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -15,7 +20,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Create virtual environment and install dependencies
 RUN uv venv /opt/venv
@@ -26,9 +31,14 @@ RUN uv pip install --no-cache -e .
 # Final stage
 FROM python:3.11-slim
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

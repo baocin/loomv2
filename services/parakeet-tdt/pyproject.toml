@@ -16,8 +16,10 @@ dependencies = [
     "torchaudio>=2.1.0",
     "numpy>=1.24.0",
     "scipy>=1.11.0",
-    "librosa>=0.10.0",
+    "librosa>=0.10.1",
     "soundfile>=0.12.0",
+    "numba>=0.58.0",  # Ensure Python 3.11 compatibility
+    "llvmlite>=0.41.0",  # Ensure Python 3.11 compatibility
 ]
 
 [project.optional-dependencies]

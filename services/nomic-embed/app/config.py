@@ -1,6 +1,5 @@
 """Configuration for Nomic Embed Vision service."""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings
 

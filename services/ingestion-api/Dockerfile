@@ -3,10 +3,15 @@
 # Stage 1: Build environment
 FROM python:3.11-slim as builder
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster dependency installation
@@ -27,10 +32,15 @@ RUN uv venv .venv && \
 # Stage 2: Runtime environment
 FROM python:3.11-slim
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     netcat-traditional \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

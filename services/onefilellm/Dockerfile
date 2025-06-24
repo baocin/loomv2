@@ -1,6 +1,10 @@
 # OneFileLLM Service Dockerfile
 FROM python:3.11-slim
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Set working directory
 WORKDIR /app
 
@@ -9,23 +13,23 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     build-essential \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Copy pyproject.toml first for dependency caching
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
-# Install Python dependencies
-RUN uv sync --frozen
+# Create virtual environment and install Python dependencies
+RUN uv venv && \
+    . .venv/bin/activate && \
+    uv pip install -e .
 
-# Clone OneFileLLM repository
-RUN git clone https://github.com/raphaelsty/onefilellm.git /tmp/onefilellm
-
-# Install OneFileLLM
-RUN cd /tmp/onefilellm && \
-    /app/.venv/bin/pip install -e .
+# Install OneFileLLM directly from GitHub
+RUN . .venv/bin/activate && \
+    pip install git+https://github.com/raphaelsty/onefilellm.git
 
 # Copy application code
 COPY app/ ./app/

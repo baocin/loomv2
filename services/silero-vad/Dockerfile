@@ -4,10 +4,16 @@ ARG PYTHON_VERSION=3.11
 # Build stage - install dependencies
 FROM python:${PYTHON_VERSION}-slim as builder
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    liblz4-dev \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -19,7 +25,7 @@ ENV PATH="/root/.local/bin:${PATH}"
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Install dependencies
 RUN uv venv && \
@@ -33,9 +39,15 @@ RUN . .venv/bin/activate && \
 # Runtime stage
 FROM python:${PYTHON_VERSION}-slim
 
+# Set timezone to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
+    liblz4-1 \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

@@ -165,3 +165,7 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# k3s binary and data
+k3s
+k3s-data/

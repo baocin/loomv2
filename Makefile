@@ -24,6 +24,22 @@ dev-up: ## Start local development environment with Tilt
 dev-down: ## Stop local development environment
 	tilt down
 
+dev-compose-up: ## Start local development environment with Docker Compose
+	@echo "Starting Loom v2 services with Docker Compose..."
+	docker compose -f docker-compose.local.yml up -d
+	@echo "✅ Services started:"
+	@echo "  - Ingestion API: http://localhost:8000"
+	@echo "  - Kafka UI: http://localhost:8081"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo "  - Kafka: localhost:9092"
+
+dev-compose-down: ## Stop Docker Compose environment
+	@echo "Stopping Loom v2 services..."
+	docker compose -f docker-compose.local.yml down
+
+dev-compose-logs: ## View Docker Compose logs
+	docker compose -f docker-compose.local.yml logs -f
+
 # Testing
 test: ## Run all tests
 	@echo "Running ingestion-api tests..."

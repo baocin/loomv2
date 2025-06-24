@@ -223,32 +223,99 @@ ALTER TABLE internal_scheduled_jobs_status SET (
 );
 
 -- Add compression policies (compress after 1 day for most, 7 days for large tables)
-SELECT add_compression_policy('external_email_events_raw', INTERVAL '7 days');
-SELECT add_compression_policy('external_calendar_events_raw', INTERVAL '30 days');
-SELECT add_compression_policy('external_twitter_liked_raw', INTERVAL '7 days');
-SELECT add_compression_policy('external_reddit_activity_raw', INTERVAL '7 days');
-SELECT add_compression_policy('external_hackernews_activity_raw', INTERVAL '7 days');
-SELECT add_compression_policy('external_web_visits_raw', INTERVAL '1 day');
--- RSS compression policy removed - see migration 016
-SELECT add_compression_policy('internal_scheduled_jobs_status', INTERVAL '1 day');
+-- Using simpler approach to avoid duplicates
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_email_events_raw'
+) THEN add_compression_policy('external_email_events_raw', INTERVAL '7 days') END;
 
--- Add retention policies based on data importance
-SELECT add_retention_policy('external_email_events_raw', INTERVAL '90 days');
-SELECT add_retention_policy('external_calendar_events_raw', INTERVAL '365 days');
-SELECT add_retention_policy('external_twitter_liked_raw', INTERVAL '365 days');
-SELECT add_retention_policy('external_reddit_activity_raw', INTERVAL '180 days');
-SELECT add_retention_policy('external_hackernews_activity_raw', INTERVAL '180 days');
-SELECT add_retention_policy('external_web_visits_raw', INTERVAL '30 days');
--- RSS retention policy removed - see migration 016
-SELECT add_retention_policy('internal_scheduled_jobs_status', INTERVAL '7 days');
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_calendar_events_raw'
+) THEN add_compression_policy('external_calendar_events_raw', INTERVAL '30 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_twitter_liked_raw'
+) THEN add_compression_policy('external_twitter_liked_raw', INTERVAL '7 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_reddit_activity_raw'
+) THEN add_compression_policy('external_reddit_activity_raw', INTERVAL '7 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_hackernews_activity_raw'
+) THEN add_compression_policy('external_hackernews_activity_raw', INTERVAL '7 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'external_web_visits_raw'
+) THEN add_compression_policy('external_web_visits_raw', INTERVAL '1 day') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_compression'
+    AND hypertable_name = 'internal_scheduled_jobs_status'
+) THEN add_compression_policy('internal_scheduled_jobs_status', INTERVAL '1 day') END;
+
+-- Add retention policies based on data importance (using simpler conditional approach)
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_email_events_raw'
+) THEN add_retention_policy('external_email_events_raw', INTERVAL '90 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_calendar_events_raw'
+) THEN add_retention_policy('external_calendar_events_raw', INTERVAL '365 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_twitter_liked_raw'
+) THEN add_retention_policy('external_twitter_liked_raw', INTERVAL '365 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_reddit_activity_raw'
+) THEN add_retention_policy('external_reddit_activity_raw', INTERVAL '180 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_hackernews_activity_raw'
+) THEN add_retention_policy('external_hackernews_activity_raw', INTERVAL '180 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'external_web_visits_raw'
+) THEN add_retention_policy('external_web_visits_raw', INTERVAL '30 days') END;
+
+SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM timescaledb_information.jobs
+    WHERE proc_name = 'policy_retention'
+    AND hypertable_name = 'internal_scheduled_jobs_status'
+) THEN add_retention_policy('internal_scheduled_jobs_status', INTERVAL '7 days') END;
 
 -- Show compression and retention policies
 SELECT
     hypertable_name,
     compression_enabled,
-    (SELECT compress_after FROM timescaledb_information.jobs
+    (SELECT config->>'compress_after' FROM timescaledb_information.jobs
      WHERE hypertable_name = h.hypertable_name AND proc_name = 'policy_compression' LIMIT 1) as compress_after,
-    (SELECT drop_after FROM timescaledb_information.jobs
+    (SELECT config->>'drop_after' FROM timescaledb_information.jobs
      WHERE hypertable_name = h.hypertable_name AND proc_name = 'policy_retention' LIMIT 1) as retention_period
 FROM timescaledb_information.hypertables h
 WHERE hypertable_name LIKE 'external_%' OR hypertable_name LIKE 'internal_%'
