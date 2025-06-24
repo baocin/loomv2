@@ -217,6 +217,22 @@ pytest services/ingestion-api/tests/unit/test_health.py -v
 
 # Run tests in watch mode (development)
 cd services/ingestion-api && make test-watch
+
+# AI Service Testing Script
+# First install script dependencies
+uv pip install -r requirements-scripts.txt
+
+# Test all AI services
+uv run python scripts/test_ai_services.py
+
+# Test specific service
+uv run python scripts/test_ai_services.py --service nomic-embed
+
+# Generate JSON report
+uv run python scripts/test_ai_services.py --output test_results.json
+
+# Performance testing with multiple iterations
+uv run python scripts/test_ai_services.py --performance --iterations 3
 ```
 
 ### Test Categories
