@@ -68,7 +68,7 @@ class KafkaImageConsumer:
             self.producer = AIOKafkaProducer(
                 bootstrap_servers=self.bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-                compression_type="lz4",
+                compression_type=None,  # Disabled lz4 compression temporarily
             )
 
             # Start both

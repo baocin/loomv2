@@ -54,7 +54,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Create necessary directories
-RUN mkdir -p /app /home/loom/.cache && \
+RUN mkdir -p /app /home/loom/.cache /home/loom/.cache/outlines && \
     chown -R loom:loom /app /home/loom/.cache
 
 WORKDIR /app
