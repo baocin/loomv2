@@ -1,0 +1,83 @@
+[project]
+name = "pino-proxy-ubuntu"
+version = "0.1.0"
+description = "Pino Proxy Ubuntu Data Collection Client for Loom v2"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.5",
+    "uvicorn[standard]>=0.32.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.10.3",
+    "pydantic-settings>=2.6.1",
+    "structlog>=24.4.0",
+    "pyaudio>=0.2.11",  # Audio recording
+    "pillow>=10.4.0",  # Image processing
+    "psutil>=6.1.0",  # System metrics
+    "schedule>=1.2.2",  # Task scheduling
+    "requests>=2.32.3",  # HTTP client
+    "websockets>=13.1",  # WebSocket client
+    "python-xlib>=0.33",  # X11 window management
+    "pynput>=1.7.6",  # Input monitoring
+    "pyscreenshot>=3.1",  # Screen capture
+    "python-pulse>=0.1.0",  # PulseAudio integration
+    "evdev>=1.6.1",  # Linux input device access
+    "dbus-python>=1.3.2",  # D-Bus system integration
+    "pygobject>=3.46.0",  # GObject introspection
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.3",
+    "black>=24.10.0",
+    "mypy>=1.13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+]

@@ -28,6 +28,8 @@ dev-compose-up: ## Start local development environment with Docker Compose
 	@echo "Starting Loom v2 services with Docker Compose..."
 	docker compose -f docker-compose.local.yml up -d
 	@echo "✅ Services started:"
+	@echo "  - Pipeline Monitor: http://localhost:3000"
+	@echo "  - Pipeline Monitor API: http://localhost:8082"
 	@echo "  - Ingestion API: http://localhost:8000"
 	@echo "  - Kafka UI: http://localhost:8081"
 	@echo "  - PostgreSQL: localhost:5432"
@@ -73,6 +75,10 @@ format: ## Format code
 docker: ## Build all Docker images
 	@echo "Building ingestion-api image..."
 	@cd services/ingestion-api && make docker
+	@echo "Building pipeline-monitor-api image..."
+	@cd services/pipeline-monitor-api && make docker
+	@echo "Building pipeline-monitor image..."
+	@cd services/pipeline-monitor && make docker
 
 docker-push: ## Push Docker images to registry
 	@echo "Pushing Docker images..."

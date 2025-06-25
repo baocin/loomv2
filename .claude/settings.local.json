@@ -14,7 +14,8 @@
       "Bash(docker exec:*)",
       "Bash(docker-compose:*)",
       "Bash(docker compose:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(docker logs:*)"
     ]
   },
   "enableAllProjectMcpServers": false

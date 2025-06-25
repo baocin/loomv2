@@ -225,6 +225,56 @@ services:
         reservations:
           memory: 4G
 
+  pipeline-monitor-api:
+    build:
+      context: ./services/pipeline-monitor-api
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8080
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_DATABASE_HOST: postgres
+      LOOM_DATABASE_PORT: 5432
+      LOOM_DATABASE_NAME: loom
+      LOOM_DATABASE_USER: loom
+      LOOM_DATABASE_PASSWORD: loom
+      CORS_ORIGIN: http://localhost:3000
+      LOG_LEVEL: info
+      NODE_ENV: development
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health/live', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  pipeline-monitor:
+    build:
+      context: ./services/pipeline-monitor
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_URL: http://localhost:8082
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "3000:3000"
+    depends_on:
+      - pipeline-monitor-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   # onefilellm:  # Temporarily disabled due to GitHub access issues
   #   build:
   #     context: ./services/onefilellm

@@ -1,0 +1,11 @@
+# Core dependencies
+aiohttp>=3.8.0
+structlog>=23.0.0
+psutil>=5.9.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Optional dependencies for enhanced functionality
+# These may not be available in all environments
+typing-extensions>=4.0.0

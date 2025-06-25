@@ -8,6 +8,7 @@ k8s_yaml([
     'deploy/dev/kafka-to-db-consumer.yaml',
     'deploy/dev/ai-services.yaml',
     'deploy/dev/cronjobs.yaml',
+    'deploy/dev/pipeline-monitor.yaml',
 ])
 
 # Build and deploy ingestion-api
@@ -107,6 +108,27 @@ docker_build(
     ]
 )
 
+# Build and deploy pipeline monitoring services
+docker_build(
+    'loom/pipeline-monitor-api',
+    'services/pipeline-monitor-api',
+    dockerfile='services/pipeline-monitor-api/Dockerfile',
+    live_update=[
+        sync('services/pipeline-monitor-api/src', '/app/src'),
+        run('npm run build', trigger=['services/pipeline-monitor-api/package.json']),
+    ]
+)
+
+docker_build(
+    'loom/pipeline-monitor',
+    'services/pipeline-monitor',
+    dockerfile='services/pipeline-monitor/Dockerfile',
+    live_update=[
+        sync('services/pipeline-monitor/src', '/app/src'),
+        run('npm run build', trigger=['services/pipeline-monitor/package.json']),
+    ]
+)
+
 # Build and deploy kafka-infra
 k8s_yaml(helm(
     'deploy/helm/kafka-infra',
@@ -127,6 +149,8 @@ k8s_resource('kafka-infra-chart', port_forwards=['9092:9092', '9093:9093'])
 k8s_resource('postgres', port_forwards='5432:5432')
 k8s_resource('chart-kafka-ui', port_forwards='8081:8080')
 k8s_resource('kafka-to-db-consumer', port_forwards='8001:8001')
+k8s_resource('pipeline-monitor-api', port_forwards='8082:8080')
+k8s_resource('pipeline-monitor-frontend', port_forwards='3000:3000')
 
 # Note: AI services run as Kafka consumers without external ports
 # They can be monitored via their health endpoints through kubectl port-forward
@@ -135,6 +159,8 @@ k8s_resource('kafka-to-db-consumer', port_forwards='8001:8001')
 k8s_resource('chart-ingestion-api', resource_deps=['kafka-infra-chart', 'postgres'])
 k8s_resource('chart-kafka-ui', resource_deps=['kafka-infra-chart'])
 k8s_resource('kafka-to-db-consumer', resource_deps=['kafka-infra-chart', 'postgres'])
+k8s_resource('pipeline-monitor-api', resource_deps=['kafka-infra-chart', 'postgres'])
+k8s_resource('pipeline-monitor-frontend', resource_deps=['pipeline-monitor-api'])
 
 # AI services dependencies
 k8s_resource('silero-vad', resource_deps=['kafka-infra-chart'])
@@ -182,6 +208,8 @@ print("""
 Available services:
 - Ingestion API: http://localhost:8000
 - Kafka-to-DB Consumer: http://localhost:8001
+- Pipeline Monitor: http://localhost:3000
+- Pipeline Monitor API: http://localhost:8082
 - Kafka UI: http://localhost:8081
 - Kafka: localhost:9092
 - PostgreSQL: localhost:5432
