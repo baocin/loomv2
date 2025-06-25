@@ -17,14 +17,21 @@ import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage,
 const STORAGE_KEY = 'loom-pipeline-node-positions'
 
 // Position persistence utilities
-const saveNodePositions = (nodes: Node[]) => {
-  const positions = nodes.reduce((acc, node) => {
-    acc[node.id] = { x: node.position.x, y: node.position.y }
-    return acc
-  }, {} as Record<string, { x: number; y: number }>)
-
-  console.log('Saving positions to localStorage:', positions)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(positions))
+const updateNodePosition = (nodeId: string, position: { x: number; y: number }) => {
+  try {
+    // Get existing positions
+    const stored = localStorage.getItem(STORAGE_KEY)
+    const existingPositions = stored ? JSON.parse(stored) : {}
+    
+    // Update just this node's position
+    existingPositions[nodeId] = position
+    
+    console.log(`Updating position for ${nodeId}:`, position)
+    console.log('All positions after update:', existingPositions)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPositions))
+  } catch (error) {
+    console.warn('Failed to update node position:', error)
+  }
 }
 
 const loadNodePositions = (): Record<string, { x: number; y: number }> => {
@@ -34,20 +41,20 @@ const loadNodePositions = (): Record<string, { x: number; y: number }> => {
       console.log('No stored positions found in localStorage')
       return {}
     }
-    
+
     const positions = JSON.parse(stored)
     console.log('Loaded positions from localStorage:', positions)
-    
+
     // Validate that positions are valid objects with x,y numbers
     const validPositions: Record<string, { x: number; y: number }> = {}
     for (const [nodeId, pos] of Object.entries(positions)) {
-      if (pos && typeof pos === 'object' && 
-          typeof (pos as any).x === 'number' && 
+      if (pos && typeof pos === 'object' &&
+          typeof (pos as any).x === 'number' &&
           typeof (pos as any).y === 'number') {
         validPositions[nodeId] = pos as { x: number; y: number }
       }
     }
-    
+
     return validPositions
   } catch (error) {
     console.warn('Failed to load node positions from localStorage:', error)
@@ -84,13 +91,12 @@ function App() {
   }, [onNodesChange])
 
   // Handle drag stop event to save positions
-  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node, nodes: Node[]) => {
-    console.log('Node drag stopped, saving positions...', node.id, node.position)
-    
-    // Save all current node positions
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node, _nodes: Node[]) => {
+    console.log('Node drag stopped, saving position for:', node.id, node.position)
+
+    // Save only this node's position (preserving others)
     setTimeout(() => {
-      console.log('Saving node positions:', nodes.map(n => ({ id: n.id, position: n.position })))
-      saveNodePositions(nodes)
+      updateNodePosition(node.id, node.position)
     }, 50)
   }, [])
 

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Position Saving Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        #results { margin-top: 20px; }
+        .log { margin: 5px 0; padding: 5px; background: #f8f9fa; border-left: 3px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>Loom Pipeline Monitor - Position Saving Test</h1>
+    
+    <div class="test-section info">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Click "Open Pipeline Monitor" to open the main app in a new tab</li>
+            <li>In the new tab, drag any node to a different position</li>
+            <li>Open browser dev tools (F12) and check the Console for position saving logs</li>
+            <li>Refresh the page and verify the node stayed in its new position</li>
+            <li>Come back to this tab and click "Test LocalStorage" to verify data was saved</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Quick Actions</h2>
+        <button onclick="openPipelineMonitor()">Open Pipeline Monitor</button>
+        <button onclick="testLocalStorage()">Test LocalStorage</button>
+        <button onclick="clearPositions()">Clear Saved Positions</button>
+        <button onclick="testAPI()">Test API Connection</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<div class="log">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            results.appendChild(div);
+        }
+
+        function openPipelineMonitor() {
+            window.open('http://localhost:3000', '_blank');
+            log('Opened Pipeline Monitor in new tab. Try dragging a node and check console logs.', 'info');
+        }
+
+        function testLocalStorage() {
+            const storageKey = 'loom-pipeline-node-positions';
+            const stored = localStorage.getItem(storageKey);
+            
+            if (stored) {
+                try {
+                    const positions = JSON.parse(stored);
+                    const nodeCount = Object.keys(positions).length;
+                    log(`✅ Found ${nodeCount} saved node positions in localStorage`, 'success');
+                    log(`Stored positions: ${JSON.stringify(positions, null, 2)}`, 'info');
+                } catch (e) {
+                    log(`❌ Error parsing stored positions: ${e.message}`, 'error');
+                }
+            } else {
+                log(`❌ No positions found in localStorage. Try dragging nodes first.`, 'error');
+            }
+        }
+
+        function clearPositions() {
+            const storageKey = 'loom-pipeline-node-positions';
+            localStorage.removeItem(storageKey);
+            log('🗑️ Cleared saved positions from localStorage', 'info');
+        }
+
+        async function testAPI() {
+            try {
+                log('Testing API connection...', 'info');
+                
+                const response = await fetch('http://localhost:8082/api/kafka/pipeline');
+                const data = await response.json();
+                
+                if (data.nodes && data.edges) {
+                    log(`✅ API working! Found ${data.nodes.length} nodes and ${data.edges.length} edges`, 'success');
+                    
+                    // Check for database connections to raw topics
+                    const rawTopicEdges = data.edges.filter(edge => 
+                        edge.target === 'timescaledb' && 
+                        (edge.source.includes('external.twitter.liked.raw') ||
+                         edge.source.includes('device.sensor.gps.raw') ||
+                         edge.source.includes('device.health.heartrate.raw'))
+                    );
+                    
+                    if (rawTopicEdges.length > 0) {
+                        log(`✅ Database connections working! Found ${rawTopicEdges.length} raw topic connections`, 'success');
+                        rawTopicEdges.forEach(edge => {
+                            log(`  └─ ${edge.source} → ${edge.target}`, 'info');
+                        });
+                    } else {
+                        log(`⚠️ No raw topic database connections found`, 'error');
+                    }
+                } else {
+                    log(`❌ API returned unexpected data structure`, 'error');
+                }
+            } catch (error) {
+                log(`❌ API test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-test API on load
+        window.addEventListener('load', () => {
+            log('Position Saving Test Tool loaded', 'info');
+            testAPI();
+        });
+    </script>
+</body>
+</html>
