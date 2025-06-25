@@ -168,4 +168,10 @@ export class KafkaMetricsCollector {
   getLastUpdateTime(): Date {
     return this.lastUpdate
   }
+
+  clearCaches(): void {
+    this.metricsCache.clear()
+    this.consumerCache.clear()
+    logger.info('Cleared metrics collector caches')
+  }
 }
