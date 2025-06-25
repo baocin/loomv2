@@ -38,14 +38,14 @@ EOF
 MIGRATION_DIR="$(dirname "$0")"
 for migration in $(ls $MIGRATION_DIR/*.sql | sort); do
     filename=$(basename $migration)
-    
+
     # Check if migration was already executed
     executed=$(psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM schema_migrations WHERE filename = '$filename'")
-    
+
     if [ $executed -eq 0 ]; then
         echo "📝 Running migration: $filename"
         psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f $migration
-        
+
         # Record successful migration
         psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "INSERT INTO schema_migrations (filename) VALUES ('$filename')"
         echo "✅ Completed: $filename"
@@ -65,7 +65,7 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME <<EOF
 SELECT extversion AS timescaledb_version FROM pg_extension WHERE extname = 'timescaledb';
 
 -- List hypertables
-SELECT hypertable_name, 
+SELECT hypertable_name,
        num_chunks,
        compression_enabled,
        total_bytes / 1024 / 1024 AS total_mb,
@@ -73,8 +73,8 @@ SELECT hypertable_name,
 FROM timescaledb_information.hypertables;
 
 -- Active jobs
-SELECT job_id, proc_name, schedule_interval, next_start 
-FROM timescaledb_information.jobs 
+SELECT job_id, proc_name, schedule_interval, next_start
+FROM timescaledb_information.jobs
 WHERE proc_name IN ('policy_retention', 'policy_compression')
 ORDER BY job_id;
 EOF

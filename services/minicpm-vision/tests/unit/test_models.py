@@ -1,16 +1,17 @@
 """Unit tests for data models."""
 
 from datetime import datetime
+
 import pytest
 from pydantic import ValidationError
 
 from app.models import (
     BaseMessage,
-    ImageMessage,
     DetectedObject,
+    HealthStatus,
+    ImageMessage,
     OCRResult,
     VisionAnalysisResult,
-    HealthStatus,
 )
 
 
@@ -79,7 +80,7 @@ class TestDetectedObject:
         """Test confidence value validation."""
         with pytest.raises(ValidationError):
             DetectedObject(label="person", confidence=1.5)  # > 1.0
-        
+
         with pytest.raises(ValidationError):
             DetectedObject(label="person", confidence=-0.1)  # < 0.0
 

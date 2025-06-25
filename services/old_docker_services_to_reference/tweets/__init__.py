@@ -1,3 +1,3 @@
 from .injest import TweetInjest
 
-__all__ = ['TweetInjest']
+__all__ = ["TweetInjest"]

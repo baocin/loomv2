@@ -1,6 +1,7 @@
 """Structured output schemas for MiniCPM-Vision using outlines."""
 
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -16,22 +17,24 @@ class StructuredSceneAnalysis(BaseModel):
     activities: Optional[List[str]] = Field(
         None, description="Activities or actions detected"
     )
-    
-    
+
+
 class StructuredOCRAnalysis(BaseModel):
     """Structured output schema for OCR analysis."""
-    
+
     text_blocks: List[Dict[str, str]] = Field(
         ..., description="Text blocks with their content"
     )
     full_text: str = Field(..., description="Full concatenated text")
-    document_type: Optional[str] = Field(None, description="Type of document if applicable")
+    document_type: Optional[str] = Field(
+        None, description="Type of document if applicable"
+    )
     language: Optional[str] = Field(None, description="Detected language")
 
 
 class StructuredVisualQA(BaseModel):
     """Structured output schema for visual question answering."""
-    
+
     question: str = Field(..., description="The visual question asked")
     answer: str = Field(..., description="The answer based on image content")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Answer confidence")

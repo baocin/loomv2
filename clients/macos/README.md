@@ -5,7 +5,7 @@ A comprehensive macOS data collection client that captures various types of syst
 ## Features
 
 - **Audio Recording**: Continuous or triggered microphone recording
-- **Screen Capture**: Periodic screenshots and screen recording keyframes  
+- **Screen Capture**: Periodic screenshots and screen recording keyframes
 - **System Monitoring**: CPU, memory, disk, network, battery metrics
 - **Application Tracking**: Active applications, window titles, usage time
 - **Location Services**: GPS coordinates (when available)

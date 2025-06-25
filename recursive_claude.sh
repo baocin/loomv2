@@ -17,11 +17,11 @@ echo "-------------------------------------------------"
 while true; do
     echo "[$(date)] Waiting for one hour (3600 seconds)..."
     sleep 3600
-    
+
     echo "[$(date)] Hour is up. Sending 'continue' to Claude..."
     # Your original command
     echo "continue" | claude --dangerously-skip-permissions
-    
+
     echo "[$(date)] Command finished. The loop will now restart."
     echo "-------------------------------------------------"
 done

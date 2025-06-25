@@ -9,13 +9,13 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-@pytest.fixture
+@pytest.fixture()
 def client():
     """Test client fixture."""
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer for integration tests."""
     with patch("app.kafka_producer.kafka_producer") as mock:

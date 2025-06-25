@@ -42,7 +42,7 @@ install_k3d() {
 # Function to install kubectl
 install_kubectl() {
     echo -e "${YELLOW}📦 Installing kubectl...${NC}"
-    
+
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
         chmod +x kubectl
@@ -55,7 +55,7 @@ install_kubectl() {
         echo -e "${RED}❌ Unsupported OS. Please install kubectl manually.${NC}"
         exit 1
     fi
-    
+
     echo -e "${GREEN}✅ kubectl installed successfully${NC}"
 }
 

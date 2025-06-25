@@ -26,8 +26,8 @@ SELECT add_retention_policy('device_system_apps_android_raw', INTERVAL '30 days'
 SELECT add_retention_policy('device_metadata_raw', INTERVAL '90 days', if_not_exists => TRUE);
 
 -- View all configured policies
-SELECT * FROM timescaledb_information.job_stats 
+SELECT * FROM timescaledb_information.job_stats
 WHERE job_id IN (
-    SELECT job_id FROM timescaledb_information.jobs 
+    SELECT job_id FROM timescaledb_information.jobs
     WHERE proc_name IN ('policy_retention', 'policy_compression')
 );

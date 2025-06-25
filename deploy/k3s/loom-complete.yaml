@@ -154,7 +154,7 @@ data:
   01-init.sql: |
     -- Enable TimescaleDB extension
     CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
-    
+
     -- Create migrations tracking table
     CREATE TABLE IF NOT EXISTS schema_migrations (
         id SERIAL PRIMARY KEY,
@@ -392,7 +392,7 @@ spec:
         - |
           export PGPASSWORD=loom
           echo "Running database migrations..."
-          
+
           # Run each migration file
           for file in /migrations/*.sql; do
             if [ -f "$file" ]; then
@@ -400,7 +400,7 @@ spec:
               psql -h timescaledb -U loom -d loom -f "$file" || exit 1
             fi
           done
-          
+
           echo "All migrations completed successfully!"
         env:
         - name: PGPASSWORD
@@ -427,11 +427,11 @@ data:
     -- Enable TimescaleDB extension
     CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
     SET timescaledb.telemetry_level = 'off';
-    
+
     -- Record migration
-    INSERT INTO schema_migrations (filename) VALUES ('001-enable-timescaledb.sql') 
+    INSERT INTO schema_migrations (filename) VALUES ('001-enable-timescaledb.sql')
     ON CONFLICT (filename) DO NOTHING;
-  
+
   002-create-raw-data-tables.sql: |
     -- Device Audio Table
     CREATE TABLE IF NOT EXISTS device_audio_raw (
@@ -448,7 +448,7 @@ data:
         metadata JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    
+
     -- Device Sensor GPS Table
     CREATE TABLE IF NOT EXISTS device_sensor_gps_raw (
         id BIGSERIAL,
@@ -464,19 +464,19 @@ data:
         metadata JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    
+
     -- Convert to hypertables if not already
     SELECT create_hypertable('device_audio_raw', 'timestamp', if_not_exists => TRUE);
     SELECT create_hypertable('device_sensor_gps_raw', 'timestamp', if_not_exists => TRUE);
-    
+
     -- Create indexes
     CREATE INDEX IF NOT EXISTS idx_audio_device_time ON device_audio_raw (device_id, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_gps_device_time ON device_sensor_gps_raw (device_id, timestamp DESC);
-    
+
     -- Record migration
-    INSERT INTO schema_migrations (filename) VALUES ('002-create-raw-data-tables.sql') 
+    INSERT INTO schema_migrations (filename) VALUES ('002-create-raw-data-tables.sql')
     ON CONFLICT (filename) DO NOTHING;
-  
+
   003-configure-compression.sql: |
     -- Configure compression for device_audio_raw
     ALTER TABLE device_audio_raw SET (
@@ -485,7 +485,7 @@ data:
         timescaledb.compress_segmentby = 'device_id'
     );
     SELECT add_compression_policy('device_audio_raw', INTERVAL '1 day', if_not_exists => TRUE);
-    
+
     -- Configure compression for device_sensor_gps_raw
     ALTER TABLE device_sensor_gps_raw SET (
         timescaledb.compress,
@@ -493,13 +493,13 @@ data:
         timescaledb.compress_segmentby = 'device_id'
     );
     SELECT add_compression_policy('device_sensor_gps_raw', INTERVAL '7 days', if_not_exists => TRUE);
-    
+
     -- Add retention policies
     SELECT add_retention_policy('device_audio_raw', INTERVAL '7 days', if_not_exists => TRUE);
     SELECT add_retention_policy('device_sensor_gps_raw', INTERVAL '30 days', if_not_exists => TRUE);
-    
+
     -- Record migration
-    INSERT INTO schema_migrations (filename) VALUES ('003-configure-compression.sql') 
+    INSERT INTO schema_migrations (filename) VALUES ('003-configure-compression.sql')
     ON CONFLICT (filename) DO NOTHING;
 ---
 # Ingestion API Deployment
@@ -712,19 +712,19 @@ spec:
               from datetime import datetime
               import asyncio
               import os
-              
+
               # Install required packages
               os.system("pip install aiokafka numpy")
-              
+
               from aiokafka import AIOKafkaProducer
-              
+
               async def generate_test_data():
                   producer = AIOKafkaProducer(
                       bootstrap_servers='kafka:9092',
                       value_serializer=lambda v: json.dumps(v, default=str).encode('utf-8')
                   )
                   await producer.start()
-                  
+
                   try:
                       # Generate synthetic audio
                       sample_rate = 16000
@@ -732,7 +732,7 @@ spec:
                       t = np.linspace(0, duration, int(sample_rate * duration))
                       audio = (np.sin(2 * np.pi * 440 * t) * 16000).astype(np.int16)
                       audio_bytes = audio.tobytes()
-                      
+
                       # Create test messages
                       messages = [
                           {
@@ -749,7 +749,7 @@ spec:
                           }
                           for i in range(3)
                       ]
-                      
+
                       # Send to Kafka
                       for msg in messages:
                           await producer.send_and_wait(
@@ -758,12 +758,12 @@ spec:
                               key=msg["device_id"].encode('utf-8')
                           )
                           print(f"Sent test audio for {msg['device_id']}")
-                      
+
                       print(f"Generated {len(messages)} test audio chunks")
-                      
+
                   finally:
                       await producer.stop()
-              
+
               asyncio.run(generate_test_data())
             env:
             - name: PYTHONUNBUFFERED

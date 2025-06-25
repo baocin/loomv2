@@ -1,7 +1,5 @@
 """Unit tests for configuration."""
 
-import os
-import pytest
 
 from app.config import Settings
 
@@ -25,7 +23,7 @@ class TestSettings:
         monkeypatch.setenv("LOOM_PORT", "9000")
         monkeypatch.setenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         monkeypatch.setenv("LOOM_MODEL_DEVICE", "cuda")
-        
+
         settings = Settings()
         assert settings.service_name == "test-service"
         assert settings.port == 9000

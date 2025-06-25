@@ -22,31 +22,31 @@ build_image() {
     local service_name="$1"
     local service_path="$2"
     local image_tag="loom/${service_name}:latest"
-    
+
     echo -e "\n${YELLOW}📦 Building ${service_name}...${NC}"
-    
+
     if [ ! -d "$service_path" ]; then
         echo -e "${RED}❌ Service directory not found: $service_path${NC}"
         return 1
     fi
-    
+
     cd "$service_path"
-    
+
     if [ ! -f "Dockerfile" ]; then
         echo -e "${RED}❌ Dockerfile not found in $service_path${NC}"
         return 1
     fi
-    
+
     # Build the image
     docker build -t "$image_tag" .
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ Successfully built $image_tag${NC}"
     else
         echo -e "${RED}❌ Failed to build $image_tag${NC}"
         return 1
     fi
-    
+
     cd "$PROJECT_ROOT"
 }
 

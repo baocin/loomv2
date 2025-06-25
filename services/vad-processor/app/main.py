@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import sys
+
 import structlog
 from prometheus_client import start_http_server
 
@@ -20,7 +21,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
+        structlog.processors.JSONRenderer(),
     ],
     context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),
@@ -42,17 +43,17 @@ class VADService:
         logger.info(
             "Starting VAD service",
             service_name=settings.service_name,
-            version=settings.service_version
+            version=settings.service_version,
         )
-        
+
         # Start Prometheus metrics server
         if settings.enable_metrics:
             start_http_server(settings.metrics_port)
             logger.info(f"Metrics server started on port {settings.metrics_port}")
-        
+
         # Start processor
         await self.processor.start()
-        
+
         # Run message processing
         try:
             await self.processor.process_messages()
@@ -75,18 +76,18 @@ class VADService:
 async def main():
     """Main entry point."""
     service = VADService()
-    
+
     # Set up signal handlers
     signal.signal(signal.SIGINT, service.handle_signal)
     signal.signal(signal.SIGTERM, service.handle_signal)
-    
+
     try:
         await service.start()
         await service._shutdown_event.wait()
     except Exception as e:
         logger.error("Fatal error", error=str(e))
         sys.exit(1)
-    
+
     logger.info("VAD service shutdown complete")
 
 

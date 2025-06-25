@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
     workers: int = Field(default=1, description="Number of worker processes")
-    environment: str = Field(default="development", description="Application environment")
+    environment: str = Field(
+        default="development",
+        description="Application environment",
+    )
     enable_cors: bool = Field(default=True, description="Enable CORS middleware")
 
     # Kafka configuration
@@ -112,7 +115,10 @@ class Settings(BaseSettings):
 
     # Monitoring
     enable_metrics: bool = Field(default=True, description="Enable Prometheus metrics")
-    metrics_enabled: bool = Field(default=True, description="Enable Prometheus metrics (alias)")
+    metrics_enabled: bool = Field(
+        default=True,
+        description="Enable Prometheus metrics (alias)",
+    )
     metrics_port: int = Field(default=8001, description="Prometheus metrics port")
 
     # Logging

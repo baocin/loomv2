@@ -11,7 +11,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # Calendar data
     "external.calendar.events.raw": {
         "partitions": 3,
@@ -21,7 +20,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # Social media data
     "external.twitter.liked.raw": {
         "partitions": 3,
@@ -31,7 +29,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     "external.reddit.activity.raw": {
         "partitions": 3,
         "replication_factor": 1,
@@ -40,7 +37,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # Hacker News data
     "external.hackernews.activity.raw": {
         "partitions": 2,
@@ -50,7 +46,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # Web browsing data
     "external.web.visits.raw": {
         "partitions": 3,
@@ -60,7 +55,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # RSS feed data
     "external.rss.items.raw": {
         "partitions": 2,
@@ -70,7 +64,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    
     # Job status and monitoring
     "internal.scheduled.jobs.status": {
         "partitions": 1,

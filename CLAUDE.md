@@ -206,9 +206,8 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 
 **External Sources:**
 - `external.twitter.liked.raw` - Scraped liked Twitter/X posts
-- `external.calendar.events.raw` - Calendar events
-- `external.email.gmail.raw` - Gmail email events
-- `external.email.fastmail.raw` - Fastmail email events
+- `external.calendar.events.raw` - Calendar events (CalDAV)
+- `external.email.events.raw` - Email events (all IMAP accounts)
 
 **Task Topics:**
 - `task.url.ingest` - URLs to be processed (Twitter links, PDFs, web pages)
@@ -225,7 +224,8 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 - `analysis.inferred_context.qwen_results` - High-level context inferences
 
 **Task Results:**
-- `task.url.processed.twitter_archived` - Archived Twitter content
+- `task.url.processed.twitter_archived` - Archived X.com/Twitter content
+- `task.url.processed.hackernews_archived` - Archived HackerNews content
 - `task.url.processed.pdf_extracted` - Extracted PDF content/summaries
 
 #### Kafka Configuration

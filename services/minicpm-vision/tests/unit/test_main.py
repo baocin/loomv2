@@ -1,8 +1,9 @@
 """Unit tests for main FastAPI application."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
 from app.main import app
 
@@ -34,8 +35,9 @@ class TestHealthEndpoints:
 
     def test_readyz_ready(self, client):
         """Test readiness probe when ready."""
-        with patch("app.main.app_ready", True), \
-             patch("app.main.kafka_consumer_task", AsyncMock(done=lambda: False)):
+        with patch("app.main.app_ready", True), patch(
+            "app.main.kafka_consumer_task", AsyncMock(done=lambda: False)
+        ):
             response = client.get("/readyz")
             assert response.status_code == 200
             data = response.json()
@@ -50,7 +52,10 @@ class TestMetricsEndpoint:
         """Test Prometheus metrics endpoint."""
         response = client.get("/metrics")
         assert response.status_code == 200
-        assert response.headers["content-type"] == "text/plain; version=0.0.4; charset=utf-8"
+        assert (
+            response.headers["content-type"]
+            == "text/plain; version=0.0.4; charset=utf-8"
+        )
         assert b"minicpm_vision_requests_total" in response.content
 
 
@@ -71,8 +76,9 @@ class TestRootEndpoints:
 
     def test_status(self, client):
         """Test status endpoint."""
-        with patch("app.main.app_ready", True), \
-             patch("app.main.kafka_consumer_task", AsyncMock(done=lambda: False)):
+        with patch("app.main.app_ready", True), patch(
+            "app.main.kafka_consumer_task", AsyncMock(done=lambda: False)
+        ):
             response = client.get("/status")
             assert response.status_code == 200
             data = response.json()

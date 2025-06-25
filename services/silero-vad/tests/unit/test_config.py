@@ -1,14 +1,12 @@
 """Unit tests for configuration."""
 
-import os
-import pytest
 
 from app.config import Settings
 
 
 class TestSettings:
     """Test Settings configuration."""
-    
+
     def test_default_settings(self):
         """Test default settings values."""
         settings = Settings()
@@ -20,20 +18,20 @@ class TestSettings:
         assert settings.kafka_output_topic == "media.audio.vad_filtered"
         assert settings.vad_threshold == 0.5
         assert settings.vad_sample_rate == 16000
-    
+
     def test_env_override(self, monkeypatch):
         """Test environment variable override."""
         monkeypatch.setenv("LOOM_SERVICE_NAME", "custom-vad")
         monkeypatch.setenv("LOOM_PORT", "8080")
         monkeypatch.setenv("LOOM_VAD_THRESHOLD", "0.7")
         monkeypatch.setenv("LOOM_DEBUG", "true")
-        
+
         settings = Settings()
         assert settings.service_name == "custom-vad"
         assert settings.port == 8080
         assert settings.vad_threshold == 0.7
         assert settings.debug is True
-    
+
     def test_kafka_settings(self):
         """Test Kafka-specific settings."""
         settings = Settings()
@@ -41,7 +39,7 @@ class TestSettings:
         assert settings.kafka_auto_offset_reset == "latest"
         assert settings.kafka_enable_auto_commit is False
         assert settings.kafka_max_poll_records == 10
-    
+
     def test_vad_settings(self):
         """Test VAD-specific settings."""
         settings = Settings()

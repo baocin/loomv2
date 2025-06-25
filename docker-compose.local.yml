@@ -309,15 +309,16 @@ services:
       # Kafka configuration (fetchers use KAFKA_BOOTSTRAP_SERVERS not LOOM_KAFKA_BOOTSTRAP_SERVERS)
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
-      LOOM_KAFKA_OUTPUT_TOPIC: ${LOOM_KAFKA_OUTPUT_TOPIC_GMAIL:-external.email.gmail.raw}
+      LOOM_KAFKA_OUTPUT_TOPIC: external.email.events.raw
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_GMAIL:-local-dev-gmail-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_GMAIL:-5}
-      # Gmail configuration (from .env file)
-      EMAIL_IMAP_SERVER: ${GMAIL_IMAP_SERVER:-imap.gmail.com}
-      EMAIL_IMAP_PORT: ${GMAIL_IMAP_PORT:-993}
-      EMAIL_USERNAME: ${GMAIL_USERNAME:-}
-      EMAIL_PASSWORD: ${GMAIL_PASSWORD:-}
+      # Gmail configuration mapped from EMAIL_* environment variables
+      LOOM_EMAIL_1_IMAP_SERVER: ${EMAIL_IMAP_SERVER:-imap.gmail.com}
+      LOOM_EMAIL_1_IMAP_PORT: ${EMAIL_IMAP_PORT:-993}
+      LOOM_EMAIL_1_USERNAME: ${EMAIL_USERNAME:-}
+      LOOM_EMAIL_1_PASSWORD: ${EMAIL_PASSWORD:-}
+      LOOM_EMAIL_1_SOURCE: gmail
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -339,15 +340,16 @@ services:
       # Kafka configuration (fetchers use KAFKA_BOOTSTRAP_SERVERS not LOOM_KAFKA_BOOTSTRAP_SERVERS)
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
-      LOOM_KAFKA_OUTPUT_TOPIC: ${LOOM_KAFKA_OUTPUT_TOPIC_FASTMAIL:-external.email.fastmail.raw}
+      LOOM_KAFKA_OUTPUT_TOPIC: external.email.events.raw
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_FASTMAIL:-local-dev-fastmail-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_FASTMAIL:-5}
-      # Fastmail configuration (from .env file)
-      EMAIL_IMAP_SERVER: ${FASTMAIL_IMAP_SERVER:-imap.fastmail.com}
-      EMAIL_IMAP_PORT: ${FASTMAIL_IMAP_PORT:-993}
-      EMAIL_USERNAME: ${FASTMAIL_USERNAME:-}
-      EMAIL_PASSWORD: ${FASTMAIL_PASSWORD:-}
+      # Fastmail configuration mapped from FASTMAIL_* environment variables
+      LOOM_EMAIL_2_IMAP_SERVER: ${FASTMAIL_IMAP_SERVER:-imap.fastmail.com}
+      LOOM_EMAIL_2_IMAP_PORT: ${FASTMAIL_IMAP_PORT:-993}
+      LOOM_EMAIL_2_USERNAME: ${FASTMAIL_USERNAME:-}
+      LOOM_EMAIL_2_PASSWORD: ${FASTMAIL_PASSWORD:-}
+      LOOM_EMAIL_2_SOURCE: fastmail
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -373,16 +375,11 @@ services:
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_CALENDAR:-local-dev-calendar-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_CALENDAR:-10}
-      # Google Calendar configuration (from .env file)
-      GOOGLE_CALENDAR_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
-      GOOGLE_CALENDAR_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
-      GOOGLE_CALENDAR_REFRESH_TOKEN: ${GOOGLE_CALENDAR_REFRESH_TOKEN:-}
-      # Optional: Service account credentials as JSON string
-      GOOGLE_CALENDAR_CREDENTIALS_JSON: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
-      # Microsoft Outlook Calendar configuration (from .env file)
-      OUTLOOK_CLIENT_ID: ${OUTLOOK_CLIENT_ID:-}
-      OUTLOOK_CLIENT_SECRET: ${OUTLOOK_CLIENT_SECRET:-}
-      OUTLOOK_REFRESH_TOKEN: ${OUTLOOK_REFRESH_TOKEN:-}
+      # CalDAV configuration (from .env file)
+      LOOM_CALDAV_URL: ${CALDAV_URL:-}
+      LOOM_CALDAV_USERNAME: ${CALDAV_USERNAME:-}
+      LOOM_CALDAV_PASSWORD: ${CALDAV_PASSWORD:-}
+      LOOM_CALDAV_CALENDAR_NAME: ${CALDAV_CALENDAR_NAME:-}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -409,9 +406,9 @@ services:
       LOOM_LOG_LEVEL: INFO
       LOOM_FETCH_INTERVAL_MINUTES: 30
       # X/Twitter authentication (from .env file)
-      X_USERNAME: ${X_USERNAME:-}
-      X_PASSWORD: ${X_PASSWORD:-}
-      X_PHONE_NUMBER: ${X_PHONE_NUMBER:-}
+      LOOM_X_USERNAME: ${X_USERNAME:-}
+      LOOM_X_PASSWORD: ${X_PASSWORD:-}
+      LOOM_X_PHONE_NUMBER: ${X_PHONE_NUMBER:-}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -435,7 +432,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
       LOOM_KAFKA_INPUT_TOPIC: external.hackernews.favorites.raw
-      LOOM_KAFKA_OUTPUT_TOPIC: processed.hackernews.content
+      LOOM_KAFKA_OUTPUT_TOPIC: task.url.processed.hackernews_archived
       LOOM_LOG_LEVEL: INFO
       # Set timezone
       TZ: UTC
@@ -459,7 +456,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
       LOOM_KAFKA_INPUT_TOPIC: external.twitter.liked.raw
-      LOOM_KAFKA_OUTPUT_TOPIC: processed.twitter.content
+      LOOM_KAFKA_OUTPUT_TOPIC: task.url.processed.twitter_archived
       LOOM_LOG_LEVEL: INFO
       # Set timezone
       TZ: UTC

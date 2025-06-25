@@ -1,7 +1,7 @@
 """Configuration for Silero VAD service."""
 
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -38,16 +38,16 @@ class Settings(BaseSettings):
     vad_min_silence_duration_ms: float = 100.0
     vad_window_size_samples: int = 512  # 16ms at 16kHz
     vad_sample_rate: int = 16000  # Silero VAD expects 16kHz
-    
+
     # Model settings
     silero_model_name: str = "silero_vad"
     silero_model_version: str = "v4.0"
     silero_use_onnx: bool = False  # Use PyTorch by default
-    
+
     # Performance settings
     batch_timeout_ms: int = 100
     max_batch_size: int = 1  # Process one at a time for now
-    
+
     # Health check settings
     health_check_interval_seconds: int = 30
     kafka_health_timeout_seconds: int = 5

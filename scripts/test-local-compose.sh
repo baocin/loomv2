@@ -25,15 +25,15 @@ test_endpoint() {
     local url="$2"
     local expected="$3"
     local method="${4:-GET}"
-    
+
     echo -n "Testing $name... "
-    
+
     if [ "$method" = "POST" ]; then
         response=$(curl -s -X POST -H "Content-Type: application/json" -d '{}' "$url" || echo "ERROR")
     else
         response=$(curl -s "$url" || echo "ERROR")
     fi
-    
+
     if echo "$response" | grep -q "$expected"; then
         echo -e "${GREEN}PASS${NC}"
         ((PASSED++))

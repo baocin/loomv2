@@ -4,23 +4,24 @@ import logging
 import sys
 from pathlib import Path
 from typing import Any
+
 import structlog
 from structlog.stdlib import LoggerFactory
 
 
 def setup_logging(log_level: str = "INFO", log_dir: str = "./logs") -> None:
     """Setup structured logging for the application."""
-    
+
     # Create log directory
     Path(log_dir).mkdir(parents=True, exist_ok=True)
-    
+
     # Configure standard logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=getattr(logging, log_level.upper())
+        level=getattr(logging, log_level.upper()),
     )
-    
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -32,7 +33,7 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "./logs") -> None:
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
+            structlog.processors.JSONRenderer(),
         ],
         context_class=dict,
         logger_factory=LoggerFactory(),

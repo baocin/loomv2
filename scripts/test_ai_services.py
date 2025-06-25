@@ -94,6 +94,7 @@ class TestDataGenerator:
         # Add some text
         try:
             from PIL import ImageDraw
+
             draw = ImageDraw.Draw(img)
             draw.text((10, 10), "Test Image for AI Processing", fill=(255, 255, 255))
         except ImportError:

@@ -1,9 +1,9 @@
 """Data models for VAD Processor."""
 
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field
 import base64
+from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class AudioChunk(BaseModel):
@@ -18,7 +18,7 @@ class AudioChunk(BaseModel):
     sample_rate: int
     channels: int
     duration_ms: int
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
     def decode_audio(self) -> bytes:
         """Decode base64 audio data."""
@@ -47,8 +47,8 @@ class VADResult(BaseModel):
     segment_duration_ms: int
     processing_model: str = "silero_vad"
     processing_version: str
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
     def encode_audio(self, audio_bytes: bytes) -> None:
         """Encode audio bytes to base64."""
-        self.audio_segment = base64.b64encode(audio_bytes).decode('utf-8')
+        self.audio_segment = base64.b64encode(audio_bytes).decode("utf-8")

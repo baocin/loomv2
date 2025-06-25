@@ -4,10 +4,11 @@ import asyncio
 import signal
 import sys
 from typing import Any
+
 import structlog
 
-from .scheduler import scheduler
 from .config import settings
+from .scheduler import scheduler
 
 # Configure structured logging
 structlog.configure(
@@ -32,21 +33,22 @@ logger = structlog.get_logger(__name__)
 
 class ScheduledConsumersService:
     """Main service class for scheduled consumers."""
-    
+
     def __init__(self):
         """Initialize the service."""
         self._shutdown_event = asyncio.Event()
         self._setup_signal_handlers()
-    
+
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
+
         def signal_handler(signum: int, frame: Any) -> None:
             logger.info(f"Received signal {signum}, initiating shutdown")
             asyncio.create_task(self.shutdown())
-        
+
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-    
+
     async def start(self) -> None:
         """Start the scheduled consumers service."""
         logger.info(
@@ -55,31 +57,31 @@ class ScheduledConsumersService:
             device_id=settings.device_id,
             kafka_servers=settings.kafka_bootstrap_servers,
         )
-        
+
         try:
             # Start the scheduler
             await scheduler.start()
-            
+
         except Exception as e:
             logger.error("Failed to start service", error=str(e), exc_info=True)
             raise
-    
+
     async def shutdown(self) -> None:
         """Shutdown the service gracefully."""
         logger.info("Shutting down scheduled consumers service")
-        
+
         try:
             # Stop the scheduler
             await scheduler.stop()
-            
+
             # Signal shutdown complete
             self._shutdown_event.set()
-            
+
             logger.info("Service shutdown completed")
-            
+
         except Exception as e:
             logger.error("Error during shutdown", error=str(e), exc_info=True)
-    
+
     async def run(self) -> None:
         """Run the service until shutdown."""
         await self.start()
@@ -89,7 +91,7 @@ class ScheduledConsumersService:
 async def main() -> None:
     """Main entry point."""
     service = ScheduledConsumersService()
-    
+
     try:
         await service.run()
     except KeyboardInterrupt:

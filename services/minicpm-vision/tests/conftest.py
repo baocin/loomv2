@@ -25,7 +25,7 @@ def test_image_base64():
 def sample_image_message(test_image_base64):
     """Provide a sample image message."""
     from datetime import datetime
-    
+
     return {
         "device_id": "test-device-001",
         "recorded_at": datetime.utcnow().isoformat(),
@@ -36,5 +36,5 @@ def sample_image_message(test_image_base64):
             "width": 1,
             "height": 1,
             "test": True,
-        }
+        },
     }

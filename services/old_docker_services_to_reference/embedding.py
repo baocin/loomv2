@@ -1,6 +1,6 @@
 from fastembed import TextEmbedding, ImageEmbedding
 from typing import List
-import numpy as np
+
 
 class EmbeddingService:
     def __init__(self):

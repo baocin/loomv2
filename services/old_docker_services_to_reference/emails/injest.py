@@ -8,8 +8,12 @@ import psycopg2
 from embedding import EmbeddingService
 
 # Configure logging
-logging.basicConfig(filename='mail.log', level=logging.INFO, 
-                    format='%(asctime)s - emails - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="mail.log",
+    level=logging.INFO,
+    format="%(asctime)s - emails - %(levelname)s - %(message)s",
+)
+
 
 class EmailInjest:
     def __init__(self, DB):
@@ -18,16 +22,36 @@ class EmailInjest:
             port=os.getenv("POSTGRES_PORT"),
             database=os.getenv("POSTGRES_DB"),
             user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD")
+            password=os.getenv("POSTGRES_PASSWORD"),
         )
         self.db = db_instance.connection
         self.embedding_service = EmbeddingService()
         all_accounts = [
-            {"email": os.getenv("EMAIL_1"), "password": os.getenv("PASSWORD_1"), "imap_server": os.getenv("IMAP_SERVER_1"), "port": int(os.getenv("PORT_1")), "disabled": os.getenv("DISABLED_1")},
-            {"email": os.getenv("EMAIL_2"), "password": os.getenv("PASSWORD_2"), "imap_server": os.getenv("IMAP_SERVER_2"), "port": int(os.getenv("PORT_2")), "disabled": os.getenv("DISABLED_2")},
-            {"email": os.getenv("EMAIL_3"), "password": os.getenv("PASSWORD_3"), "imap_server": os.getenv("IMAP_SERVER_3"), "port": int(os.getenv("PORT_3")), "disabled": os.getenv("DISABLED_3")},
+            {
+                "email": os.getenv("EMAIL_1"),
+                "password": os.getenv("PASSWORD_1"),
+                "imap_server": os.getenv("IMAP_SERVER_1"),
+                "port": int(os.getenv("PORT_1")),
+                "disabled": os.getenv("DISABLED_1"),
+            },
+            {
+                "email": os.getenv("EMAIL_2"),
+                "password": os.getenv("PASSWORD_2"),
+                "imap_server": os.getenv("IMAP_SERVER_2"),
+                "port": int(os.getenv("PORT_2")),
+                "disabled": os.getenv("DISABLED_2"),
+            },
+            {
+                "email": os.getenv("EMAIL_3"),
+                "password": os.getenv("PASSWORD_3"),
+                "imap_server": os.getenv("IMAP_SERVER_3"),
+                "port": int(os.getenv("PORT_3")),
+                "disabled": os.getenv("DISABLED_3"),
+            },
         ]
-        self.accounts = [account for account in all_accounts if account["disabled"] != "true"]
+        self.accounts = [
+            account for account in all_accounts if account["disabled"] != "true"
+        ]
 
     def fetch_all_emails(self):
         for account in self.accounts:
@@ -48,17 +72,19 @@ class EmailInjest:
             # Search for all emails in the inbox
             status, all_messages = mail.search(None, "ALL")
 
-            if unseen_messages[0] != b'':
+            if unseen_messages[0] != b"":
                 logging.info(f"unseen_messages: {unseen_messages}")
             # if all_messages[0] != b'':
             #     logging.info(f"all_messages: {all_messages}")
 
             # Combine and deduplicate email IDs
-            combined_messages = list(set(unseen_messages[0].split() + all_messages[0].split()))
+            combined_messages = list(
+                set(unseen_messages[0].split() + all_messages[0].split())
+            )
             messages = (status, combined_messages)
 
             # logging.info(f"combined_messages: {combined_messages}")
-            
+
             # Convert messages to a list of email IDs
             email_ids = unseen_messages[0].split()
             logging.info(f"email_ids len: {len(email_ids)}")
@@ -85,9 +111,13 @@ class EmailInjest:
                             subject, encoding = decode_header(msg["Subject"])[0]
                             if isinstance(subject, bytes):
                                 try:
-                                    subject = subject.decode(encoding if encoding else "utf-8")
+                                    subject = subject.decode(
+                                        encoding if encoding else "utf-8"
+                                    )
                                 except UnicodeDecodeError:
-                                    subject = subject.decode(encoding if encoding else "latin1")
+                                    subject = subject.decode(
+                                        encoding if encoding else "latin1"
+                                    )
                             # Decode the email sender
                             from_ = msg.get("From")
                             # logging.info(f"Subject: {subject}")
@@ -96,7 +126,9 @@ class EmailInjest:
                             # Get the date of receive
                             date_tuple = email.utils.parsedate_tz(msg["Date"])
                             if date_tuple:
-                                local_date = datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
+                                local_date = datetime.fromtimestamp(
+                                    email.utils.mktime_tz(date_tuple)
+                                )
                                 date_str = local_date.strftime("%Y-%m-%d")
 
                             # Initialize the email body and attachments
@@ -108,7 +140,9 @@ class EmailInjest:
                                 for part in msg.walk():
                                     # Extract content type of email
                                     content_type = part.get_content_type()
-                                    content_disposition = str(part.get("Content-Disposition"))
+                                    content_disposition = str(
+                                        part.get("Content-Disposition")
+                                    )
 
                                     try:
                                         # Get the email body
@@ -116,14 +150,21 @@ class EmailInjest:
                                     except:
                                         pass
 
-                                    if content_type == "text/plain" and "attachment" not in content_disposition:
+                                    if (
+                                        content_type == "text/plain"
+                                        and "attachment" not in content_disposition
+                                    ):
                                         # Append text/plain emails to email body
                                         email_body += f"{body}\n\n"
                                     elif "attachment" in content_disposition:
                                         # Download attachment
                                         filename = part.get_filename()
                                         if filename:
-                                            attachments.append(psycopg2.Binary(part.get_payload(decode=True)))
+                                            attachments.append(
+                                                psycopg2.Binary(
+                                                    part.get_payload(decode=True)
+                                                )
+                                            )
                             else:
                                 # Extract content type of email
                                 content_type = msg.get_content_type()
@@ -148,9 +189,24 @@ class EmailInjest:
                             receiver = account["email"]
 
                             # Generate embedding for the email body
-                            embedding = self.embedding_service.embed_text([f"Subject: {subject} From: {from_} To: {receiver} Body: {email_body}"])[0]
+                            embedding = self.embedding_service.embed_text(
+                                [
+                                    f"Subject: {subject} From: {from_} To: {receiver} Body: {email_body}"
+                                ]
+                            )[0]
                             # Insert the email data into the database
-                            self.insert_email_data(email_id_str, subject, from_, local_date, email_body, attachments, seen, receiver, pull_id, embedding)
+                            self.insert_email_data(
+                                email_id_str,
+                                subject,
+                                from_,
+                                local_date,
+                                email_body,
+                                attachments,
+                                seen,
+                                receiver,
+                                pull_id,
+                                embedding,
+                            )
                         except Exception as e:
                             logging.error(f"Error parsing email {email_id_str}: {e}")
                             continue
@@ -168,7 +224,19 @@ class EmailInjest:
         cursor.close()
         return result[0] if result else 0
 
-    def insert_email_data(self, email_id, subject, sender, date_received, body, attachments, seen, receiver, pull_id, embedding):
+    def insert_email_data(
+        self,
+        email_id,
+        subject,
+        sender,
+        date_received,
+        body,
+        attachments,
+        seen,
+        receiver,
+        pull_id,
+        embedding,
+    ):
         sql = """
         INSERT INTO emails (email_id, subject, sender, date_received, body, attachments, seen, receiver, pull_id, source_email_address, embedding, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, DEFAULT)
@@ -184,7 +252,7 @@ class EmailInjest:
             receiver,
             pull_id,
             receiver,  # Assuming source_email_address is the same as receiver
-            embedding  # Convert embedding to list for vector type
+            embedding,  # Convert embedding to list for vector type
         )
         cursor = self.db.cursor()
         cursor.execute(sql, values)

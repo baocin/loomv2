@@ -3,8 +3,9 @@ import os
 import random
 import asyncio
 import logging
-from playwright.async_api import async_playwright, Playwright
+from playwright.async_api import async_playwright
 from typing import List, Dict, Any
+
 
 class XLikesFetcher:
     def __init__(self):
@@ -12,23 +13,25 @@ class XLikesFetcher:
         self.username = os.getenv("X_USERNAME")
         self.password = os.getenv("X_PASSWORD")
         self.phone_number = os.getenv("X_PHONE_NUMBER")
-        
+
         if not self.username or not self.password:
-            raise ValueError("X_USERNAME and X_PASSWORD environment variables are required")
-        
+            raise ValueError(
+                "X_USERNAME and X_PASSWORD environment variables are required"
+            )
+
         self.likes_url = f"https://x.com/{self.username}/likes"
         self.session_file = "/app/sessions/x_session.json"
-        
+
         self.playwright_instance = None
         self.browser = None
         self.context = None
-        
+
         # User agents for rotation
         self.user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36"
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36",
         ]
 
     async def setup(self):
@@ -41,18 +44,19 @@ class XLikesFetcher:
         """Setup browser with randomized configuration"""
         user_agent = random.choice(self.user_agents)
         browser = await self.playwright_instance.chromium.launch(headless=True)
-        
+
         context = await browser.new_context(
             user_agent=user_agent,
-            viewport={'width': 1920, 'height': 1080},
-            geolocation={'longitude': 40.7128, 'latitude': -74.0060},
-            locale='en-US',
-            timezone_id='America/New_York',
-            permissions=['geolocation']
+            viewport={"width": 1920, "height": 1080},
+            geolocation={"longitude": 40.7128, "latitude": -74.0060},
+            locale="en-US",
+            timezone_id="America/New_York",
+            permissions=["geolocation"],
         )
 
         # Add scripts to avoid detection
-        await context.add_init_script("""
+        await context.add_init_script(
+            """
             () => {
                 Object.defineProperty(navigator, 'hardwareConcurrency', {
                     get: () => Math.floor(Math.random() * 8) + 2
@@ -61,27 +65,31 @@ class XLikesFetcher:
                     get: () => Math.floor(Math.random() * 8) + 2
                 });
             }
-        """)
+        """
+        )
 
         return browser, context
 
     async def _login(self):
         """Login to X.com using stored session or credentials"""
         logging.info("Starting X.com login process")
-        
+
         if os.path.exists(self.session_file):
             logging.info("Session file exists, attempting to restore session")
             try:
-                with open(self.session_file, 'r') as f:
+                with open(self.session_file, "r") as f:
                     session_data = json.load(f)
-                await self.context.add_cookies(session_data['cookies'])
-                
+                await self.context.add_cookies(session_data["cookies"])
+
                 page = await self.context.new_page()
                 await page.goto("https://x.com")
-                
+
                 # Check if we're logged in by looking for home content
                 await page.wait_for_timeout(3000)
-                if await page.locator('[data-testid="AppTabBar_Home_Link"]').count() > 0:
+                if (
+                    await page.locator('[data-testid="AppTabBar_Home_Link"]').count()
+                    > 0
+                ):
                     logging.info("Session restored successfully")
                     await page.close()
                     return
@@ -90,55 +98,73 @@ class XLikesFetcher:
                     await page.close()
             except Exception as e:
                 logging.warning(f"Failed to restore session: {e}")
-        
+
         # Perform fresh login
         await self._perform_login()
 
     async def _perform_login(self):
         """Perform fresh login to X.com"""
         page = await self.context.new_page()
-        
+
         try:
             await page.goto("https://x.com/i/flow/login")
-            
+
             # Enter username
             logging.info("Entering username")
             await self._human_like_typing(
-                page, 
-                'div[aria-labelledby="modal-header"] input[name="text"]', 
-                self.username
+                page,
+                'div[aria-labelledby="modal-header"] input[name="text"]',
+                self.username,
             )
-            await page.click('div[aria-labelledby="modal-header"] span:has-text("Next")')
+            await page.click(
+                'div[aria-labelledby="modal-header"] span:has-text("Next")'
+            )
             await page.wait_for_timeout(3000)
-            
+
             # Check if password field is available or if phone number is required
-            password_field = await page.query_selector('div[aria-labelledby="modal-header"] input[name="password"]')
-            login_button = await page.query_selector('div[aria-labelledby="modal-header"] span:has-text("Log in")')
-            
+            password_field = await page.query_selector(
+                'div[aria-labelledby="modal-header"] input[name="password"]'
+            )
+            login_button = await page.query_selector(
+                'div[aria-labelledby="modal-header"] span:has-text("Log in")'
+            )
+
             if password_field and login_button:
                 logging.info("Password field found, entering password")
-                await self._human_like_typing(page, 'div[aria-labelledby="modal-header"] input[name="password"]', self.password)
-                await page.click('div[aria-labelledby="modal-header"] span:has-text("Log in")')
+                await self._human_like_typing(
+                    page,
+                    'div[aria-labelledby="modal-header"] input[name="password"]',
+                    self.password,
+                )
+                await page.click(
+                    'div[aria-labelledby="modal-header"] span:has-text("Log in")'
+                )
             else:
                 logging.info("Phone number required, entering phone number")
                 if not self.phone_number:
-                    raise ValueError("X_PHONE_NUMBER environment variable is required for this account")
-                    
+                    raise ValueError(
+                        "X_PHONE_NUMBER environment variable is required for this account"
+                    )
+
                 await self._human_like_typing(
-                    page, 
-                    'div[aria-labelledby="modal-header"] input[name="text"]', 
-                    self.phone_number
+                    page,
+                    'div[aria-labelledby="modal-header"] input[name="text"]',
+                    self.phone_number,
                 )
-                await page.click('div[aria-labelledby="modal-header"] span:has-text("Next")')
+                await page.click(
+                    'div[aria-labelledby="modal-header"] span:has-text("Next")'
+                )
                 await page.wait_for_timeout(2000)
-                
+
                 await self._human_like_typing(
-                    page, 
-                    'div[aria-labelledby="modal-header"] input[name="password"]', 
-                    self.password
+                    page,
+                    'div[aria-labelledby="modal-header"] input[name="password"]',
+                    self.password,
                 )
-                await page.click('div[aria-labelledby="modal-header"] span:has-text("Log in")')
-            
+                await page.click(
+                    'div[aria-labelledby="modal-header"] span:has-text("Log in")'
+                )
+
             # Wait for successful login
             try:
                 await page.wait_for_url("https://x.com/home", timeout=30000)
@@ -146,7 +172,7 @@ class XLikesFetcher:
                 await self._save_session()
             except Exception as e:
                 logging.error(f"Login may have failed: {e}")
-            
+
         finally:
             await page.close()
 
@@ -164,11 +190,14 @@ class XLikesFetcher:
         """Scrape liked tweets from X.com"""
         page = await self.context.new_page()
         liked_tweets = []
-        
+
         try:
             await page.goto(self.likes_url)
-            await page.wait_for_load_state("networkidle", timeout=10000)
-            
+            # Increase timeout and use domcontentloaded instead of networkidle
+            await page.wait_for_load_state("domcontentloaded", timeout=30000)
+            # Give page time to render content
+            await page.wait_for_timeout(3000)
+
             # JavaScript to extract tweet information
             js_extraction_code = """
             let processedTweetBlocks = new Set();
@@ -186,7 +215,7 @@ class XLikesFetcher:
                 const tweetLink = tweetLinkElement ? tweetLinkElement.href : "Tweet link not found";
 
                 const time = timeElement ? timeElement.getAttribute('datetime') : "Time not found";
-                
+
                 return { text: tweetText, profileLink, tweetLink, time };
             }
 
@@ -220,44 +249,46 @@ class XLikesFetcher:
                 }
                 return hash;
             }
-            
+
             function getSavedTweets() {
                 return savedTweets;
             }
             """
-            
+
             await page.evaluate(js_extraction_code)
-            
+
             # Scroll and collect tweets
             no_new_tweets_count = 0
             max_no_new_tweets = 20  # Stop after 20 scrolls with no new tweets
-            
+
             while no_new_tweets_count < max_no_new_tweets:
                 # Scan for new tweets
                 new_tweets_count = await page.evaluate("() => scanAndExtract()")
                 all_tweets = await page.evaluate("() => getSavedTweets()")
-                
+
                 if new_tweets_count == 0:
                     no_new_tweets_count += 1
                 else:
                     no_new_tweets_count = 0
-                
-                logging.info(f"Found {len(all_tweets)} total tweets, {new_tweets_count} new this scroll")
-                
+
+                logging.info(
+                    f"Found {len(all_tweets)} total tweets, {new_tweets_count} new this scroll"
+                )
+
                 # Scroll down
                 await self._random_scroll(page)
                 await page.wait_for_timeout(random.randint(1000, 3000))
-            
+
             # Get final list of tweets
             liked_tweets = await page.evaluate("() => getSavedTweets()")
             logging.info(f"Scraping completed. Found {len(liked_tweets)} liked tweets")
-            
+
         except Exception as e:
             logging.error(f"Error scraping likes: {e}")
-        
+
         finally:
             await page.close()
-            
+
         return liked_tweets
 
     async def _human_like_typing(self, page, selector: str, text: str):
@@ -268,12 +299,14 @@ class XLikesFetcher:
 
     async def _random_scroll(self, page):
         """Perform random scrolling to simulate human behavior"""
-        await page.evaluate("""
+        await page.evaluate(
+            """
             () => {
                 const scrollAmount = Math.floor(Math.random() * 100) + window.innerHeight;
                 window.scrollBy(0, scrollAmount);
             }
-        """)
+        """
+        )
 
     async def cleanup(self):
         """Cleanup browser resources"""

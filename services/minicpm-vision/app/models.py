@@ -1,7 +1,8 @@
 """Data models for MiniCPM-Vision service."""
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -45,7 +46,9 @@ class VisionAnalysisResult(BaseMessage):
     """Vision analysis output to be sent to Kafka."""
 
     # Scene understanding
-    scene_description: str = Field(..., description="Natural language scene description")
+    scene_description: str = Field(
+        ..., description="Natural language scene description"
+    )
     scene_categories: List[str] = Field(
         default_factory=list, description="Scene categories/tags"
     )
@@ -59,9 +62,7 @@ class VisionAnalysisResult(BaseMessage):
     ocr_results: List[OCRResult] = Field(
         default_factory=list, description="OCR text extraction results"
     )
-    full_text: Optional[str] = Field(
-        None, description="Full concatenated OCR text"
-    )
+    full_text: Optional[str] = Field(None, description="Full concatenated OCR text")
 
     # Visual attributes
     dominant_colors: Optional[List[str]] = Field(
@@ -78,7 +79,7 @@ class VisionAnalysisResult(BaseMessage):
     model_version: str = Field(
         default="MiniCPM-Llama3-V-2.5", description="Model version used"
     )
-    
+
     # Additional insights
     visual_questions_answered: Optional[Dict[str, str]] = Field(
         None, description="Answers to specific visual questions if any"
