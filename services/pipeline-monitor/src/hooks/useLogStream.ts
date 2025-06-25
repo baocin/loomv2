@@ -31,6 +31,7 @@ export const useLogStream = (options: UseLogStreamOptions = {}) => {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
+  const currentTopicRef = useRef<string | null>(null)
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -63,11 +64,15 @@ export const useLogStream = (options: UseLogStreamOptions = {}) => {
             case 'stream_started':
               setIsStreaming(true)
               setCurrentTopic(data.topic)
+              currentTopicRef.current = data.topic
               console.log(`Started streaming logs from ${data.topic}`)
               break
 
             case 'stream_stopped':
               setIsStreaming(false)
+              if (currentTopicRef.current === data.topic) {
+                currentTopicRef.current = null
+              }
               console.log(`Stopped streaming logs from ${data.topic}`)
               break
 
@@ -135,6 +140,7 @@ export const useLogStream = (options: UseLogStreamOptions = {}) => {
     // Clear existing messages when starting a new stream
     setMessages([])
     setError(null)
+    currentTopicRef.current = topic
 
     wsRef.current.send(JSON.stringify({
       type: 'stream_logs',
@@ -148,13 +154,15 @@ export const useLogStream = (options: UseLogStreamOptions = {}) => {
       return
     }
 
-    if (currentTopic) {
+    // Use ref to get current topic to avoid dependency issues
+    const topic = currentTopicRef.current
+    if (topic) {
       wsRef.current.send(JSON.stringify({
         type: 'stop_stream',
-        topic: currentTopic
+        topic: topic
       }))
     }
-  }, [currentTopic])
+  }, [])
 
   const clearMessages = useCallback(() => {
     setMessages([])

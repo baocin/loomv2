@@ -24,16 +24,18 @@ export const LogViewer: React.FC<LogViewerProps> = ({ topic, onClose }) => {
 
   // Start streaming when topic changes
   useEffect(() => {
-    if (topic && isConnected) {
-      startStream(topic)
-    }
+    if (!topic || !isConnected) return
 
+    startStream(topic)
+
+    // Cleanup function
     return () => {
-      if (isStreaming) {
-        stopStream()
-      }
+      stopStream()
     }
-  }, [topic, isConnected, startStream, stopStream, isStreaming])
+    // Note: We intentionally omit startStream and stopStream from deps
+    // to avoid infinite loops. They are stable callbacks from useLogStream
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic, isConnected])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
