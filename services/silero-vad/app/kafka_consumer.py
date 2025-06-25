@@ -8,9 +8,9 @@ import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from app.config import settings
+from app.dlq_handler import DLQHandler
 from app.models import AudioChunk, VADFilteredAudio
 from app.vad_processor import VADProcessor
-from app.dlq_handler import DLQHandler
 
 logger = structlog.get_logger(__name__)
 
@@ -113,7 +113,9 @@ class KafkaVADConsumer:
                 for tp, partition_messages in messages.items():
                     for msg in partition_messages:
                         # Create task for processing with retry logic
-                        task = asyncio.create_task(self._process_message_with_retry(msg))
+                        task = asyncio.create_task(
+                            self._process_message_with_retry(msg)
+                        )
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
 
@@ -127,14 +129,14 @@ class KafkaVADConsumer:
         """Process a message with retry logic and DLQ handling."""
         message_key = f"{message.topic}:{message.partition}:{message.offset}"
         retry_count = self._message_retry_counts.get(message_key, 0)
-        
+
         try:
             await self._process_message(message)
-            
+
             # Success - remove from retry tracking and commit
             self._message_retry_counts.pop(message_key, None)
             await self.consumer.commit()
-            
+
         except Exception as e:
             logger.error(
                 "Message processing failed",
@@ -144,13 +146,13 @@ class KafkaVADConsumer:
                 offset=message.offset,
                 retry_count=retry_count,
             )
-            
+
             # Check if we should retry or send to DLQ
             if self.dlq_handler and await self.dlq_handler.should_retry(e, retry_count):
                 # Increment retry count and retry after delay
                 self._message_retry_counts[message_key] = retry_count + 1
                 delay = self.dlq_handler.get_retry_delay(retry_count)
-                
+
                 logger.info(
                     "Scheduling message retry",
                     retry_count=retry_count + 1,
@@ -158,11 +160,11 @@ class KafkaVADConsumer:
                     topic=message.topic,
                     offset=message.offset,
                 )
-                
+
                 await asyncio.sleep(delay)
                 # Retry the message
                 await self._process_message_with_retry(message)
-                
+
             else:
                 # Send to DLQ and commit the offset to skip this message
                 if self.dlq_handler:
@@ -173,7 +175,7 @@ class KafkaVADConsumer:
                         dlq_topic="dlq.audio.processing",
                         retry_count=retry_count,
                     )
-                
+
                 # Clean up retry tracking and commit to skip the problematic message
                 self._message_retry_counts.pop(message_key, None)
                 await self.consumer.commit()

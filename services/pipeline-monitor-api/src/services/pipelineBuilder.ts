@@ -188,9 +188,9 @@ export class PipelineBuilder {
       // Connect topics to database
       // Include processed, analysis, and specific raw topics that are stored directly
       const finalTopics = topicsByStage.processed.concat(topicsByStage.analysis)
-      
+
       // Add specific raw topics that should be stored directly in database
-      const directStorageRawTopics = topicsByStage.raw.filter(topic => 
+      const directStorageRawTopics = topicsByStage.raw.filter(topic =>
         topic.includes('external.twitter.liked.raw') ||
         topic.includes('external.calendar.events.raw') ||
         topic.includes('external.email.events.raw') ||
@@ -201,9 +201,9 @@ export class PipelineBuilder {
         topic.includes('os.events') ||
         topic.includes('digital.')
       )
-      
+
       const allDatabaseTopics = finalTopics.concat(directStorageRawTopics)
-      
+
       allDatabaseTopics.forEach(topic => {
         edges.push({
           id: `e-${topic}-timescaledb`,

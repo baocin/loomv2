@@ -56,11 +56,11 @@ PROCESSED_TOPICS: List[str] = [
 
 # Dead Letter Queue topics for failed processing
 DLQ_TOPICS: List[str] = [
-    "dlq.image.processing",      # Failed image processing tasks
-    "dlq.audio.processing",      # Failed audio processing tasks  
-    "dlq.text.processing",       # Failed text processing tasks
-    "dlq.document.processing",   # Failed document processing tasks
-    "dlq.general",               # Other processing failures
+    "dlq.image.processing",  # Failed image processing tasks
+    "dlq.audio.processing",  # Failed audio processing tasks
+    "dlq.text.processing",  # Failed text processing tasks
+    "dlq.document.processing",  # Failed document processing tasks
+    "dlq.general",  # Other processing failures
 ]
 
 DEFAULT_PARTITIONS = 3

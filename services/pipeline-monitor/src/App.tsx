@@ -30,9 +30,25 @@ const saveNodePositions = (nodes: Node[]) => {
 const loadNodePositions = (): Record<string, { x: number; y: number }> => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    const positions = stored ? JSON.parse(stored) : {}
+    if (!stored) {
+      console.log('No stored positions found in localStorage')
+      return {}
+    }
+    
+    const positions = JSON.parse(stored)
     console.log('Loaded positions from localStorage:', positions)
-    return positions
+    
+    // Validate that positions are valid objects with x,y numbers
+    const validPositions: Record<string, { x: number; y: number }> = {}
+    for (const [nodeId, pos] of Object.entries(positions)) {
+      if (pos && typeof pos === 'object' && 
+          typeof (pos as any).x === 'number' && 
+          typeof (pos as any).y === 'number') {
+        validPositions[nodeId] = pos as { x: number; y: number }
+      }
+    }
+    
+    return validPositions
   } catch (error) {
     console.warn('Failed to load node positions from localStorage:', error)
     return {}
@@ -56,33 +72,27 @@ function App() {
   const clearCacheMutation = useClearCache()
   const clearAllTopicsMutation = useClearAllTopics()
 
-  // Custom nodes change handler that saves positions
+  // Custom nodes change handler (keep basic functionality)
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes)
 
-    // Debug: Log all position changes
+    // Debug: Log all changes for debugging
     const positionChanges = changes.filter(change => change.type === 'position')
     if (positionChanges.length > 0) {
       console.log('Position changes detected:', positionChanges)
     }
+  }, [onNodesChange])
 
-    // Check if any position changes occurred and drag has ended
-    const hasPositionChange = changes.some(change =>
-      change.type === 'position' && 'position' in change && change.position && 'dragging' in change && change.dragging === false
-    )
-
-    if (hasPositionChange) {
-      console.log('Drag ended, saving positions to localStorage...')
-      // Save positions after a brief delay to allow React Flow to update state
-      setTimeout(() => {
-        setNodes((currentNodes) => {
-          console.log('Current nodes for saving:', currentNodes.map(n => ({ id: n.id, position: n.position })))
-          saveNodePositions(currentNodes)
-          return currentNodes
-        })
-      }, 100)
-    }
-  }, [onNodesChange, setNodes])
+  // Handle drag stop event to save positions
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node, nodes: Node[]) => {
+    console.log('Node drag stopped, saving positions...', node.id, node.position)
+    
+    // Save all current node positions
+    setTimeout(() => {
+      console.log('Saving node positions:', nodes.map(n => ({ id: n.id, position: n.position })))
+      saveNodePositions(nodes)
+    }, 50)
+  }, [])
 
   // Update nodes with real metrics data and restore positions
   React.useEffect(() => {
@@ -117,7 +127,7 @@ function App() {
       // Restore saved position if available, otherwise use default
       const savedPosition = savedPositions[node.id]
       const position = savedPosition ? savedPosition : node.position
-      
+
       // Debug: Log position restoration
       if (savedPosition) {
         console.log(`Restored position for ${node.id}:`, savedPosition)
@@ -321,6 +331,7 @@ function App() {
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-left"

@@ -1,133 +1,133 @@
 """Kafka consumer for processing VAD-filtered audio."""
+
 import asyncio
 import json
-from typing import Optional
-import aiokafka
+
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
+from app.asr_processor import ASRProcessor
 from app.config import settings
 from app.models import AudioChunk, TranscribedText
-from app.asr_processor import ASRProcessor
 
 logger = structlog.get_logger()
 
 
 class KafkaConsumer:
     """Consumes VAD-filtered audio from Kafka and produces transcripts."""
-    
+
     def __init__(self):
-        self.consumer: Optional[AIOKafkaConsumer] = None
-        self.producer: Optional[AIOKafkaProducer] = None
+        self.consumer: AIOKafkaConsumer | None = None
+        self.producer: AIOKafkaProducer | None = None
         self.asr_processor = ASRProcessor()
         self.running = False
         self._consumer_task = None
-    
+
     async def start(self):
         """Start the Kafka consumer and producer."""
         try:
             # Initialize ASR processor
             await self.asr_processor.initialize()
-            
+
             # Create consumer
             self.consumer = AIOKafkaConsumer(
                 settings.kafka_input_topic,
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group,
-                value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-                auto_offset_reset='latest',
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                auto_offset_reset="latest",
                 enable_auto_commit=False,  # Manual commit for better reliability
                 session_timeout_ms=settings.kafka_session_timeout_ms,
                 heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
-                max_poll_records=settings.kafka_max_poll_records
+                max_poll_records=settings.kafka_max_poll_records,
             )
-            
+
             # Create producer
             self.producer = AIOKafkaProducer(
                 bootstrap_servers=settings.kafka_bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                compression_type='lz4',
-                acks='all',
-                retries=3
+                value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                compression_type="lz4",
+                acks="all",
+                retries=3,
             )
-            
+
             # Start consumer and producer
             await self.consumer.start()
             await self.producer.start()
-            
+
             logger.info(
                 "Kafka consumer and producer started",
                 input_topic=settings.kafka_input_topic,
                 output_topic=settings.kafka_output_topic,
-                consumer_group=settings.kafka_consumer_group
+                consumer_group=settings.kafka_consumer_group,
             )
-            
+
             # Start consuming
             self.running = True
             self._consumer_task = asyncio.create_task(self._consume())
-            
+
         except Exception as e:
             logger.error("Failed to start Kafka consumer", error=str(e))
             raise
-    
+
     async def stop(self):
         """Stop the Kafka consumer and producer."""
         self.running = False
-        
+
         if self._consumer_task:
             self._consumer_task.cancel()
             try:
                 await self._consumer_task
             except asyncio.CancelledError:
                 pass
-        
+
         if self.consumer:
             await self.consumer.stop()
             logger.info("Kafka consumer stopped")
-        
+
         if self.producer:
             await self.producer.stop()
             logger.info("Kafka producer stopped")
-    
+
     async def _consume(self):
         """Main consumer loop."""
         logger.info("Starting consumer loop")
-        
+
         while self.running:
             try:
                 # Fetch messages
                 async for msg in self.consumer:
                     if not self.running:
                         break
-                    
+
                     try:
                         # Parse message
                         audio_chunk = AudioChunk(**msg.value)
-                        
+
                         logger.debug(
                             "Received audio chunk",
                             chunk_id=audio_chunk.chunk_id,
                             device_id=audio_chunk.device_id,
-                            sequence_number=audio_chunk.sequence_number
+                            sequence_number=audio_chunk.sequence_number,
                         )
-                        
+
                         # Process audio
                         transcribed = await self.asr_processor.process_audio_chunk(audio_chunk)
-                        
+
                         if transcribed:
                             # Send to output topic
                             await self._send_transcript(transcribed)
-                            
+
                             # Commit offset after successful processing
                             await self.consumer.commit()
-                            
+
                             logger.debug(
                                 "Offset committed after successful processing",
                                 chunk_id=audio_chunk.chunk_id,
                                 topic=msg.topic,
                                 partition=msg.partition,
-                                offset=msg.offset
+                                offset=msg.offset,
                             )
                         else:
                             logger.warning(
@@ -135,19 +135,19 @@ class KafkaConsumer:
                                 chunk_id=audio_chunk.chunk_id,
                                 topic=msg.topic,
                                 partition=msg.partition,
-                                offset=msg.offset
+                                offset=msg.offset,
                             )
-                        
+
                     except Exception as e:
                         logger.error(
                             "Failed to process message",
                             error=str(e),
                             topic=msg.topic,
                             partition=msg.partition,
-                            offset=msg.offset
+                            offset=msg.offset,
                         )
                         continue
-                        
+
             except asyncio.CancelledError:
                 logger.info("Consumer loop cancelled")
                 break
@@ -157,31 +157,31 @@ class KafkaConsumer:
             except Exception as e:
                 logger.error("Unexpected error in consumer loop", error=str(e))
                 await asyncio.sleep(5)  # Wait before retrying
-    
+
     async def _send_transcript(self, transcript: TranscribedText):
         """Send transcript to output topic."""
         try:
             # Convert to dict and send
-            message_dict = transcript.model_dump(mode='json')
-            
+            message_dict = transcript.model_dump(mode="json")
+
             await self.producer.send_and_wait(
                 settings.kafka_output_topic,
-                key=transcript.device_id.encode('utf-8'),
-                value=message_dict
+                key=transcript.device_id.encode("utf-8"),
+                value=message_dict,
             )
-            
+
             logger.info(
                 "Transcript sent to Kafka",
                 chunk_id=transcript.chunk_id,
                 device_id=transcript.device_id,
                 word_count=len(transcript.words),
-                topic=settings.kafka_output_topic
+                topic=settings.kafka_output_topic,
             )
-            
+
         except Exception as e:
             logger.error(
                 "Failed to send transcript to Kafka",
                 chunk_id=transcript.chunk_id,
-                error=str(e)
+                error=str(e),
             )
             raise

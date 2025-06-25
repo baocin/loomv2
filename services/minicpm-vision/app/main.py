@@ -3,7 +3,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 import structlog
 from fastapi import FastAPI, HTTPException, status
@@ -63,7 +63,7 @@ model_loaded = False
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     global kafka_consumer_task, app_ready, vision_processor
-    
+
     logger.info(
         "Starting MiniCPM-Vision service",
         environment=settings.environment,
@@ -71,10 +71,10 @@ async def lifespan(app: FastAPI):
         input_topics=settings.kafka_input_topics,
         output_topic=settings.kafka_output_topic,
     )
-    
+
     # Initialize vision processor (but don't load model yet)
     vision_processor = VisionProcessor(device=settings.model_device)
-    
+
     try:
         # Start Kafka consumer in background
         kafka_consumer_task = asyncio.create_task(
@@ -86,22 +86,22 @@ async def lifespan(app: FastAPI):
                 device=settings.model_device,
             )
         )
-        
+
         # Give consumer time to initialize
         await asyncio.sleep(5)
         app_ready = True
-        
+
         logger.info("MiniCPM-Vision service started successfully")
-        
+
         yield
-        
+
     except Exception as e:
         logger.error("Failed to start service", error=str(e))
         raise
-        
+
     finally:
         app_ready = False
-        
+
         # Cancel consumer task
         if kafka_consumer_task and not kafka_consumer_task.done():
             kafka_consumer_task.cancel()
@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
                 await kafka_consumer_task
             except asyncio.CancelledError:
                 pass
-                
+
         logger.info("MiniCPM-Vision service stopped")
 
 
@@ -135,13 +135,14 @@ async def health_check() -> HealthStatus:
 async def readiness_check() -> HealthStatus:
     """Readiness probe endpoint."""
     global app_ready, model_loaded
-    
+
     checks = {
         "app_initialized": app_ready,
-        "kafka_consumer": kafka_consumer_task is not None and not kafka_consumer_task.done(),
+        "kafka_consumer": kafka_consumer_task is not None
+        and not kafka_consumer_task.done(),
         "model_loaded": model_loaded,
     }
-    
+
     if all(checks.values()):
         return HealthStatus(
             status="ready",
@@ -163,33 +164,33 @@ async def readiness_check() -> HealthStatus:
 async def warmup() -> Dict[str, Any]:
     """Warmup endpoint to preload vision model."""
     global model_loaded, vision_processor
-    
+
     if model_loaded:
         return {
             "status": "already_loaded",
             "message": "Vision model already loaded",
             "model_loaded": True,
         }
-    
+
     if not vision_processor:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"status": "error", "message": "Vision processor not initialized"},
         )
-    
+
     try:
         logger.info("Starting vision model warmup")
         await vision_processor.load_model()
         model_loaded = True
         logger.info("Vision model warmup completed successfully")
-        
+
         return {
             "status": "success",
             "message": "Vision model loaded successfully",
             "model_loaded": True,
             "device": vision_processor.device,
         }
-        
+
     except Exception as e:
         logger.error("Vision model warmup failed", error=str(e))
         raise HTTPException(
@@ -226,13 +227,14 @@ async def root() -> Dict[str, Any]:
 async def status() -> Dict[str, Any]:
     """Detailed status endpoint."""
     global kafka_consumer_task
-    
+
     return {
         "service": settings.service_name,
         "timestamp": datetime.utcnow().isoformat(),
         "ready": app_ready,
         "kafka_consumer": {
-            "running": kafka_consumer_task is not None and not kafka_consumer_task.done(),
+            "running": kafka_consumer_task is not None
+            and not kafka_consumer_task.done(),
             "task_done": kafka_consumer_task.done() if kafka_consumer_task else None,
         },
         "configuration": {
@@ -250,29 +252,29 @@ async def status() -> Dict[str, Any]:
 async def track_metrics(request, call_next):
     """Track request metrics."""
     import time
-    
+
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time
-    
+
     # Record metrics
     REQUEST_COUNT.labels(
         method=request.method,
         endpoint=request.url.path,
         status=response.status_code,
     ).inc()
-    
+
     REQUEST_DURATION.labels(
         method=request.method,
         endpoint=request.url.path,
     ).observe(duration)
-    
+
     return response
 
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

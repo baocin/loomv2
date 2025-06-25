@@ -1,10 +1,9 @@
 """Dead Letter Queue handler for failed message processing."""
 
-import asyncio
 import json
 import time
-from typing import Any, Dict, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from aiokafka import AIOKafkaProducer
@@ -17,7 +16,7 @@ class DLQHandler:
 
     def __init__(self, producer: AIOKafkaProducer, service_name: str):
         """Initialize DLQ handler.
-        
+
         Args:
             producer: Kafka producer instance
             service_name: Name of the service using this handler
@@ -35,7 +34,7 @@ class DLQHandler:
         max_retries: int = 3,
     ) -> bool:
         """Send a failed message to the appropriate DLQ topic.
-        
+
         Args:
             original_message: The original message that failed processing
             source_topic: The topic the message came from
@@ -43,7 +42,7 @@ class DLQHandler:
             dlq_topic: The DLQ topic to send the message to
             retry_count: Current retry count for this message
             max_retries: Maximum number of retries allowed
-            
+
         Returns:
             True if successfully sent to DLQ, False otherwise
         """
@@ -58,10 +57,10 @@ class DLQHandler:
                     "error_message": str(error),
                     "retry_count": retry_count,
                     "max_retries": max_retries,
-                    "failed_at": datetime.now(timezone.utc).isoformat(),
+                    "failed_at": datetime.now(UTC).isoformat(),
                     "processing_timeout": retry_count >= max_retries,
                 },
-                "schema_version": "v1"
+                "schema_version": "v1",
             }
 
             # Send to DLQ topic
@@ -93,12 +92,12 @@ class DLQHandler:
             )
             return False
 
-    def _extract_key(self, message: Any) -> Optional[bytes]:
+    def _extract_key(self, message: Any) -> bytes | None:
         """Extract a key from the original message for partitioning.
-        
+
         Args:
             message: The original message
-            
+
         Returns:
             Key as bytes or None
         """
@@ -110,25 +109,22 @@ class DLQHandler:
                     return device_id.encode("utf-8")
             elif hasattr(message, "device_id"):
                 return message.device_id.encode("utf-8")
-            
+
             return None
-            
+
         except Exception:
             return None
 
     async def should_retry(
-        self, 
-        error: Exception, 
-        retry_count: int, 
-        max_retries: int = 3
+        self, error: Exception, retry_count: int, max_retries: int = 3
     ) -> bool:
         """Determine if a failed message should be retried.
-        
+
         Args:
             error: The exception that occurred
             retry_count: Current retry count
             max_retries: Maximum retries allowed
-            
+
         Returns:
             True if should retry, False if should send to DLQ
         """
@@ -139,45 +135,45 @@ class DLQHandler:
         # Determine retry eligibility based on error type
         retryable_errors = [
             "ConnectionError",
-            "TimeoutError", 
+            "TimeoutError",
             "TemporaryFailure",
             "ModelLoadingError",
             "OutOfMemoryError",
         ]
 
         error_name = type(error).__name__
-        
+
         # Always retry network/temporary errors
         if error_name in retryable_errors:
             return True
-            
+
         # Don't retry validation or permanent errors
         permanent_errors = [
             "ValidationError",
-            "ValueError", 
+            "ValueError",
             "DecodingError",
             "UnsupportedFormatError",
         ]
-        
+
         if error_name in permanent_errors:
             return False
-            
+
         # Default to retry for unknown errors (up to max_retries)
         return True
 
     def get_retry_delay(self, retry_count: int) -> float:
         """Calculate exponential backoff delay for retries.
-        
+
         Args:
             retry_count: Current retry attempt (0-based)
-            
+
         Returns:
             Delay in seconds
         """
         # Exponential backoff: 2^retry_count seconds, max 60 seconds
-        delay = min(2 ** retry_count, 60)
-        
+        delay = min(2**retry_count, 60)
+
         # Add jitter to prevent thundering herd
         jitter = delay * 0.1 * (hash(time.time()) % 10) / 10
-        
+
         return delay + jitter
