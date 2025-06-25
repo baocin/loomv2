@@ -24,7 +24,7 @@ class PipelineMonitorAPI {
     this.kafkaClient = new KafkaClient()
     this.databaseClient = new DatabaseClient()
     this.metricsCollector = new KafkaMetricsCollector(this.kafkaClient)
-    this.wsServer = new MonitorWebSocketServer(this.metricsCollector, this.databaseClient)
+    this.wsServer = new MonitorWebSocketServer(this.metricsCollector, this.databaseClient, this.kafkaClient)
 
     this.setupMiddleware()
     this.setupRoutes()

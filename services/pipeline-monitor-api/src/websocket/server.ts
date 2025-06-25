@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import { IncomingMessage } from 'http'
 import { KafkaMetricsCollector } from '../kafka/metrics'
 import { DatabaseClient } from '../database/client'
+import { KafkaClient } from '../kafka/client'
 import { logger } from '../utils/logger'
 
 export class MonitorWebSocketServer {
@@ -9,14 +10,18 @@ export class MonitorWebSocketServer {
   private clients: Set<WebSocket> = new Set()
   private metricsCollector: KafkaMetricsCollector
   private databaseClient: DatabaseClient
+  private kafkaClient: KafkaClient
   private broadcastInterval: NodeJS.Timeout | null = null
+  private topicStreamCleanups: Map<string, () => Promise<void>> = new Map()
 
   constructor(
     metricsCollector: KafkaMetricsCollector,
-    databaseClient: DatabaseClient
+    databaseClient: DatabaseClient,
+    kafkaClient: KafkaClient
   ) {
     this.metricsCollector = metricsCollector
     this.databaseClient = databaseClient
+    this.kafkaClient = kafkaClient
   }
 
   initialize(server: any): void {
@@ -42,7 +47,15 @@ export class MonitorWebSocketServer {
 
   private handleConnection(ws: WebSocket, request: IncomingMessage): void {
     const clientIp = request.socket.remoteAddress
-    logger.info(`WebSocket client connected from ${clientIp}`)
+    const clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    logger.info(`WebSocket client connected from ${clientIp} (${clientId})`)
+
+    // Initialize client metadata
+    ws.metadata = {
+      clientId,
+      subscribedTopics: new Set()
+    }
 
     this.clients.add(ws)
 
@@ -59,9 +72,28 @@ export class MonitorWebSocketServer {
       }
     })
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
+      // Clean up any active streams for this client
+      const clientId = ws.metadata?.clientId
+      if (clientId) {
+        const streamsToClean = Array.from(this.topicStreamCleanups.keys())
+          .filter(streamId => streamId.startsWith(clientId))
+
+        for (const streamId of streamsToClean) {
+          const cleanup = this.topicStreamCleanups.get(streamId)
+          if (cleanup) {
+            try {
+              await cleanup()
+              this.topicStreamCleanups.delete(streamId)
+            } catch (error) {
+              logger.error(`Error cleaning up stream ${streamId}`, error)
+            }
+          }
+        }
+      }
+
       this.clients.delete(ws)
-      logger.info(`WebSocket client disconnected from ${clientIp}`)
+      logger.info(`WebSocket client disconnected from ${clientIp} (${clientId})`)
     })
 
     ws.on('error', (error) => {
@@ -112,6 +144,14 @@ export class MonitorWebSocketServer {
         this.handleTopicUnsubscription(ws, data.topic)
         break
 
+      case 'stream_logs':
+        this.handleLogStreamRequest(ws, data.topic, data.fromBeginning || false)
+        break
+
+      case 'stop_stream':
+        this.handleStopStreamRequest(ws, data.topic)
+        break
+
       case 'request_metrics':
         this.sendCurrentMetrics(ws)
         break
@@ -145,6 +185,70 @@ export class MonitorWebSocketServer {
       type: 'unsubscription_confirmed',
       topic,
     })
+  }
+
+  private async handleLogStreamRequest(ws: WebSocket, topic: string, fromBeginning: boolean): Promise<void> {
+    try {
+      // Stop any existing stream for this topic
+      await this.handleStopStreamRequest(ws, topic)
+
+      logger.info(`Starting log stream for topic: ${topic} (fromBeginning: ${fromBeginning})`)
+
+      // Create a unique stream ID for this client-topic combination
+      const streamId = `${ws.metadata?.clientId || 'unknown'}-${topic}`
+
+      // Start streaming messages
+      const cleanup = await this.kafkaClient.streamMessages(
+        topic,
+        (message) => {
+          this.sendMessage(ws, {
+            type: 'log_message',
+            topic,
+            message: {
+              ...message,
+              // Format timestamp for display
+              formattedTimestamp: message.timestamp.toISOString(),
+            }
+          })
+        },
+        fromBeginning
+      )
+
+      // Store cleanup function
+      this.topicStreamCleanups.set(streamId, cleanup)
+
+      this.sendMessage(ws, {
+        type: 'stream_started',
+        topic,
+        fromBeginning
+      })
+
+    } catch (error) {
+      logger.error(`Failed to start log stream for topic ${topic}`, error)
+      this.sendError(ws, `Failed to start log stream: ${error.message}`)
+    }
+  }
+
+  private async handleStopStreamRequest(ws: WebSocket, topic: string): Promise<void> {
+    const streamId = `${ws.metadata?.clientId || 'unknown'}-${topic}`
+    const cleanup = this.topicStreamCleanups.get(streamId)
+
+    if (cleanup) {
+      try {
+        await cleanup()
+        this.topicStreamCleanups.delete(streamId)
+
+        this.sendMessage(ws, {
+          type: 'stream_stopped',
+          topic
+        })
+
+        logger.info(`Stopped log stream for topic: ${topic}`)
+      } catch (error) {
+        logger.error(`Error stopping log stream for topic ${topic}`, error)
+        this.sendError(ws, `Failed to stop log stream: ${error.message}`)
+      }
+    }
   }
 
   private async sendCurrentMetrics(ws: WebSocket): Promise<void> {
@@ -255,6 +359,7 @@ export class MonitorWebSocketServer {
 declare module 'ws' {
   interface WebSocket {
     metadata?: {
+      clientId: string
       subscribedTopics: Set<string>
     }
   }

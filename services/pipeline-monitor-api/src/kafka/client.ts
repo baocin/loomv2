@@ -177,6 +177,58 @@ export class KafkaClient {
     }
   }
 
+  async streamMessages(
+    topic: string,
+    onMessage: (message: any) => void,
+    fromBeginning = false
+  ): Promise<() => Promise<void>> {
+    const groupId = `monitor-stream-${topic}-${Date.now()}`
+    const consumer = this.kafka.consumer({
+      groupId,
+      sessionTimeout: 30000,
+      heartbeatInterval: 3000
+    })
+
+    try {
+      await consumer.connect()
+      await consumer.subscribe({ topic, fromBeginning })
+
+      const isRunning = { value: true }
+
+      consumer.run({
+        eachMessage: async ({ message, topic: msgTopic, partition }) => {
+          if (!isRunning.value) return
+
+          try {
+            const parsedMessage = {
+              topic: msgTopic,
+              partition,
+              offset: message.offset,
+              key: message.key?.toString(),
+              value: message.value ? JSON.parse(message.value.toString()) : null,
+              timestamp: new Date(parseInt(message.timestamp)),
+              headers: message.headers
+            }
+            onMessage(parsedMessage)
+          } catch (error) {
+            logger.error('Failed to process streamed message', error)
+          }
+        },
+      })
+
+      // Return cleanup function
+      return async () => {
+        isRunning.value = false
+        await consumer.disconnect()
+        logger.info(`Stopped streaming messages from ${topic}`)
+      }
+    } catch (error) {
+      await consumer.disconnect()
+      logger.error(`Failed to start streaming from ${topic}`, error)
+      throw error
+    }
+  }
+
   async clearTopicPartition(topic: string, partition: number): Promise<void> {
     if (!this.admin) {
       throw new Error('Admin client not connected')

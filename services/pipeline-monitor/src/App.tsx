@@ -12,6 +12,7 @@ import 'reactflow/dist/style.css'
 
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
+import { LogViewer } from './components/LogViewer'
 import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics } from './hooks/usePipelineData'
 
 const STORAGE_KEY = 'loom-pipeline-node-positions'
@@ -71,6 +72,7 @@ function App() {
     data: null,
   })
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [logViewerTopic, setLogViewerTopic] = useState<string | null>(null)
 
   const { data: pipelineData, isLoading: isPipelineLoading } = usePipelineData()
   const { data: topicMetrics, isLoading: isTopicMetricsLoading } = useTopicMetrics()
@@ -166,6 +168,13 @@ function App() {
       })
     }
   }, [])
+
+  const handleViewLogs = useCallback(() => {
+    if (selectedTopic) {
+      setModalData({ isOpen: false, title: '', data: null })
+      setLogViewerTopic(selectedTopic)
+    }
+  }, [selectedTopic])
 
   const closeModal = useCallback(() => {
     setModalData({ isOpen: false, title: '', data: null })
@@ -370,6 +379,13 @@ function App() {
         onClose={closeModal}
         title={modalData.title}
         data={modalData.data}
+        onViewLogs={handleViewLogs}
+        isKafkaTopic={!!selectedTopic}
+      />
+
+      <LogViewer
+        topic={logViewerTopic}
+        onClose={() => setLogViewerTopic(null)}
       />
     </div>
   )

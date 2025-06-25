@@ -39,8 +39,16 @@ export class PipelineBuilder {
       const topics = await this.kafkaClient.getTopics()
       const consumerGroups = await this.kafkaClient.getConsumerGroups()
 
-      // Filter out internal topics
-      const userTopics = topics.filter(t => !t.startsWith('__') && !t.startsWith('_'))
+      // Filter out internal topics and monitoring topics
+      const userTopics = topics.filter(t =>
+        !t.startsWith('__') &&
+        !t.startsWith('_') &&
+        !t.includes('monitoring') &&
+        !t.includes('metrics') &&
+        !t.includes('health') &&
+        !t.includes('heartbeat') &&
+        !t.includes('status')
+      )
 
       const nodes: PipelineNode[] = []
       const edges: PipelineEdge[] = []
