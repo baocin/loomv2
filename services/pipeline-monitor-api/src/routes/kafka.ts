@@ -143,5 +143,22 @@ export function createKafkaRoutes(
     }
   })
 
+  // Clear all cached data
+  router.post('/cache/clear', async (req, res) => {
+    try {
+      // Clear message cache
+      messageCache.clear()
+
+      // Clear metrics collector caches
+      metricsCollector.clearCaches()
+
+      logger.info('Successfully cleared all caches')
+      res.json({ message: 'All caches cleared successfully' })
+    } catch (error) {
+      logger.error('Failed to clear caches', error)
+      res.status(500).json({ error: 'Failed to clear caches' })
+    }
+  })
+
   return router
 }

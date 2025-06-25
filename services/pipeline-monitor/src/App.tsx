@@ -11,7 +11,7 @@ import 'reactflow/dist/style.css'
 
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
-import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage } from './hooks/usePipelineData'
+import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache } from './hooks/usePipelineData'
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -27,6 +27,7 @@ function App() {
   const { data: topicMetrics, isLoading: isTopicMetricsLoading } = useTopicMetrics()
   const { data: consumerMetrics, isLoading: isConsumerMetricsLoading } = useConsumerMetrics()
   const { data: latestMessage } = useLatestMessage(selectedTopic || '')
+  const clearCacheMutation = useClearCache()
 
   // Update nodes with real metrics data
   React.useEffect(() => {
@@ -52,7 +53,7 @@ function App() {
         )
         if (metrics) {
           updatedData.metrics = metrics
-          updatedData.status = new Date().getTime() - new Date(metrics.lastHeartbeat).getTime() < 60000 ? 'active' : 'idle'
+          updatedData.status = new Date().getTime() - new Date(metrics.lastHeartbeat).getTime() < 30000 ? 'active' : 'idle'
         }
       }
 
@@ -88,6 +89,12 @@ function App() {
     setSelectedTopic(null)
   }, [])
 
+  const handleClearCache = useCallback(() => {
+    if (window.confirm('Are you sure you want to clear all cached data? This will reset all metrics and force a refresh.')) {
+      clearCacheMutation.mutate()
+    }
+  }, [clearCacheMutation])
+
   // Show latest message in modal when available
   React.useEffect(() => {
     if (latestMessage && modalData.isOpen && selectedTopic) {
@@ -116,7 +123,7 @@ function App() {
         <div className="text-sm text-gray-600 space-y-1">
           <div>Topics: {topicMetrics?.length || 0}</div>
           <div>Active Consumers: {consumerMetrics?.filter(c =>
-            new Date().getTime() - new Date(c.lastHeartbeat).getTime() < 60000
+            new Date().getTime() - new Date(c.lastHeartbeat).getTime() < 30000
           ).length || 0}</div>
           <div className="flex items-center gap-2 mt-2">
             <div className="flex items-center gap-1">
@@ -135,6 +142,35 @@ function App() {
           <div className="text-xs text-gray-500 mt-2">
             Click on nodes to view raw data
           </div>
+          <button
+            onClick={handleClearCache}
+            disabled={clearCacheMutation.isPending}
+            className="mt-3 w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            {clearCacheMutation.isPending ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Clearing...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Clear All Data
+              </>
+            )}
+          </button>
+          {clearCacheMutation.isError && (
+            <div className="mt-2 text-xs text-red-600">
+              Error: {clearCacheMutation.error?.message || 'Failed to clear cache'}
+            </div>
+          )}
+          {clearCacheMutation.isSuccess && (
+            <div className="mt-2 text-xs text-green-600">
+              Cache cleared successfully!
+            </div>
+          )}
         </div>
       </div>
 

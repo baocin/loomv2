@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import type { PipelineFlow, KafkaTopicMetrics, ConsumerMetrics } from '../types'
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8082'
@@ -16,7 +16,7 @@ export const usePipelineData = () => {
         return getMockPipelineData()
       }
     },
-    refetchInterval: 5000,
+    refetchInterval: 2000,
   })
 }
 
@@ -33,7 +33,7 @@ export const useTopicMetrics = () => {
         return getMockTopicMetrics()
       }
     },
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   })
 }
 
@@ -50,7 +50,7 @@ export const useConsumerMetrics = () => {
         return getMockConsumerMetrics()
       }
     },
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   })
 }
 
@@ -68,7 +68,33 @@ export const useLatestMessage = (topic: string) => {
       }
     },
     enabled: !!topic,
-    refetchInterval: 5000,
+    refetchInterval: 2000,
+  })
+}
+
+export const useClearCache = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/api/kafka/cache/clear`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to clear cache')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      // Invalidate all queries to force refetch
+      queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
+      queryClient.invalidateQueries({ queryKey: ['topicMetrics'] })
+      queryClient.invalidateQueries({ queryKey: ['consumerMetrics'] })
+      queryClient.invalidateQueries({ queryKey: ['latestMessage'] })
+    },
   })
 }
 
