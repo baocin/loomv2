@@ -11,6 +11,7 @@ import uvicorn
 
 from app.config import settings
 from app.kafka_consumer import KafkaVADConsumer
+from app.vad_processor import VADProcessor
 
 # Configure structured logging
 structlog.configure(
@@ -31,21 +32,26 @@ structlog.configure(
 
 logger = structlog.get_logger(__name__)
 
-# Global consumer instance
+# Global instances
 consumer: KafkaVADConsumer = None
 consumer_task: asyncio.Task = None
+vad_processor: VADProcessor = None
+model_loaded: bool = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
-    global consumer, consumer_task
+    global consumer, consumer_task, vad_processor
     
     logger.info(
         "Starting Silero VAD service",
         environment=settings.environment,
         log_level=settings.log_level,
     )
+    
+    # Initialize VAD processor (but don't load model yet)
+    vad_processor = VADProcessor()
     
     # Initialize consumer
     consumer = KafkaVADConsumer()
@@ -97,10 +103,18 @@ async def health_check() -> Dict[str, str]:
 @app.get("/readyz", status_code=status.HTTP_200_OK)
 async def readiness_check() -> JSONResponse:
     """Readiness probe endpoint."""
+    global model_loaded
+    
     if not consumer or not consumer._running:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "not ready", "reason": "Consumer not running"},
+        )
+    
+    if not model_loaded:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "not ready", "reason": "VAD model not loaded"},
         )
     
     # Check consumer health
@@ -114,8 +128,47 @@ async def readiness_check() -> JSONResponse:
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"status": "ready", "details": health},
+        content={"status": "ready", "model_loaded": model_loaded, "details": health},
     )
+
+
+@app.post("/warmup", status_code=status.HTTP_200_OK)
+async def warmup() -> JSONResponse:
+    """Warmup endpoint to preload VAD model."""
+    global model_loaded, vad_processor
+    
+    if model_loaded:
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"status": "already_loaded", "message": "VAD model already loaded"},
+        )
+    
+    if not vad_processor:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "error", "message": "VAD processor not initialized"},
+        )
+    
+    try:
+        logger.info("Starting VAD model warmup")
+        await vad_processor.initialize()
+        model_loaded = True
+        logger.info("VAD model warmup completed successfully")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "success", 
+                "message": "VAD model loaded successfully",
+                "model_loaded": True
+            },
+        )
+    except Exception as e:
+        logger.error("VAD model warmup failed", error=str(e))
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"status": "error", "message": f"Model loading failed: {str(e)}"},
+        )
 
 
 @app.get("/metrics")
@@ -129,6 +182,7 @@ async def metrics() -> Dict[str, Any]:
     return {
         "service": settings.service_name,
         "environment": settings.environment,
+        "model_loaded": model_loaded,
         "consumer": health,
     }
 

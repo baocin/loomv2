@@ -37,7 +37,7 @@ class KafkaConsumer:
                 group_id=settings.kafka_consumer_group,
                 value_deserializer=lambda m: json.loads(m.decode('utf-8')),
                 auto_offset_reset='latest',
-                enable_auto_commit=True,
+                enable_auto_commit=False,  # Manual commit for better reliability
                 session_timeout_ms=settings.kafka_session_timeout_ms,
                 heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
                 max_poll_records=settings.kafka_max_poll_records
@@ -118,6 +118,25 @@ class KafkaConsumer:
                         if transcribed:
                             # Send to output topic
                             await self._send_transcript(transcribed)
+                            
+                            # Commit offset after successful processing
+                            await self.consumer.commit()
+                            
+                            logger.debug(
+                                "Offset committed after successful processing",
+                                chunk_id=audio_chunk.chunk_id,
+                                topic=msg.topic,
+                                partition=msg.partition,
+                                offset=msg.offset
+                            )
+                        else:
+                            logger.warning(
+                                "Audio processing failed, not committing offset",
+                                chunk_id=audio_chunk.chunk_id,
+                                topic=msg.topic,
+                                partition=msg.partition,
+                                offset=msg.offset
+                            )
                         
                     except Exception as e:
                         logger.error(

@@ -9,7 +9,7 @@ k8s_yaml([
     'deploy/dev/ai-services.yaml',
     'deploy/dev/cronjobs.yaml',
     'deploy/dev/pipeline-monitor.yaml',
-])
+], allow_duplicates=True)
 
 # Build and deploy ingestion-api
 docker_build(

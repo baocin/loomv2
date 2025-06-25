@@ -23,13 +23,16 @@ const saveNodePositions = (nodes: Node[]) => {
     return acc
   }, {} as Record<string, { x: number; y: number }>)
 
+  console.log('Saving positions to localStorage:', positions)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(positions))
 }
 
 const loadNodePositions = (): Record<string, { x: number; y: number }> => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
+    const positions = stored ? JSON.parse(stored) : {}
+    console.log('Loaded positions from localStorage:', positions)
+    return positions
   } catch (error) {
     console.warn('Failed to load node positions from localStorage:', error)
     return {}
@@ -57,15 +60,23 @@ function App() {
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes)
 
-    // Check if any position changes occurred
+    // Debug: Log all position changes
+    const positionChanges = changes.filter(change => change.type === 'position')
+    if (positionChanges.length > 0) {
+      console.log('Position changes detected:', positionChanges)
+    }
+
+    // Check if any position changes occurred and drag has ended
     const hasPositionChange = changes.some(change =>
-      change.type === 'position' && change.position && change.dragging === false
+      change.type === 'position' && 'position' in change && change.position && 'dragging' in change && change.dragging === false
     )
 
     if (hasPositionChange) {
-      // Save positions after a brief delay to batch multiple changes
+      console.log('Drag ended, saving positions to localStorage...')
+      // Save positions after a brief delay to allow React Flow to update state
       setTimeout(() => {
         setNodes((currentNodes) => {
+          console.log('Current nodes for saving:', currentNodes.map(n => ({ id: n.id, position: n.position })))
           saveNodePositions(currentNodes)
           return currentNodes
         })
@@ -104,7 +115,13 @@ function App() {
       }
 
       // Restore saved position if available, otherwise use default
-      const position = savedPositions[node.id] || node.position
+      const savedPosition = savedPositions[node.id]
+      const position = savedPosition ? savedPosition : node.position
+      
+      // Debug: Log position restoration
+      if (savedPosition) {
+        console.log(`Restored position for ${node.id}:`, savedPosition)
+      }
 
       return {
         ...node,

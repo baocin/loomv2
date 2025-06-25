@@ -10,6 +10,7 @@ import torch
 
 from app.config import settings
 from app.kafka_consumer import KafkaConsumer
+from app.asr_processor import ASRProcessor
 
 # Configure structured logging
 structlog.configure(
@@ -45,19 +46,26 @@ processing_duration = Histogram(
     'Time spent processing audio chunks'
 )
 
-# Global consumer instance
+# Global instances
 kafka_consumer = KafkaConsumer()
+asr_processor: ASRProcessor = None
+model_loaded = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
+    global asr_processor
+    
     logger.info(
         "Starting Parakeet-TDT service",
         environment=settings.environment,
         device=settings.model_device,
         cuda_available=torch.cuda.is_available()
     )
+    
+    # Initialize ASR processor (but don't load model yet)
+    asr_processor = ASRProcessor()
     
     try:
         # Start Kafka consumer
@@ -90,23 +98,65 @@ async def health() -> Dict[str, str]:
 @app.get("/readyz")
 async def readiness() -> Dict[str, Any]:
     """Readiness check endpoint for Kubernetes readiness probe."""
+    global model_loaded
+    
     ready = True
     checks = {
         "service": settings.service_name,
         "kafka_consumer": kafka_consumer.running,
-        "asr_processor": kafka_consumer.asr_processor.model is not None,
+        "model_loaded": model_loaded,
         "device": settings.model_device,
         "cuda_available": torch.cuda.is_available()
     }
     
     # Check if all components are ready
-    if not kafka_consumer.running or kafka_consumer.asr_processor.model is None:
+    if not kafka_consumer.running or not model_loaded:
         ready = False
     
     return {
         "ready": ready,
         "checks": checks
     }
+
+
+@app.post("/warmup")
+async def warmup() -> Dict[str, Any]:
+    """Warmup endpoint to preload ASR model."""
+    global model_loaded, asr_processor
+    
+    if model_loaded:
+        return {
+            "status": "already_loaded",
+            "message": "ASR model already loaded",
+            "model_loaded": True,
+        }
+    
+    if not asr_processor:
+        return {
+            "status": "error",
+            "message": "ASR processor not initialized",
+        }
+    
+    try:
+        logger.info("Starting ASR model warmup")
+        await asr_processor.initialize()
+        model_loaded = True
+        logger.info("ASR model warmup completed successfully")
+        
+        return {
+            "status": "success",
+            "message": "ASR model loaded successfully",
+            "model_loaded": True,
+            "device": asr_processor.device,
+            "model": settings.model_name,
+        }
+        
+    except Exception as e:
+        logger.error("ASR model warmup failed", error=str(e))
+        return {
+            "status": "error",
+            "message": f"Model loading failed: {str(e)}",
+        }
 
 
 @app.get("/metrics")

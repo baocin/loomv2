@@ -13,6 +13,7 @@ from starlette.responses import Response
 from app.config import settings
 from app.kafka_consumer import create_and_run_consumer
 from app.models import HealthStatus
+from app.vision_processor import VisionProcessor
 
 # Configure structured logging
 structlog.configure(
@@ -54,12 +55,14 @@ IMAGES_PROCESSED = Counter(
 # Global state
 kafka_consumer_task = None
 app_ready = False
+vision_processor: VisionProcessor = None
+model_loaded = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global kafka_consumer_task, app_ready
+    global kafka_consumer_task, app_ready, vision_processor
     
     logger.info(
         "Starting MiniCPM-Vision service",
@@ -68,6 +71,9 @@ async def lifespan(app: FastAPI):
         input_topics=settings.kafka_input_topics,
         output_topic=settings.kafka_output_topic,
     )
+    
+    # Initialize vision processor (but don't load model yet)
+    vision_processor = VisionProcessor(device=settings.model_device)
     
     try:
         # Start Kafka consumer in background
@@ -128,11 +134,12 @@ async def health_check() -> HealthStatus:
 @app.get("/readyz", response_model=HealthStatus)
 async def readiness_check() -> HealthStatus:
     """Readiness probe endpoint."""
-    global app_ready
+    global app_ready, model_loaded
     
     checks = {
         "app_initialized": app_ready,
         "kafka_consumer": kafka_consumer_task is not None and not kafka_consumer_task.done(),
+        "model_loaded": model_loaded,
     }
     
     if all(checks.values()):
@@ -149,6 +156,45 @@ async def readiness_check() -> HealthStatus:
                 "timestamp": datetime.utcnow().isoformat(),
                 "checks": checks,
             },
+        )
+
+
+@app.post("/warmup")
+async def warmup() -> Dict[str, Any]:
+    """Warmup endpoint to preload vision model."""
+    global model_loaded, vision_processor
+    
+    if model_loaded:
+        return {
+            "status": "already_loaded",
+            "message": "Vision model already loaded",
+            "model_loaded": True,
+        }
+    
+    if not vision_processor:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "error", "message": "Vision processor not initialized"},
+        )
+    
+    try:
+        logger.info("Starting vision model warmup")
+        await vision_processor.load_model()
+        model_loaded = True
+        logger.info("Vision model warmup completed successfully")
+        
+        return {
+            "status": "success",
+            "message": "Vision model loaded successfully",
+            "model_loaded": True,
+            "device": vision_processor.device,
+        }
+        
+    except Exception as e:
+        logger.error("Vision model warmup failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"status": "error", "message": f"Model loading failed: {str(e)}"},
         )
 
 

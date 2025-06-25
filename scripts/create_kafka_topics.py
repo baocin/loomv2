@@ -54,6 +54,15 @@ PROCESSED_TOPICS: List[str] = [
     "task.url.processed.pdf_extracted",
 ]
 
+# Dead Letter Queue topics for failed processing
+DLQ_TOPICS: List[str] = [
+    "dlq.image.processing",      # Failed image processing tasks
+    "dlq.audio.processing",      # Failed audio processing tasks  
+    "dlq.text.processing",       # Failed text processing tasks
+    "dlq.document.processing",   # Failed document processing tasks
+    "dlq.general",               # Other processing failures
+]
+
 DEFAULT_PARTITIONS = 3
 DEFAULT_REPLICATION_FACTOR = 3
 
@@ -69,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         "--create-processed",
         action="store_true",
         help="Also create processed topics in addition to raw topics",
+    )
+    parser.add_argument(
+        "--create-dlq",
+        action="store_true",
+        help="Also create Dead Letter Queue topics for failed processing",
     )
     return parser.parse_args()
 
@@ -108,6 +122,8 @@ def main():
     topics = RAW_TOPICS.copy()
     if args.create_processed:
         topics += PROCESSED_TOPICS
+    if args.create_dlq:
+        topics += DLQ_TOPICS
 
     maybe_create_topics(admin, topics)
 

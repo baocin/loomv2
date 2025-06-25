@@ -61,7 +61,7 @@ class KafkaImageConsumer:
                 bootstrap_servers=self.bootstrap_servers,
                 group_id=self.consumer_group,
                 auto_offset_reset="latest",
-                enable_auto_commit=True,
+                enable_auto_commit=False,  # Manual commit for better reliability
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             )
             
@@ -169,6 +169,16 @@ class KafkaImageConsumer:
                         output_topic=self.output_topic,
                         num_objects=len(result.detected_objects),
                         has_text=bool(result.full_text),
+                    )
+                    
+                    # Commit offset after successful processing
+                    await self.consumer.commit()
+                else:
+                    logger.warning(
+                        "Message processing failed, not committing offset",
+                        topic=msg.topic,
+                        partition=msg.partition,
+                        offset=msg.offset,
                     )
                     
             except KafkaError as e:

@@ -10,6 +10,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from app.config import settings
 from app.models import AudioChunk, VADFilteredAudio
 from app.vad_processor import VADProcessor
+from app.dlq_handler import DLQHandler
 
 logger = structlog.get_logger(__name__)
 
@@ -21,8 +22,10 @@ class KafkaVADConsumer:
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.vad_processor = VADProcessor()
+        self.dlq_handler: DLQHandler | None = None
         self._running = False
         self._tasks: set[asyncio.Task] = set()
+        self._message_retry_counts: dict[str, int] = {}
 
     async def start(self) -> None:
         """Start the Kafka consumer and producer."""
@@ -52,6 +55,9 @@ class KafkaVADConsumer:
             # Start both
             await self.consumer.start()
             await self.producer.start()
+
+            # Initialize DLQ handler
+            self.dlq_handler = DLQHandler(self.producer, "silero-vad")
 
             self._running = True
             logger.info(
@@ -106,8 +112,8 @@ class KafkaVADConsumer:
                 # Process each partition's messages
                 for tp, partition_messages in messages.items():
                     for msg in partition_messages:
-                        # Create task for processing
-                        task = asyncio.create_task(self._process_message(msg))
+                        # Create task for processing with retry logic
+                        task = asyncio.create_task(self._process_message_with_retry(msg))
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
 
@@ -116,6 +122,61 @@ class KafkaVADConsumer:
             except Exception as e:
                 logger.error("Error in consumer loop", error=str(e))
                 await asyncio.sleep(1)  # Brief pause before retry
+
+    async def _process_message_with_retry(self, message) -> None:
+        """Process a message with retry logic and DLQ handling."""
+        message_key = f"{message.topic}:{message.partition}:{message.offset}"
+        retry_count = self._message_retry_counts.get(message_key, 0)
+        
+        try:
+            await self._process_message(message)
+            
+            # Success - remove from retry tracking and commit
+            self._message_retry_counts.pop(message_key, None)
+            await self.consumer.commit()
+            
+        except Exception as e:
+            logger.error(
+                "Message processing failed",
+                error=str(e),
+                topic=message.topic,
+                partition=message.partition,
+                offset=message.offset,
+                retry_count=retry_count,
+            )
+            
+            # Check if we should retry or send to DLQ
+            if self.dlq_handler and await self.dlq_handler.should_retry(e, retry_count):
+                # Increment retry count and retry after delay
+                self._message_retry_counts[message_key] = retry_count + 1
+                delay = self.dlq_handler.get_retry_delay(retry_count)
+                
+                logger.info(
+                    "Scheduling message retry",
+                    retry_count=retry_count + 1,
+                    delay_seconds=delay,
+                    topic=message.topic,
+                    offset=message.offset,
+                )
+                
+                await asyncio.sleep(delay)
+                # Retry the message
+                await self._process_message_with_retry(message)
+                
+            else:
+                # Send to DLQ and commit the offset to skip this message
+                if self.dlq_handler:
+                    await self.dlq_handler.send_to_dlq(
+                        original_message=message.value,
+                        source_topic=message.topic,
+                        error=e,
+                        dlq_topic="dlq.audio.processing",
+                        retry_count=retry_count,
+                    )
+                
+                # Clean up retry tracking and commit to skip the problematic message
+                self._message_retry_counts.pop(message_key, None)
+                await self.consumer.commit()
 
     async def _process_message(self, message) -> None:
         """Process a single message."""
@@ -175,9 +236,6 @@ class KafkaVADConsumer:
                     confidence=segment["confidence"],
                 )
 
-            # Commit the offset after successful processing
-            await self.consumer.commit()
-
         except Exception as e:
             logger.error(
                 "Error processing message",
@@ -186,6 +244,8 @@ class KafkaVADConsumer:
                 partition=message.partition,
                 offset=message.offset,
             )
+            # Re-raise the exception to be handled by retry logic
+            raise
 
     async def health_check(self) -> dict[str, Any]:
         """Check consumer health."""
