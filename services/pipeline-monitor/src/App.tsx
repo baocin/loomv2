@@ -6,12 +6,35 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   Node,
+  NodeChange,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
 import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics } from './hooks/usePipelineData'
+
+const STORAGE_KEY = 'loom-pipeline-node-positions'
+
+// Position persistence utilities
+const saveNodePositions = (nodes: Node[]) => {
+  const positions = nodes.reduce((acc, node) => {
+    acc[node.id] = { x: node.position.x, y: node.position.y }
+    return acc
+  }, {} as Record<string, { x: number; y: number }>)
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(positions))
+}
+
+const loadNodePositions = (): Record<string, { x: number; y: number }> => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch (error) {
+    console.warn('Failed to load node positions from localStorage:', error)
+    return {}
+  }
+}
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -30,9 +53,31 @@ function App() {
   const clearCacheMutation = useClearCache()
   const clearAllTopicsMutation = useClearAllTopics()
 
-  // Update nodes with real metrics data
+  // Custom nodes change handler that saves positions
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    onNodesChange(changes)
+
+    // Check if any position changes occurred
+    const hasPositionChange = changes.some(change =>
+      change.type === 'position' && change.position && change.dragging === false
+    )
+
+    if (hasPositionChange) {
+      // Save positions after a brief delay to batch multiple changes
+      setTimeout(() => {
+        setNodes((currentNodes) => {
+          saveNodePositions(currentNodes)
+          return currentNodes
+        })
+      }, 100)
+    }
+  }, [onNodesChange, setNodes])
+
+  // Update nodes with real metrics data and restore positions
   React.useEffect(() => {
     if (!pipelineData || isTopicMetricsLoading || isConsumerMetricsLoading) return
+
+    const savedPositions = loadNodePositions()
 
     const updatedNodes = pipelineData.nodes.map(node => {
       let updatedData = { ...node.data }
@@ -58,9 +103,13 @@ function App() {
         }
       }
 
+      // Restore saved position if available, otherwise use default
+      const position = savedPositions[node.id] || node.position
+
       return {
         ...node,
         data: updatedData,
+        position,
       }
     })
 
@@ -252,7 +301,7 @@ function App() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
