@@ -202,6 +202,8 @@ services:
       LOOM_LOG_LEVEL: INFO
       LOOM_HOST: 0.0.0.0
       LOOM_PORT: 8000
+      # Disable outlines cache to avoid permission issues
+      OUTLINES_CACHE_DIR: /tmp/outlines_cache
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -321,11 +323,11 @@ services:
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_GMAIL:-5}
       # Gmail configuration from .env file
-      LOOM_EMAIL_1_IMAP_SERVER: ${LOOM_EMAIL_IMAP_SERVER_1:-imap.gmail.com}
-      LOOM_EMAIL_1_IMAP_PORT: ${LOOM_EMAIL_PORT_1:-993}
-      LOOM_EMAIL_1_USERNAME: ${LOOM_EMAIL_1:-}
-      LOOM_EMAIL_1_PASSWORD: ${LOOM_EMAIL_PASSWORD_1:-}
-      LOOM_EMAIL_1_SOURCE: gmail
+      LOOM_EMAIL_ADDRESS_1: ${LOOM_EMAIL_1:-}
+      LOOM_EMAIL_PASSWORD_1: ${LOOM_EMAIL_PASSWORD_1:-}
+      LOOM_EMAIL_IMAP_SERVER_1: ${LOOM_EMAIL_IMAP_SERVER_1:-imap.gmail.com}
+      LOOM_EMAIL_IMAP_PORT_1: ${LOOM_EMAIL_PORT_1:-993}
+      LOOM_EMAIL_NAME_1: ${LOOM_EMAIL_NAME_1:-Gmail}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -351,12 +353,12 @@ services:
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_FASTMAIL:-local-dev-fastmail-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_FASTMAIL:-5}
-      # Fastmail configuration from .env file
-      LOOM_EMAIL_2_IMAP_SERVER: ${LOOM_EMAIL_IMAP_SERVER_2:-imap.fastmail.com}
-      LOOM_EMAIL_2_IMAP_PORT: ${LOOM_EMAIL_PORT_2:-993}
-      LOOM_EMAIL_2_USERNAME: ${LOOM_EMAIL_2:-}
-      LOOM_EMAIL_2_PASSWORD: ${LOOM_EMAIL_PASSWORD_2:-}
-      LOOM_EMAIL_2_SOURCE: fastmail
+      # Fastmail configuration from .env file (as account 1 for this fetcher)
+      LOOM_EMAIL_ADDRESS_1: ${LOOM_EMAIL_2:-}
+      LOOM_EMAIL_PASSWORD_1: ${LOOM_EMAIL_PASSWORD_2:-}
+      LOOM_EMAIL_IMAP_SERVER_1: ${LOOM_EMAIL_IMAP_SERVER_2:-imap.fastmail.com}
+      LOOM_EMAIL_IMAP_PORT_1: ${LOOM_EMAIL_PORT_2:-993}
+      LOOM_EMAIL_NAME_1: ${LOOM_EMAIL_NAME_2:-Fastmail}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -409,10 +411,15 @@ services:
       # Kafka configuration (fetchers use KAFKA_BOOTSTRAP_SERVERS not LOOM_KAFKA_BOOTSTRAP_SERVERS)
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
-      LOOM_KAFKA_OUTPUT_TOPIC: external.twitter.liked.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: ${LOOM_KAFKA_OUTPUT_TOPIC_X:-external.twitter.liked.raw}
+      LOOM_KAFKA_URL_TOPIC: ${LOOM_KAFKA_URL_TOPIC_X:-task.url.ingest}
+      LOOM_SEND_TO_URL_PROCESSOR: ${LOOM_SEND_TO_URL_PROCESSOR_X:-true}
       LOOM_DEVICE_ID: local-dev-x-likes-fetcher
       LOOM_LOG_LEVEL: INFO
-      LOOM_FETCH_INTERVAL_MINUTES: 30
+      LOOM_FETCH_INTERVAL_HOURS: ${LOOM_FETCH_INTERVAL_HOURS_X:-6}
+      LOOM_RUN_ON_STARTUP: ${LOOM_RUN_ON_STARTUP_X:-true}
+      LOOM_MAX_TWEETS_TO_FETCH: 1000  # Fetch up to 1000 tweets
+      LOOM_MAX_FETCH_TIME_MINUTES: 120  # Stop after 2 hours
       # X/Twitter authentication (from .env file)
       LOOM_X_USERNAME: ${X_USERNAME:-}
       LOOM_X_PASSWORD: ${X_PASSWORD:-}
@@ -463,7 +470,7 @@ services:
       # Kafka configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
-      LOOM_KAFKA_INPUT_TOPIC: external.twitter.liked.raw
+      LOOM_KAFKA_INPUT_TOPIC: external.twitter.liked.raw  # Only process from Twitter liked topic
       LOOM_KAFKA_OUTPUT_TOPIC: task.url.processed.twitter_archived
       LOOM_LOG_LEVEL: INFO
       # Set timezone
