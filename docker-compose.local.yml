@@ -369,14 +369,20 @@ services:
       # Kafka configuration (fetchers use KAFKA_BOOTSTRAP_SERVERS not LOOM_KAFKA_BOOTSTRAP_SERVERS)
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_PREFIX: ""  # No prefix, use full topic names
-      LOOM_KAFKA_OUTPUT_TOPIC: external.calendar.events.raw
-      LOOM_DEVICE_ID: local-dev-calendar-fetcher
-      LOOM_LOG_LEVEL: INFO
-      LOOM_FETCH_INTERVAL_MINUTES: 10
-      # Calendar configuration (add your settings here)
-      # GOOGLE_CALENDAR_CREDENTIALS_FILE: /app/credentials/google-calendar-credentials.json
-      # OUTLOOK_CLIENT_ID: your-outlook-client-id
-      # OUTLOOK_CLIENT_SECRET: your-outlook-client-secret
+      LOOM_KAFKA_OUTPUT_TOPIC: ${LOOM_KAFKA_OUTPUT_TOPIC_CALENDAR:-external.calendar.events.raw}
+      LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_CALENDAR:-local-dev-calendar-fetcher}
+      LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
+      LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_CALENDAR:-10}
+      # Google Calendar configuration (from .env file)
+      GOOGLE_CALENDAR_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
+      GOOGLE_CALENDAR_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+      GOOGLE_CALENDAR_REFRESH_TOKEN: ${GOOGLE_CALENDAR_REFRESH_TOKEN:-}
+      # Optional: Service account credentials as JSON string
+      GOOGLE_CALENDAR_CREDENTIALS_JSON: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
+      # Microsoft Outlook Calendar configuration (from .env file)
+      OUTLOOK_CLIENT_ID: ${OUTLOOK_CLIENT_ID:-}
+      OUTLOOK_CLIENT_SECRET: ${OUTLOOK_CLIENT_SECRET:-}
+      OUTLOOK_REFRESH_TOKEN: ${OUTLOOK_REFRESH_TOKEN:-}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
