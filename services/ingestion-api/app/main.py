@@ -14,10 +14,20 @@ from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
 from .routers import audio, documents, github, images, notes, sensors, system, urls
+from .tracing import TracingMiddleware, get_trace_context
 
-# Configure structured logging
+
+# Configure structured logging with trace context
+def add_trace_context(logger, method_name, event_dict):
+    """Add trace context to all log entries."""
+    trace_context = get_trace_context()
+    event_dict.update(trace_context)
+    return event_dict
+
+
 structlog.configure(
     processors=[
+        add_trace_context,
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
@@ -97,6 +107,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add tracing middleware (must be first)
+app.add_middleware(TracingMiddleware, service_name="ingestion-api")
 
 # Add CORS middleware
 app.add_middleware(
@@ -236,7 +249,8 @@ async def general_exception_handler(request, exc):
         content={
             "status": "error",
             "message": "Internal server error",
-            "request_id": getattr(request.state, "request_id", None),
+            "trace_id": getattr(request.state, "trace_id", None),
+            "services_encountered": getattr(request.state, "services_encountered", []),
         },
     )
 

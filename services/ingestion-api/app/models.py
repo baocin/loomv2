@@ -1,11 +1,18 @@
 """Pydantic models for ingestion API data structures."""
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, validator
+
+# Python 3.10 compatibility
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone
+    UTC = timezone.utc
 
 
 class BaseMessage(BaseModel):
@@ -21,6 +28,15 @@ class BaseMessage(BaseModel):
     message_id: str = Field(
         default_factory=lambda: str(uuid4()),
         description="Unique message ID",
+    )
+    # Trace information fields
+    trace_id: str | None = Field(
+        default=None,
+        description="Distributed trace ID for request correlation",
+    )
+    services_encountered: list[str] = Field(
+        default_factory=list,
+        description="List of services that have processed this message",
     )
 
     @validator("device_id")
@@ -322,6 +338,14 @@ class APIResponse(BaseModel):
     timestamp: datetime = Field(
         default_factory=datetime.utcnow,
         description="Response timestamp",
+    )
+    trace_id: str | None = Field(
+        default=None,
+        description="Distributed trace ID for request correlation",
+    )
+    services_encountered: list[str] = Field(
+        default_factory=list,
+        description="List of services that have processed this request",
     )
 
 

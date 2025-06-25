@@ -7,6 +7,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -16,6 +17,7 @@ from fastapi.responses import JSONResponse
 from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
 from ..models import AudioChunk, WebSocketMessage
+from ..tracing import create_child_trace_context, get_trace_context
 
 logger = structlog.get_logger(__name__)
 
@@ -96,6 +98,18 @@ async def audio_stream_websocket(websocket: WebSocket, device_id: str) -> None:
 
                     audio_chunk = AudioChunk(**audio_data)
 
+                    # Create trace context for WebSocket message
+                    # WebSocket messages don't go through middleware, so we create a new trace
+                    websocket_trace_id = create_child_trace_context(
+                        "",
+                        ["websocket-audio"],
+                    )
+                    audio_chunk.trace_id = websocket_trace_id
+                    audio_chunk.services_encountered = [
+                        "websocket-audio",
+                        "ingestion-api",
+                    ]
+
                     # Send to Kafka
                     await kafka_producer.send_audio_chunk(audio_chunk)
 
@@ -107,6 +121,12 @@ async def audio_stream_websocket(websocket: WebSocket, device_id: str) -> None:
                             "message_id": audio_chunk.message_id,
                             "status": "success",
                             "topic": "device.audio.raw",
+                            "trace_id": websocket_trace_id,
+                            "services_encountered": [
+                                "websocket-audio",
+                                "ingestion-api",
+                                "kafka-producer",
+                            ],
                         },
                     )
 
@@ -181,6 +201,7 @@ async def audio_stream_websocket(websocket: WebSocket, device_id: str) -> None:
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_audio_file(
     audio_chunk: AudioChunk,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Upload a single audio chunk via REST.
@@ -195,6 +216,11 @@ async def upload_audio_file(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        audio_chunk.trace_id = trace_context.get("trace_id")
+        audio_chunk.services_encountered = trace_context.get("services_encountered", [])
+
         await kafka_producer.send_audio_chunk(audio_chunk)
 
         logger.info(
@@ -211,6 +237,8 @@ async def upload_audio_file(
                 "status": "success",
                 "message_id": audio_chunk.message_id,
                 "topic": "device.audio.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -227,7 +255,10 @@ async def upload_audio_file(
 
 
 @router.get("/connections", status_code=status.HTTP_200_OK)
-async def get_connection_status(api_key: str = Depends(verify_api_key)) -> JSONResponse:
+async def get_connection_status(
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
     """Get the current WebSocket connection status.
 
     Returns
@@ -235,10 +266,13 @@ async def get_connection_status(api_key: str = Depends(verify_api_key)) -> JSONR
         Connection status information
 
     """
+    trace_context = get_trace_context()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "active_connections": connection_manager.get_connection_count(),
             "connected_devices": list(connection_manager.active_connections.keys()),
+            "trace_id": trace_context.get("trace_id"),
+            "services_encountered": trace_context.get("services_encountered", []),
         },
     )

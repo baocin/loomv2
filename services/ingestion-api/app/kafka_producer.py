@@ -9,6 +9,7 @@ from aiokafka.errors import KafkaError
 
 from .config import settings
 from .models import BaseMessage
+from .tracing import add_service_to_trace, get_trace_context
 
 logger = structlog.get_logger(__name__)
 
@@ -78,16 +79,46 @@ class KafkaProducerService:
             raise RuntimeError("Kafka producer not connected")
 
         try:
+            # Add kafka-producer to services encountered
+            add_service_to_trace("kafka-producer")
+
+            # Get trace context for headers and message payload
+            trace_context = get_trace_context()
+
             # Use device_id as key if no key provided
             message_key = key or (
                 message.device_id if hasattr(message, "device_id") else "unknown"
             )
+
+            # Add trace context to message if it's a BaseMessage
+            if isinstance(message, BaseMessage):
+                # Update the message with trace information
+                if hasattr(message, "__dict__"):
+                    message.__dict__.update(
+                        {
+                            "trace_id": trace_context.get("trace_id"),
+                            "services_encountered": trace_context.get(
+                                "services_encountered",
+                                [],
+                            ),
+                        },
+                    )
+
+            # Create headers with trace information
+            headers = {
+                "trace_id": trace_context.get("trace_id", "").encode("utf-8"),
+                "services_encountered": ",".join(
+                    trace_context.get("services_encountered", []),
+                ).encode("utf-8"),
+                "producer_service": b"ingestion-api",
+            }
 
             # Send message and wait for confirmation
             await self._producer.send(
                 topic=topic,
                 value=message,
                 key=message_key,
+                headers=headers,
             )
 
             # Log without accessing future attributes

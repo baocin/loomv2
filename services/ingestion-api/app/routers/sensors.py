@@ -1,7 +1,7 @@
 """REST endpoints for sensor data ingestion."""
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from ..auth import verify_api_key
@@ -13,6 +13,7 @@ from ..models import (
     PowerState,
     SensorReading,
 )
+from ..tracing import get_trace_context
 
 logger = structlog.get_logger(__name__)
 
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/sensor", tags=["sensors"])
 @router.post("/gps", status_code=status.HTTP_201_CREATED)
 async def ingest_gps_data(
     gps_reading: GPSReading,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest GPS coordinate data.
@@ -36,6 +38,11 @@ async def ingest_gps_data(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        gps_reading.trace_id = trace_context.get("trace_id")
+        gps_reading.services_encountered = trace_context.get("services_encountered", [])
+
         await kafka_producer.send_sensor_data(gps_reading, "gps")
 
         logger.info(
@@ -52,6 +59,8 @@ async def ingest_gps_data(
                 "status": "success",
                 "message_id": gps_reading.message_id,
                 "topic": "device.sensor.gps.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -71,6 +80,7 @@ async def ingest_gps_data(
 @router.post("/accelerometer", status_code=status.HTTP_201_CREATED)
 async def ingest_accelerometer_data(
     accel_reading: AccelerometerReading,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest accelerometer sensor data.
@@ -85,6 +95,14 @@ async def ingest_accelerometer_data(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        accel_reading.trace_id = trace_context.get("trace_id")
+        accel_reading.services_encountered = trace_context.get(
+            "services_encountered",
+            [],
+        )
+
         await kafka_producer.send_sensor_data(accel_reading, "accelerometer")
 
         logger.info(
@@ -102,6 +120,8 @@ async def ingest_accelerometer_data(
                 "status": "success",
                 "message_id": accel_reading.message_id,
                 "topic": "device.sensor.accelerometer.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -120,6 +140,7 @@ async def ingest_accelerometer_data(
 @router.post("/heartrate", status_code=status.HTTP_201_CREATED)
 async def ingest_heartrate_data(
     hr_reading: HeartRateReading,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest heart rate sensor data.
@@ -134,6 +155,11 @@ async def ingest_heartrate_data(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        hr_reading.trace_id = trace_context.get("trace_id")
+        hr_reading.services_encountered = trace_context.get("services_encountered", [])
+
         await kafka_producer.send_sensor_data(hr_reading, "heartrate")
 
         logger.info(
@@ -149,6 +175,8 @@ async def ingest_heartrate_data(
                 "status": "success",
                 "message_id": hr_reading.message_id,
                 "topic": "device.health.heartrate.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -167,6 +195,7 @@ async def ingest_heartrate_data(
 @router.post("/power", status_code=status.HTTP_201_CREATED)
 async def ingest_power_state(
     power_state: PowerState,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest device power state data.
@@ -181,6 +210,11 @@ async def ingest_power_state(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        power_state.trace_id = trace_context.get("trace_id")
+        power_state.services_encountered = trace_context.get("services_encountered", [])
+
         await kafka_producer.send_sensor_data(power_state, "power")
 
         logger.info(
@@ -197,6 +231,8 @@ async def ingest_power_state(
                 "status": "success",
                 "message_id": power_state.message_id,
                 "topic": "device.state.power.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -215,6 +251,7 @@ async def ingest_power_state(
 @router.post("/generic", status_code=status.HTTP_201_CREATED)
 async def ingest_generic_sensor(
     sensor_reading: SensorReading,
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest generic sensor data.
@@ -229,6 +266,14 @@ async def ingest_generic_sensor(
 
     """
     try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        sensor_reading.trace_id = trace_context.get("trace_id")
+        sensor_reading.services_encountered = trace_context.get(
+            "services_encountered",
+            [],
+        )
+
         await kafka_producer.send_sensor_data(
             sensor_reading,
             sensor_reading.sensor_type,
@@ -247,6 +292,8 @@ async def ingest_generic_sensor(
                 "status": "success",
                 "message_id": sensor_reading.message_id,
                 "topic": f"device.sensor.{sensor_reading.sensor_type}.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 
@@ -266,6 +313,7 @@ async def ingest_generic_sensor(
 @router.post("/batch", status_code=status.HTTP_201_CREATED)
 async def ingest_sensor_batch(
     sensor_readings: list[SensorReading],
+    request: Request,
     api_key: str = Depends(verify_api_key),
 ) -> JSONResponse:
     """Ingest a batch of sensor readings.
@@ -286,11 +334,19 @@ async def ingest_sensor_batch(
         )
 
     try:
+        # Get trace context and add to each message
+        trace_context = get_trace_context()
+
         processed_count = 0
         failed_count = 0
 
         for reading in sensor_readings:
             try:
+                reading.trace_id = trace_context.get("trace_id")
+                reading.services_encountered = trace_context.get(
+                    "services_encountered",
+                    [],
+                )
                 await kafka_producer.send_sensor_data(reading, reading.sensor_type)
                 processed_count += 1
             except Exception as e:
@@ -316,6 +372,8 @@ async def ingest_sensor_batch(
                 "total": len(sensor_readings),
                 "processed": processed_count,
                 "failed": failed_count,
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
             },
         )
 

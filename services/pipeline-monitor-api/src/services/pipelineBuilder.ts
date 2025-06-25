@@ -49,24 +49,22 @@ export class PipelineBuilder {
       // Categorize topics by their purpose
       const categories = this.categorizeTopics(userTopics)
 
-      // Create external source nodes and producer nodes
+      // Create producer nodes (replaces old external sources)
       let xPos = 0
       let yPos = 100
 
-      const externalSources = this.getExternalSources(categories)
       const producers = this.identifyProducers(userTopics)
-      const allSources = [...externalSources, ...producers]
 
-      allSources.forEach((source, idx) => {
-        const nodeId = source.id.startsWith('external-') ? source.id : `producer-${source.id}`
+      producers.forEach((producer, idx) => {
+        const nodeId = `producer-${producer.id}`
         nodes.push({
           id: nodeId,
           type: 'external',
           position: { x: xPos, y: yPos + idx * 100 },
           data: {
-            label: source.label,
+            label: producer.label,
             status: 'active',
-            description: source.description
+            description: producer.description
           }
         })
         nodePositions.set(nodeId, { x: xPos, y: yPos + idx * 100 })
@@ -90,11 +88,10 @@ export class PipelineBuilder {
         })
         nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
 
-        // Connect external sources and producers to raw topics
-        const sourceType = this.getTopicSourceType(topic)
-        const sourceNode = allSources.find(s => s.type === sourceType || this.matchesProducerPattern(s, topic))
-        if (sourceNode) {
-          const sourceId = sourceNode.id.startsWith('external-') ? sourceNode.id : `producer-${sourceNode.id}`
+        // Connect producers to topics
+        const matchingProducer = producers.find(p => this.matchesProducerPattern(p, topic))
+        if (matchingProducer) {
+          const sourceId = `producer-${matchingProducer.id}`
           edges.push({
             id: `e-${sourceId}-${nodeId}`,
             source: sourceId,
@@ -598,23 +595,57 @@ export class PipelineBuilder {
     return producers
   }
 
-  private matchesProducerPattern(source: any, topic: string): boolean {
-    // Check if a producer source should connect to a specific topic
-    if (source.outputTopics) {
-      return source.outputTopics.includes(topic)
-    }
-
-    // Pattern matching for producers
-    if (source.type === 'api' && topic.includes('device.') && topic.includes('.raw')) {
+  private matchesProducerPattern(producer: any, topic: string): boolean {
+    // Direct output topic matching
+    if (producer.outputTopics && producer.outputTopics.includes(topic)) {
       return true
     }
-    if (source.type === 'external' && topic.startsWith('external.')) {
-      return topic.includes(source.id.replace('-fetcher', '').replace('-', '.'))
+
+    // Specific producer-to-topic mappings based on the actual topics we see
+    const mappings: Record<string, string[]> = {
+      'ingestion-api': [
+        'device.audio.raw',
+        'device.sensor.accelerometer.raw',
+        'device.sensor.gps.raw',
+        'device.image.camera.raw',
+        'device.video.screen.raw',
+        'device.health.heartrate.raw',
+        'device.state.power.raw',
+        'device.metadata.raw',
+        'device.text.notes.raw',
+        'digital.notes.raw'
+      ],
+      'hackernews-fetcher': ['external.hackernews.activity.raw'],
+      'twitter-fetcher': ['external.twitter.liked.raw'],
+      'calendar-fetcher': ['external.calendar.events.raw'],
+      'email-fetcher': ['external.email.events.raw'],
+      'reddit-fetcher': ['external.reddit.activity.raw'],
+      'web-analytics': ['external.web.visits.raw'],
+      'macos-client': ['device.system.apps.macos.raw'],
+      'android-client': ['device.system.apps.android.raw'],
+      'task-scheduler': ['task.url.ingest', 'task.url.processed_content']
     }
-    if (source.type === 'device' && topic.includes('device.system')) {
-      return topic.includes(source.id.replace('-client', ''))
+
+    // Check if this producer should produce this topic
+    const producerTopics = mappings[producer.id]
+    if (producerTopics && producerTopics.includes(topic)) {
+      return true
     }
-    if (source.type === 'internal' && topic.startsWith('task.')) {
+
+    // Fallback pattern matching
+    if (producer.type === 'api' && topic.startsWith('device.') && topic.includes('.raw')) {
+      return true
+    }
+    if (producer.type === 'external' && topic.startsWith('external.')) {
+      const topicParts = topic.split('.')
+      const producerName = producer.id.replace('-fetcher', '').replace('-analytics', '')
+      return topicParts.includes(producerName)
+    }
+    if (producer.type === 'device' && topic.includes('device.system')) {
+      const clientType = producer.id.replace('-client', '')
+      return topic.includes(clientType)
+    }
+    if (producer.type === 'internal' && topic.startsWith('task.')) {
       return true
     }
 
