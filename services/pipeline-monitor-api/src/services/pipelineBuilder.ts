@@ -47,7 +47,9 @@ export class PipelineBuilder {
         !t.includes('metrics') &&
         !t.includes('health') &&
         !t.includes('heartbeat') &&
-        !t.includes('status')
+        !t.includes('status') &&
+        !t.startsWith('Internal.Scheduled.Jobs') &&
+        !t.toLowerCase().includes('internal.scheduled.jobs')
       )
 
       const nodes: PipelineNode[] = []
@@ -345,6 +347,13 @@ export class PipelineBuilder {
       const groupId = group.groupId || group.name
       if (!groupId || groupId.startsWith('__') || groupId.startsWith('_')) {
         return // Skip internal groups
+      }
+
+      // Skip monitor-related consumer groups
+      if (groupId.toLowerCase().includes('monitor') ||
+          groupId.toLowerCase().includes('internal.scheduled.jobs') ||
+          groupId.toLowerCase().includes('scheduled-jobs')) {
+        return
       }
 
       // Determine input topics based on group name patterns
