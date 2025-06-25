@@ -10,13 +10,13 @@ from typing import List, Dict, Any
 class XLikesFetcher:
     def __init__(self):
         """Initialize X.com likes fetcher"""
-        self.username = os.getenv("X_USERNAME")
-        self.password = os.getenv("X_PASSWORD")
-        self.phone_number = os.getenv("X_PHONE_NUMBER")
+        self.username = os.getenv("LOOM_X_USERNAME")
+        self.password = os.getenv("LOOM_X_PASSWORD")
+        self.phone_number = os.getenv("LOOM_X_PHONE_NUMBER")
 
         if not self.username or not self.password:
             raise ValueError(
-                "X_USERNAME and X_PASSWORD environment variables are required"
+                "LOOM_X_USERNAME and LOOM_X_PASSWORD environment variables are required"
             )
 
         self.likes_url = f"https://x.com/{self.username}/likes"
