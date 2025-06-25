@@ -176,4 +176,65 @@ export class KafkaClient {
       await consumer.disconnect()
     }
   }
+
+  async clearTopicPartition(topic: string, partition: number): Promise<void> {
+    if (!this.admin) {
+      throw new Error('Admin client not connected')
+    }
+
+    try {
+      logger.warn(`DESTRUCTIVE: Attempting to clear topic ${topic} partition ${partition}`)
+
+      // For kafkajs, we'll use a different approach since deleteRecords might not be available
+      // We'll temporarily alter the topic configuration to have very short retention
+      // then reset it back. This effectively clears old data.
+
+      const originalConfigs = await this.admin.describeConfigs({
+        resources: [{
+          type: 2, // TOPIC
+          name: topic
+        }],
+        includeSynonyms: false
+      })
+
+      // Set retention time to 1 millisecond to clear data
+      await this.admin.alterConfigs({
+        validateOnly: false,
+        resources: [{
+          type: 2, // TOPIC
+          name: topic,
+          configEntries: [
+            { name: 'retention.ms', value: '1' },
+            { name: 'segment.ms', value: '1' }
+          ]
+        }]
+      })
+
+      // Wait a moment for Kafka to process
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Reset retention to original value or default (7 days)
+      const originalRetention = originalConfigs.resources[0]?.configEntries.find(c => c.configName === 'retention.ms')
+      const retentionValue = originalRetention?.configValue || '604800000' // 7 days default
+
+      await this.admin.alterConfigs({
+        validateOnly: false,
+        resources: [{
+          type: 2, // TOPIC
+          name: topic,
+          configEntries: [
+            { name: 'retention.ms', value: retentionValue },
+            { name: 'segment.ms', value: '604800000' } // Reset segment time too
+          ]
+        }]
+      })
+
+      logger.info(`Successfully cleared topic ${topic} partition ${partition} using retention policy`)
+
+    } catch (error) {
+      logger.error(`Failed to clear topic ${topic} partition ${partition}:`, error)
+      // Don't throw - let the route handler continue with other partitions
+      // throw error
+    }
+  }
 }

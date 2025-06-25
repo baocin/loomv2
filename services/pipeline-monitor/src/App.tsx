@@ -11,7 +11,7 @@ import 'reactflow/dist/style.css'
 
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
-import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache } from './hooks/usePipelineData'
+import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics } from './hooks/usePipelineData'
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -28,6 +28,7 @@ function App() {
   const { data: consumerMetrics, isLoading: isConsumerMetricsLoading } = useConsumerMetrics()
   const { data: latestMessage } = useLatestMessage(selectedTopic || '')
   const clearCacheMutation = useClearCache()
+  const clearAllTopicsMutation = useClearAllTopics()
 
   // Update nodes with real metrics data
   React.useEffect(() => {
@@ -94,6 +95,40 @@ function App() {
       clearCacheMutation.mutate()
     }
   }, [clearCacheMutation])
+
+  const handleClearAllTopics = useCallback(() => {
+    // First confirmation
+    const firstConfirm = window.confirm(
+      '⚠️ DANGER: This will permanently delete ALL messages from ALL Kafka topics!\n\n' +
+      'This action cannot be undone. Are you absolutely sure?'
+    )
+
+    if (!firstConfirm) return
+
+    // Second confirmation with typing requirement
+    const confirmText = window.prompt(
+      '🚨 FINAL WARNING: Type "DELETE ALL MESSAGES" to confirm this destructive operation:\n\n' +
+      'This will clear all data from every Kafka topic in your cluster.'
+    )
+
+    if (confirmText !== 'DELETE ALL MESSAGES') {
+      alert('Operation cancelled. Confirmation text did not match.')
+      return
+    }
+
+    // Third confirmation with topic count
+    const topicCount = topicMetrics?.length || 0
+    const finalConfirm = window.confirm(
+      `🔥 FINAL CONFIRMATION:\n\n` +
+      `You are about to delete ALL messages from ${topicCount} topics.\n` +
+      `This will permanently destroy all your Kafka data.\n\n` +
+      `Click OK to proceed with this irreversible action.`
+    )
+
+    if (finalConfirm) {
+      clearAllTopicsMutation.mutate()
+    }
+  }, [clearAllTopicsMutation, topicMetrics])
 
   // Show latest message in modal when available
   React.useEffect(() => {
@@ -171,6 +206,46 @@ function App() {
               Cache cleared successfully!
             </div>
           )}
+
+          {/* DANGER ZONE */}
+          <div className="mt-4 pt-4 border-t border-red-200">
+            <div className="text-xs font-bold text-red-600 mb-2">⚠️ DANGER ZONE</div>
+            <button
+              onClick={handleClearAllTopics}
+              disabled={clearAllTopicsMutation.isPending}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 border-2 border-red-800"
+            >
+              {clearAllTopicsMutation.isPending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Clearing All Topics...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  DELETE ALL MESSAGES
+                </>
+              )}
+            </button>
+            <div className="text-xs text-red-500 mt-1 text-center">
+              Permanently clears ALL Kafka topics
+            </div>
+            {clearAllTopicsMutation.isError && (
+              <div className="mt-2 text-xs text-red-600">
+                Error: {clearAllTopicsMutation.error?.message || 'Failed to clear topics'}
+              </div>
+            )}
+            {clearAllTopicsMutation.isSuccess && (
+              <div className="mt-2 text-xs text-green-600">
+                Successfully cleared all topics!
+                {clearAllTopicsMutation.data?.clearedSuccessfully && (
+                  <span> ({clearAllTopicsMutation.data.clearedSuccessfully} topics cleared)</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

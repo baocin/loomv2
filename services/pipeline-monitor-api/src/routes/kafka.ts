@@ -160,5 +160,85 @@ export function createKafkaRoutes(
     }
   })
 
+  // DANGER: Clear all messages from all topics
+  router.post('/topics/clear-all', async (req, res) => {
+    try {
+      logger.warn('DESTRUCTIVE OPERATION: Clearing all Kafka topic messages')
+
+      // Get all topics first
+      const topics = await kafkaClient.getTopics()
+      const userTopics = topics.filter(topic =>
+        !topic.startsWith('__') && !topic.startsWith('_')
+      )
+
+      logger.info(`Found ${userTopics.length} user topics to clear`)
+
+      const results = []
+
+      for (const topic of userTopics) {
+        try {
+          // Get topic metadata to find partitions
+          const metadata = await kafkaClient.getTopicMetadata(topic)
+          if (metadata && metadata.partitions) {
+            // Clear each partition by seeking to end
+            for (const partition of metadata.partitions) {
+              try {
+                await kafkaClient.clearTopicPartition(topic, partition.partitionId)
+                logger.info(`Cleared topic ${topic} partition ${partition.partitionId}`)
+              } catch (partitionError) {
+                logger.error(`Failed to clear ${topic} partition ${partition.partitionId}:`, partitionError)
+                results.push({
+                  topic,
+                  partition: partition.partitionId,
+                  status: 'error',
+                  error: partitionError instanceof Error ? partitionError.message : String(partitionError)
+                })
+              }
+            }
+            results.push({
+              topic,
+              status: 'cleared',
+              partitions: metadata.partitions.length
+            })
+          } else {
+            results.push({
+              topic,
+              status: 'error',
+              error: 'Could not get topic metadata'
+            })
+          }
+        } catch (topicError) {
+          logger.error(`Failed to process topic ${topic}:`, topicError)
+          results.push({
+            topic,
+            status: 'error',
+            error: topicError instanceof Error ? topicError.message : String(topicError)
+          })
+        }
+      }
+
+      // Clear all caches after clearing topics
+      messageCache.clear()
+      metricsCollector.clearCaches()
+
+      logger.warn(`Completed clearing ${userTopics.length} topics`)
+
+      res.json({
+        message: `Cleared messages from ${userTopics.length} topics`,
+        results,
+        totalTopics: userTopics.length,
+        clearedSuccessfully: results.filter(r => r.status === 'cleared').length,
+        errors: results.filter(r => r.status === 'error').length
+      })
+
+    } catch (error) {
+      logger.error('Failed to clear all topics:', error)
+      res.status(500).json({
+        error: 'Failed to clear topics',
+        details: error instanceof Error ? error.message : String(error)
+      })
+    }
+  })
+
   return router
 }

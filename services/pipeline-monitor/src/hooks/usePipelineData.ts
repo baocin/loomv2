@@ -97,3 +97,30 @@ export const useClearCache = () => {
     },
   })
 }
+
+export const useClearAllTopics = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/api/kafka/topics/clear-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to clear all topics')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      // Invalidate all queries to force refetch after clearing topics
+      queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
+      queryClient.invalidateQueries({ queryKey: ['topicMetrics'] })
+      queryClient.invalidateQueries({ queryKey: ['consumerMetrics'] })
+      queryClient.invalidateQueries({ queryKey: ['latestMessage'] })
+    },
+  })
+}
