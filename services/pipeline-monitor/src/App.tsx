@@ -22,10 +22,10 @@ const updateNodePosition = (nodeId: string, position: { x: number; y: number }) 
     // Get existing positions
     const stored = localStorage.getItem(STORAGE_KEY)
     const existingPositions = stored ? JSON.parse(stored) : {}
-    
+
     // Update just this node's position
     existingPositions[nodeId] = position
-    
+
     console.log(`Updating position for ${nodeId}:`, position)
     console.log('All positions after update:', existingPositions)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPositions))

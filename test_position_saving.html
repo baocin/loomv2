@@ -15,7 +15,7 @@
 </head>
 <body>
     <h1>Loom Pipeline Monitor - Position Saving Test</h1>
-    
+
     <div class="test-section info">
         <h2>Test Instructions</h2>
         <ol>
@@ -54,7 +54,7 @@
         function testLocalStorage() {
             const storageKey = 'loom-pipeline-node-positions';
             const stored = localStorage.getItem(storageKey);
-            
+
             if (stored) {
                 try {
                     const positions = JSON.parse(stored);
@@ -78,21 +78,21 @@
         async function testAPI() {
             try {
                 log('Testing API connection...', 'info');
-                
+
                 const response = await fetch('http://localhost:8082/api/kafka/pipeline');
                 const data = await response.json();
-                
+
                 if (data.nodes && data.edges) {
                     log(`✅ API working! Found ${data.nodes.length} nodes and ${data.edges.length} edges`, 'success');
-                    
+
                     // Check for database connections to raw topics
-                    const rawTopicEdges = data.edges.filter(edge => 
-                        edge.target === 'timescaledb' && 
+                    const rawTopicEdges = data.edges.filter(edge =>
+                        edge.target === 'timescaledb' &&
                         (edge.source.includes('external.twitter.liked.raw') ||
                          edge.source.includes('device.sensor.gps.raw') ||
                          edge.source.includes('device.health.heartrate.raw'))
                     );
-                    
+
                     if (rawTopicEdges.length > 0) {
                         log(`✅ Database connections working! Found ${rawTopicEdges.length} raw topic connections`, 'success');
                         rawTopicEdges.forEach(edge => {
