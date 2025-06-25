@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format docker clean dev-up dev-down topics-create
+.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-down dev-compose-logs topics-create
 
 # Default target
 help: ## Show this help message
@@ -28,6 +28,11 @@ dev-compose-up: ## Start local development environment with Docker Compose
 	@echo "Starting Loom v2 services with Docker Compose..."
 	docker compose -f docker-compose.local.yml up -d
 	@echo "✅ Services started:"
+
+dev-compose-up-rebuild: ## Start local development environment with Docker Compose (force rebuild)
+	@echo "Rebuilding and starting Loom v2 services with Docker Compose..."
+	docker compose -f docker-compose.local.yml up -d --build
+	@echo "✅ Services rebuilt and started:"
 	@echo "  Core Services:"
 	@echo "    - Pipeline Monitor: http://localhost:3000"
 	@echo "    - Pipeline Monitor API: http://localhost:8082"
@@ -52,12 +57,26 @@ dev-compose-up: ## Start local development environment with Docker Compose
 	@echo "    - Kafka-to-DB Consumer"
 	@echo "    - Scheduled Consumers Coordinator"
 
+dev-compose-build: ## Build specific service(s) with Docker Compose (use SERVICE=<name>)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Building all services..."; \
+		docker compose -f docker-compose.local.yml build; \
+	else \
+		echo "Building service: $(SERVICE)..."; \
+		docker compose -f docker-compose.local.yml build $(SERVICE); \
+	fi
+	@echo "✅ Build complete"
+
 dev-compose-down: ## Stop Docker Compose environment
 	@echo "Stopping Loom v2 services..."
 	docker compose -f docker-compose.local.yml down
 
-dev-compose-logs: ## View Docker Compose logs
-	docker compose -f docker-compose.local.yml logs -f
+dev-compose-logs: ## View Docker Compose logs (use SERVICE=<name> for specific service)
+	@if [ -z "$(SERVICE)" ]; then \
+		docker compose -f docker-compose.local.yml logs -f; \
+	else \
+		docker compose -f docker-compose.local.yml logs -f $(SERVICE); \
+	fi
 
 # Testing
 test: ## Run all tests
