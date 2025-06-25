@@ -288,6 +288,13 @@ services:
       LOOM_DEVICE_ID: local-dev-hackernews-fetcher
       LOOM_LOG_LEVEL: INFO
       LOOM_FETCH_INTERVAL_MINUTES: 15
+      # HackerNews credentials from .env file
+      LOOM_HACKERNEWS_USERNAME: ${LOOM_HACKERNEWS_USERNAME:-}
+      LOOM_HACKERNEWS_PASSWORD: ${LOOM_HACKERNEWS_PASSWORD:-}
+      LOOM_HACKERNEWS_MAX_ITEMS: ${LOOM_HACKERNEWS_MAX_ITEMS:-100}
+      LOOM_HACKERNEWS_FETCH_TYPE: ${LOOM_HACKERNEWS_FETCH_TYPE:-favorites}
+      LOOM_HACKERNEWS_USE_BROWSER: ${LOOM_HACKERNEWS_USE_BROWSER:-false}
+      LOOM_HACKERNEWS_RATE_LIMIT_SECONDS: ${LOOM_HACKERNEWS_RATE_LIMIT_SECONDS:-0.5}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -313,11 +320,11 @@ services:
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_GMAIL:-local-dev-gmail-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_GMAIL:-5}
-      # Gmail configuration mapped from EMAIL_* environment variables
-      LOOM_EMAIL_1_IMAP_SERVER: ${EMAIL_IMAP_SERVER:-imap.gmail.com}
-      LOOM_EMAIL_1_IMAP_PORT: ${EMAIL_IMAP_PORT:-993}
-      LOOM_EMAIL_1_USERNAME: ${EMAIL_USERNAME:-}
-      LOOM_EMAIL_1_PASSWORD: ${EMAIL_PASSWORD:-}
+      # Gmail configuration from .env file
+      LOOM_EMAIL_1_IMAP_SERVER: ${LOOM_EMAIL_IMAP_SERVER_1:-imap.gmail.com}
+      LOOM_EMAIL_1_IMAP_PORT: ${LOOM_EMAIL_PORT_1:-993}
+      LOOM_EMAIL_1_USERNAME: ${LOOM_EMAIL_1:-}
+      LOOM_EMAIL_1_PASSWORD: ${LOOM_EMAIL_PASSWORD_1:-}
       LOOM_EMAIL_1_SOURCE: gmail
       # Set timezone
       TZ: UTC
@@ -344,11 +351,11 @@ services:
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_FASTMAIL:-local-dev-fastmail-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_FASTMAIL:-5}
-      # Fastmail configuration mapped from FASTMAIL_* environment variables
-      LOOM_EMAIL_2_IMAP_SERVER: ${FASTMAIL_IMAP_SERVER:-imap.fastmail.com}
-      LOOM_EMAIL_2_IMAP_PORT: ${FASTMAIL_IMAP_PORT:-993}
-      LOOM_EMAIL_2_USERNAME: ${FASTMAIL_USERNAME:-}
-      LOOM_EMAIL_2_PASSWORD: ${FASTMAIL_PASSWORD:-}
+      # Fastmail configuration from .env file
+      LOOM_EMAIL_2_IMAP_SERVER: ${LOOM_EMAIL_IMAP_SERVER_2:-imap.fastmail.com}
+      LOOM_EMAIL_2_IMAP_PORT: ${LOOM_EMAIL_PORT_2:-993}
+      LOOM_EMAIL_2_USERNAME: ${LOOM_EMAIL_2:-}
+      LOOM_EMAIL_2_PASSWORD: ${LOOM_EMAIL_PASSWORD_2:-}
       LOOM_EMAIL_2_SOURCE: fastmail
       # Set timezone
       TZ: UTC
@@ -375,11 +382,12 @@ services:
       LOOM_DEVICE_ID: ${LOOM_DEVICE_ID_CALENDAR:-local-dev-calendar-fetcher}
       LOOM_LOG_LEVEL: ${LOOM_LOG_LEVEL:-INFO}
       LOOM_FETCH_INTERVAL_MINUTES: ${LOOM_FETCH_INTERVAL_MINUTES_CALENDAR:-10}
-      # CalDAV configuration (from .env file)
-      LOOM_CALDAV_URL: ${CALDAV_URL:-}
-      LOOM_CALDAV_USERNAME: ${CALDAV_USERNAME:-}
-      LOOM_CALDAV_PASSWORD: ${CALDAV_PASSWORD:-}
-      LOOM_CALDAV_CALENDAR_NAME: ${CALDAV_CALENDAR_NAME:-}
+      # CalDAV configuration from .env file
+      LOOM_CALDAV_URL_1: ${LOOM_CALDAV_URL_1:-}
+      LOOM_CALDAV_USERNAME_1: ${LOOM_CALDAV_USERNAME_1:-}
+      LOOM_CALDAV_PASSWORD_1: ${LOOM_CALDAV_PASSWORD_1:-}
+      LOOM_CALDAV_NAME_1: ${LOOM_CALDAV_NAME_1:-}
+      LOOM_CALDAV_DISABLED_1: ${LOOM_CALDAV_DISABLED_1:-false}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
