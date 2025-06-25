@@ -1,6 +1,5 @@
 """Configuration for Silero VAD service."""
 
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

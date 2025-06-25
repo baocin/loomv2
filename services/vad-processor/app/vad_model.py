@@ -1,6 +1,5 @@
 """Silero VAD model wrapper."""
 
-
 import numpy as np
 import structlog
 import torch

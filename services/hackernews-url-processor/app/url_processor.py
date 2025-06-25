@@ -6,7 +6,6 @@ import os
 from datetime import datetime
 from playwright.async_api import async_playwright
 from typing import Dict, Any, Optional
-from urllib.parse import urlparse
 import PyPDF2
 import io
 
