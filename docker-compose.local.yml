@@ -275,6 +275,229 @@ services:
       timeout: 5s
       retries: 3
 
+  # Data Fetcher Services
+  hackernews-fetcher:
+    build:
+      context: ./services/hackernews-fetcher
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_OUTPUT_TOPIC: external.hackernews.favorites.raw
+      LOOM_DEVICE_ID: local-dev-hackernews-fetcher
+      LOOM_LOG_LEVEL: INFO
+      LOOM_FETCH_INTERVAL_MINUTES: 15
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  email-fetcher:
+    build:
+      context: ./services/email-fetcher
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_OUTPUT_TOPIC: external.email.events.raw
+      LOOM_DEVICE_ID: local-dev-email-fetcher
+      LOOM_LOG_LEVEL: INFO
+      LOOM_FETCH_INTERVAL_MINUTES: 5
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  calendar-fetcher:
+    build:
+      context: ./services/calendar-fetcher
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_OUTPUT_TOPIC: external.calendar.events.raw
+      LOOM_DEVICE_ID: local-dev-calendar-fetcher
+      LOOM_LOG_LEVEL: INFO
+      LOOM_FETCH_INTERVAL_MINUTES: 10
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  x-likes-fetcher:
+    build:
+      context: ./services/x-likes-fetcher
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_OUTPUT_TOPIC: external.twitter.liked.raw
+      LOOM_DEVICE_ID: local-dev-x-likes-fetcher
+      LOOM_LOG_LEVEL: INFO
+      LOOM_FETCH_INTERVAL_MINUTES: 30
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Processing Services
+  hackernews-url-processor:
+    build:
+      context: ./services/hackernews-url-processor
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: external.hackernews.favorites.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: processed.hackernews.content
+      LOOM_LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  x-url-processor:
+    build:
+      context: ./services/x-url-processor
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: external.twitter.liked.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: processed.twitter.content
+      LOOM_LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Database Consumer
+  kafka-to-db-consumer:
+    build:
+      context: ./services/kafka-to-db-consumer
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Additional AI Services
+  bud-e-emotion:
+    build:
+      context: ./services/bud-e-emotion
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered
+      LOOM_KAFKA_OUTPUT_TOPIC: analysis.audio.emotion_results
+      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
+      LOOM_LOG_LEVEL: INFO
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8004
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8004:8004"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./models:/home/loom/.cache  # Model cache directory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Allow time for model download
+    restart: unless-stopped
+
+  face-emotion:
+    build:
+      context: ./services/face-emotion
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_INPUT_TOPIC: media.image.analysis.minicpm_results
+      LOOM_KAFKA_OUTPUT_TOPIC: analysis.image.emotion_results
+      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
+      LOOM_LOG_LEVEL: INFO
+      LOOM_HOST: 0.0.0.0
+      LOOM_PORT: 8005
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8005:8005"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./models:/home/loom/.cache  # Model cache directory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Allow time for model download
+    restart: unless-stopped
+
   # onefilellm:  # Temporarily disabled due to GitHub access issues
   #   build:
   #     context: ./services/onefilellm
