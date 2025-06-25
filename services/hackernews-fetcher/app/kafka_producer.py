@@ -9,9 +9,7 @@ from typing import Any, Optional
 class KafkaProducer:
     def __init__(self):
         """Initialize Kafka producer"""
-        self.bootstrap_servers = os.getenv(
-            "LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-        )
+        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
 
         self.producer = KP(

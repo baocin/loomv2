@@ -186,18 +186,27 @@ export class KafkaClient {
     const consumer = this.kafka.consumer({
       groupId,
       sessionTimeout: 30000,
-      heartbeatInterval: 3000
+      heartbeatInterval: 3000,
+      retry: {
+        retries: 5,
+        initialRetryTime: 300,
+        factor: 0.2
+      }
     })
+
+    let isConnected = false
+    let isRunning = true
 
     try {
       await consumer.connect()
+      isConnected = true
+
       await consumer.subscribe({ topic, fromBeginning })
 
-      const isRunning = { value: true }
-
-      consumer.run({
+      // Start consumer but don't await - it runs in background
+      const runPromise = consumer.run({
         eachMessage: async ({ message, topic: msgTopic, partition }) => {
-          if (!isRunning.value) return
+          if (!isRunning) return
 
           try {
             const parsedMessage = {
@@ -214,16 +223,47 @@ export class KafkaClient {
             logger.error('Failed to process streamed message', error)
           }
         },
+      }).catch(error => {
+        if (isRunning) {
+          logger.error(`Consumer error for topic ${topic}`, error)
+        }
       })
 
       // Return cleanup function
       return async () => {
-        isRunning.value = false
-        await consumer.disconnect()
-        logger.info(`Stopped streaming messages from ${topic}`)
+        logger.info(`Stopping stream for topic ${topic}`)
+        isRunning = false
+
+        try {
+          // Stop the consumer first
+          await consumer.stop()
+
+          // Then disconnect
+          if (isConnected) {
+            await consumer.disconnect()
+            isConnected = false
+          }
+
+          logger.info(`Successfully stopped streaming messages from ${topic}`)
+        } catch (error) {
+          logger.error(`Error during consumer cleanup for topic ${topic}`, error)
+          // Force disconnect on error
+          try {
+            await consumer.disconnect()
+          } catch (disconnectError) {
+            logger.error(`Force disconnect failed for topic ${topic}`, disconnectError)
+          }
+        }
       }
     } catch (error) {
-      await consumer.disconnect()
+      // Ensure cleanup on initial connection failure
+      if (isConnected) {
+        try {
+          await consumer.disconnect()
+        } catch (disconnectError) {
+          logger.error(`Disconnect failed after connection error`, disconnectError)
+        }
+      }
       logger.error(`Failed to start streaming from ${topic}`, error)
       throw error
     }
