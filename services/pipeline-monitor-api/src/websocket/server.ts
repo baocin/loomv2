@@ -164,7 +164,10 @@ export class MonitorWebSocketServer {
   private handleTopicSubscription(ws: WebSocket, topic: string): void {
     // Store topic subscription info in client metadata
     if (!ws.metadata) {
-      ws.metadata = { subscribedTopics: new Set() }
+      ws.metadata = {
+        clientId: 'unknown', // Will be set properly in handleConnection
+        subscribedTopics: new Set()
+      }
     }
     ws.metadata.subscribedTopics.add(topic)
 
@@ -225,7 +228,8 @@ export class MonitorWebSocketServer {
 
     } catch (error) {
       logger.error(`Failed to start log stream for topic ${topic}`, error)
-      this.sendError(ws, `Failed to start log stream: ${error.message}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.sendError(ws, `Failed to start log stream: ${errorMessage}`)
     }
   }
 
@@ -246,7 +250,8 @@ export class MonitorWebSocketServer {
         logger.info(`Stopped log stream for topic: ${topic}`)
       } catch (error) {
         logger.error(`Error stopping log stream for topic ${topic}`, error)
-        this.sendError(ws, `Failed to stop log stream: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        this.sendError(ws, `Failed to stop log stream: ${errorMessage}`)
       }
     }
   }
