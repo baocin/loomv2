@@ -177,42 +177,21 @@ export function createKafkaRoutes(
 
       for (const topic of userTopics) {
         try {
-          // Get topic metadata to find partitions
-          const metadata = await kafkaClient.getTopicMetadata(topic)
-          if (metadata && metadata.partitions) {
-            // Clear each partition by seeking to end
-            for (const partition of metadata.partitions) {
-              try {
-                await kafkaClient.clearTopicPartition(topic, partition.partitionId)
-                logger.info(`Cleared topic ${topic} partition ${partition.partitionId}`)
-              } catch (partitionError) {
-                logger.error(`Failed to clear ${topic} partition ${partition.partitionId}:`, partitionError)
-                results.push({
-                  topic,
-                  partition: partition.partitionId,
-                  status: 'error',
-                  error: partitionError instanceof Error ? partitionError.message : String(partitionError)
-                })
-              }
-            }
-            results.push({
-              topic,
-              status: 'cleared',
-              partitions: metadata.partitions.length
-            })
-          } else {
-            results.push({
-              topic,
-              status: 'error',
-              error: 'Could not get topic metadata'
-            })
-          }
+          // Recreate topic to immediately clear all data
+          await kafkaClient.recreateTopic(topic)
+          logger.info(`Successfully recreated topic ${topic}`)
+          results.push({
+            topic,
+            status: 'cleared',
+            method: 'recreation'
+          })
         } catch (topicError) {
-          logger.error(`Failed to process topic ${topic}:`, topicError)
+          logger.error(`Failed to recreate topic ${topic}:`, topicError)
           results.push({
             topic,
             status: 'error',
-            error: topicError instanceof Error ? topicError.message : String(topicError)
+            error: topicError instanceof Error ? topicError.message : String(topicError),
+            method: 'recreation'
           })
         }
       }

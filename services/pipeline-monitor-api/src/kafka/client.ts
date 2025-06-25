@@ -237,4 +237,74 @@ export class KafkaClient {
       // throw error
     }
   }
+
+  async recreateTopic(topic: string): Promise<void> {
+    if (!this.admin) {
+      throw new Error('Admin client not connected')
+    }
+
+    try {
+      logger.warn(`DESTRUCTIVE: Deleting and recreating topic ${topic} to clear all data`)
+
+      // Get current topic configuration before deletion
+      const metadata = await this.admin.fetchTopicMetadata({ topics: [topic] })
+      const topicInfo = metadata.topics.find(t => t.name === topic)
+
+      if (!topicInfo) {
+        throw new Error(`Topic ${topic} not found`)
+      }
+
+      const numPartitions = topicInfo.partitions.length
+      const replicationFactor = topicInfo.partitions[0]?.replicas.length || 1
+
+      // Get topic configurations
+      const configs = await this.admin.describeConfigs({
+        resources: [{
+          type: 2, // TOPIC
+          name: topic
+        }],
+        includeSynonyms: false
+      })
+
+      const topicConfigs = configs.resources[0]?.configEntries || []
+      const configEntries: Array<{ name: string; value: string }> = []
+
+      // Preserve important configurations
+      for (const config of topicConfigs) {
+        if (config.configValue && config.configName) {
+          configEntries.push({
+            name: config.configName,
+            value: config.configValue
+          })
+        }
+      }
+
+      // Delete the topic
+      logger.info(`Deleting topic ${topic}`)
+      await this.admin.deleteTopics({ topics: [topic] })
+
+      // Wait for deletion to complete
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Recreate the topic with same configuration
+      logger.info(`Recreating topic ${topic} with ${numPartitions} partitions`)
+      await this.admin.createTopics({
+        topics: [{
+          topic,
+          numPartitions,
+          replicationFactor,
+          configEntries
+        }]
+      })
+
+      // Wait for creation to complete
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      logger.info(`Successfully recreated topic ${topic} - all data cleared`)
+
+    } catch (error) {
+      logger.error(`Failed to recreate topic ${topic}:`, error)
+      throw error
+    }
+  }
 }
