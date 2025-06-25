@@ -192,27 +192,51 @@ export class MonitorWebSocketServer {
 
   private async handleLogStreamRequest(ws: WebSocket, topic: string, fromBeginning: boolean): Promise<void> {
     try {
-      // Stop any existing stream for this topic
-      await this.handleStopStreamRequest(ws, topic)
-
-      logger.info(`Starting log stream for topic: ${topic} (fromBeginning: ${fromBeginning})`)
-
       // Create a unique stream ID for this client-topic combination
       const streamId = `${ws.metadata?.clientId || 'unknown'}-${topic}`
+
+      // Check if there's already an active stream for this client-topic
+      const existingCleanup = this.topicStreamCleanups.get(streamId)
+      if (existingCleanup) {
+        logger.info(`Stopping existing stream for ${streamId} before starting new one`)
+        try {
+          await existingCleanup()
+          this.topicStreamCleanups.delete(streamId)
+          // Add a small delay to ensure proper cleanup
+          await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (error) {
+          logger.error(`Error stopping existing stream for ${streamId}`, error)
+        }
+      }
+
+      logger.info(`Starting log stream for topic: ${topic} (fromBeginning: ${fromBeginning})`)
 
       // Start streaming messages
       const cleanup = await this.kafkaClient.streamMessages(
         topic,
         (message) => {
-          this.sendMessage(ws, {
-            type: 'log_message',
-            topic,
-            message: {
-              ...message,
-              // Format timestamp for display
-              formattedTimestamp: message.timestamp.toISOString(),
+          // Check if WebSocket is still open before sending
+          if (ws.readyState === WebSocket.OPEN) {
+            this.sendMessage(ws, {
+              type: 'log_message',
+              topic,
+              message: {
+                ...message,
+                // Format timestamp for display
+                formattedTimestamp: message.timestamp.toISOString(),
+              }
+            })
+          } else {
+            // If WebSocket is closed, trigger cleanup
+            logger.info(`WebSocket closed for ${streamId}, cleaning up stream`)
+            const cleanup = this.topicStreamCleanups.get(streamId)
+            if (cleanup) {
+              cleanup().catch(error =>
+                logger.error(`Error cleaning up stream for closed WebSocket ${streamId}`, error)
+              )
+              this.topicStreamCleanups.delete(streamId)
             }
-          })
+          }
         },
         fromBeginning
       )

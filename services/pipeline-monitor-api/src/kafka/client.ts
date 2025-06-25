@@ -7,6 +7,7 @@ export class KafkaClient {
   private admin: Admin | null = null
   private producer: Producer | null = null
   private consumers: Map<string, Consumer> = new Map()
+  private streamConsumers: Map<string, { consumer: Consumer; refCount: number }> = new Map()
 
   constructor() {
     this.kafka = new Kafka({
@@ -48,6 +49,17 @@ export class KafkaClient {
         await consumer.disconnect()
         this.consumers.delete(groupId)
       }
+
+      // Clean up stream consumers
+      for (const [topic, { consumer }] of this.streamConsumers) {
+        try {
+          await consumer.stop()
+          await consumer.disconnect()
+        } catch (error) {
+          logger.error(`Error disconnecting stream consumer for topic ${topic}`, error)
+        }
+      }
+      this.streamConsumers.clear()
 
       logger.info('Kafka client disconnected')
     } catch (error) {
