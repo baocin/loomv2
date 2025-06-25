@@ -49,13 +49,16 @@ export class PipelineBuilder {
       // Categorize topics by their purpose
       const categories = this.categorizeTopics(userTopics)
 
-      // Create external source nodes
+      // Create external source nodes and producer nodes
       let xPos = 0
       let yPos = 100
 
       const externalSources = this.getExternalSources(categories)
-      externalSources.forEach((source, idx) => {
-        const nodeId = `external-${source.id}`
+      const producers = this.identifyProducers(userTopics)
+      const allSources = [...externalSources, ...producers]
+
+      allSources.forEach((source, idx) => {
+        const nodeId = source.id.startsWith('external-') ? source.id : `producer-${source.id}`
         nodes.push({
           id: nodeId,
           type: 'external',
@@ -87,13 +90,14 @@ export class PipelineBuilder {
         })
         nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
 
-        // Connect external sources to raw topics
+        // Connect external sources and producers to raw topics
         const sourceType = this.getTopicSourceType(topic)
-        const sourceNode = externalSources.find(s => s.type === sourceType)
+        const sourceNode = allSources.find(s => s.type === sourceType || this.matchesProducerPattern(s, topic))
         if (sourceNode) {
+          const sourceId = sourceNode.id.startsWith('external-') ? sourceNode.id : `producer-${sourceNode.id}`
           edges.push({
-            id: `e-${sourceNode.id}-${nodeId}`,
-            source: `external-${sourceNode.id}`,
+            id: `e-${sourceId}-${nodeId}`,
+            source: sourceId,
             target: nodeId,
             animated: true
           })
@@ -341,7 +345,7 @@ export class PipelineBuilder {
       // Determine input topics based on group name patterns
       const inputTopics = this.determineInputTopics(groupId, topics)
       const outputTopics = this.determineOutputTopics(groupId, topics)
-      
+
       processors.push({
         id: `consumer-${groupId}`,
         label: this.getConsumerLabel(groupId),
@@ -363,7 +367,7 @@ export class PipelineBuilder {
       'silero-vad-consumer': ['device.audio.raw'],
       'parakeet-tdt-consumer': ['media.audio.vad_filtered'],
       'minicpm-vision-consumer': ['device.image.camera.raw', 'device.video.screen.raw'],
-      'kafka-to-db-consumer': topics.filter(t => 
+      'kafka-to-db-consumer': topics.filter(t =>
         t.includes('.raw') || t.includes('.processed') || t.includes('.analysis')
       )
     }
@@ -386,7 +390,7 @@ export class PipelineBuilder {
     if (groupId.includes('db') || groupId.includes('database') || groupId.includes('storage')) {
       return topics.filter(t => !t.includes('raw')) // Processed data to database
     }
-    
+
     // Default: try to infer from group name
     return topics.filter(t => t.includes(groupId.split('-')[0]))
   }
@@ -414,7 +418,7 @@ export class PipelineBuilder {
     if (groupId.includes('vision') || groupId.includes('image')) {
       return topics.filter(t => t.includes('vision') || t.includes('analysis'))
     }
-    
+
     return [] // Many consumers just store to database
   }
 
@@ -459,7 +463,7 @@ export class PipelineBuilder {
     knownServices.forEach(service => {
       const hasRequiredTopics = service.required.some(topic => topics.includes(topic))
       const alreadyExists = processors.some(p => p.id === `consumer-${service.groupId}`)
-      
+
       if (hasRequiredTopics && !alreadyExists) {
         processors.push({
           id: `consumer-${service.groupId}`,
@@ -470,6 +474,151 @@ export class PipelineBuilder {
         })
       }
     })
+  }
+
+  private identifyProducers(topics: string[]): {
+    id: string,
+    type: string,
+    label: string,
+    description: string,
+    outputTopics: string[]
+  }[] {
+    const producers: {
+      id: string,
+      type: string,
+      label: string,
+      description: string,
+      outputTopics: string[]
+    }[] = []
+
+    // Identify ingestion API producer
+    if (topics.some(t => t.includes('device.') && t.includes('.raw'))) {
+      producers.push({
+        id: 'ingestion-api',
+        type: 'api',
+        label: 'Ingestion API',
+        description: 'Real-time data ingestion service',
+        outputTopics: topics.filter(t => t.includes('device.') && t.includes('.raw'))
+      })
+    }
+
+    // Identify scheduled data fetchers
+    if (topics.some(t => t.startsWith('external.hackernews'))) {
+      producers.push({
+        id: 'hackernews-fetcher',
+        type: 'external',
+        label: 'HackerNews Fetcher',
+        description: 'Scheduled news aggregation',
+        outputTopics: topics.filter(t => t.includes('hackernews'))
+      })
+    }
+
+    if (topics.some(t => t.startsWith('external.twitter'))) {
+      producers.push({
+        id: 'twitter-fetcher',
+        type: 'external',
+        label: 'Twitter Fetcher',
+        description: 'Social media data collection',
+        outputTopics: topics.filter(t => t.includes('twitter'))
+      })
+    }
+
+    if (topics.some(t => t.startsWith('external.calendar'))) {
+      producers.push({
+        id: 'calendar-fetcher',
+        type: 'external',
+        label: 'Calendar Fetcher',
+        description: 'Calendar events sync',
+        outputTopics: topics.filter(t => t.includes('calendar'))
+      })
+    }
+
+    if (topics.some(t => t.startsWith('external.email'))) {
+      producers.push({
+        id: 'email-fetcher',
+        type: 'external',
+        label: 'Email Fetcher',
+        description: 'Email monitoring service',
+        outputTopics: topics.filter(t => t.includes('email'))
+      })
+    }
+
+    if (topics.some(t => t.startsWith('external.reddit'))) {
+      producers.push({
+        id: 'reddit-fetcher',
+        type: 'external',
+        label: 'Reddit Fetcher',
+        description: 'Reddit activity tracking',
+        outputTopics: topics.filter(t => t.includes('reddit'))
+      })
+    }
+
+    if (topics.some(t => t.startsWith('external.web'))) {
+      producers.push({
+        id: 'web-analytics',
+        type: 'external',
+        label: 'Web Analytics',
+        description: 'Website visit tracking',
+        outputTopics: topics.filter(t => t.includes('web'))
+      })
+    }
+
+    // Identify client producers (macOS, Android)
+    if (topics.some(t => t.includes('device.system.apps.macos'))) {
+      producers.push({
+        id: 'macos-client',
+        type: 'device',
+        label: 'macOS Client',
+        description: 'macOS system monitoring',
+        outputTopics: topics.filter(t => t.includes('macos'))
+      })
+    }
+
+    if (topics.some(t => t.includes('device.system.apps.android'))) {
+      producers.push({
+        id: 'android-client',
+        type: 'device',
+        label: 'Android Client',
+        description: 'Android system monitoring',
+        outputTopics: topics.filter(t => t.includes('android'))
+      })
+    }
+
+    // Identify task/URL processors
+    if (topics.some(t => t.startsWith('task.'))) {
+      producers.push({
+        id: 'task-scheduler',
+        type: 'internal',
+        label: 'Task Scheduler',
+        description: 'Background task coordination',
+        outputTopics: topics.filter(t => t.startsWith('task.'))
+      })
+    }
+
+    return producers
+  }
+
+  private matchesProducerPattern(source: any, topic: string): boolean {
+    // Check if a producer source should connect to a specific topic
+    if (source.outputTopics) {
+      return source.outputTopics.includes(topic)
+    }
+
+    // Pattern matching for producers
+    if (source.type === 'api' && topic.includes('device.') && topic.includes('.raw')) {
+      return true
+    }
+    if (source.type === 'external' && topic.startsWith('external.')) {
+      return topic.includes(source.id.replace('-fetcher', '').replace('-', '.'))
+    }
+    if (source.type === 'device' && topic.includes('device.system')) {
+      return topic.includes(source.id.replace('-client', ''))
+    }
+    if (source.type === 'internal' && topic.startsWith('task.')) {
+      return true
+    }
+
+    return false
   }
 
   private getTopicLabel(topic: string): string {
