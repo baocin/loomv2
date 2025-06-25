@@ -260,19 +260,47 @@ class XLikesFetcher:
             # Scroll and collect tweets
             no_new_tweets_count = 0
             max_no_new_tweets = 20  # Stop after 20 scrolls with no new tweets
+            max_tweets = int(
+                os.getenv("LOOM_MAX_TWEETS_TO_FETCH", "500")
+            )  # Limit tweets
+            max_fetch_time_minutes = int(
+                os.getenv("LOOM_MAX_FETCH_TIME_MINUTES", "120")
+            )  # Max time limit
 
+            import time
+
+            start_time = time.time()
+            max_fetch_seconds = max_fetch_time_minutes * 60
+
+            all_tweets = []  # Initialize
             while no_new_tweets_count < max_no_new_tweets:
                 # Scan for new tweets
                 new_tweets_count = await page.evaluate("() => scanAndExtract()")
                 all_tweets = await page.evaluate("() => getSavedTweets()")
+
+                # Check if we've reached the tweet limit
+                if len(all_tweets) >= max_tweets:
+                    logging.info(
+                        f"Reached tweet limit of {max_tweets}, stopping collection"
+                    )
+                    break
+
+                # Check if we've exceeded the time limit
+                elapsed_time = time.time() - start_time
+                if elapsed_time > max_fetch_seconds:
+                    logging.info(
+                        f"Reached time limit of {max_fetch_time_minutes} minutes, stopping collection"
+                    )
+                    break
 
                 if new_tweets_count == 0:
                     no_new_tweets_count += 1
                 else:
                     no_new_tweets_count = 0
 
+                elapsed_minutes = int(elapsed_time / 60)
                 logging.info(
-                    f"Found {len(all_tweets)} total tweets, {new_tweets_count} new this scroll"
+                    f"Found {len(all_tweets)} total tweets, {new_tweets_count} new this scroll (max: {max_tweets}, elapsed: {elapsed_minutes}m)"
                 )
 
                 # Scroll down
