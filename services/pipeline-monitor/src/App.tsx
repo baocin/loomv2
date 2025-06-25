@@ -341,6 +341,10 @@ function App() {
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-left"
+        multiSelectionKeyCode="Shift"
+        selectionKeyCode="Shift"
+        deleteKeyCode="Delete"
+        selectNodesOnDrag={false}
       >
         <Controls />
         <MiniMap

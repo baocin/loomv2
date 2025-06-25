@@ -63,28 +63,27 @@ export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div className={clsx(
-      'px-4 py-3 shadow-lg rounded-lg bg-white border-2',
+      'w-32 h-32 shadow-lg rounded-full bg-white border-2 flex flex-col items-center justify-center relative',
       getStatusBorder(data.status)
     )}>
       <Handle type="target" position={Position.Left} />
 
-      <div className="flex items-center gap-2 mb-2">
-        <Cpu className="w-4 h-4 text-purple-600" />
+      <div className="flex flex-col items-center gap-1">
+        <Cpu className="w-5 h-5 text-purple-600" />
         <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status))} />
-        <span className="font-semibold text-sm">{data.label}</span>
+        <span className="font-semibold text-xs text-center leading-tight">{data.label}</span>
       </div>
 
       {data.description && (
-        <div className="text-xs text-gray-600 mb-2">{data.description}</div>
+        <div className="text-xs text-gray-600 text-center mt-1 leading-tight max-w-full overflow-hidden">
+          {data.description.slice(0, 20)}...
+        </div>
       )}
 
       {metrics && (
-        <div className="text-xs text-gray-600 space-y-1">
+        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 text-center whitespace-nowrap">
           {metrics.lastHeartbeat && (
-            <div>Heartbeat: {formatDistanceToNow(new Date(metrics.lastHeartbeat), { addSuffix: true })}</div>
-          )}
-          {metrics.consumerId && (
-            <div>Consumer: {metrics.consumerId.slice(0, 8)}...</div>
+            <div>Active {formatDistanceToNow(new Date(metrics.lastHeartbeat), { addSuffix: true })}</div>
           )}
         </div>
       )}

@@ -331,42 +331,145 @@ export class PipelineBuilder {
       outputTopics: string[]
     }[] = []
 
-    // Identify VAD processor
-    if (topics.includes('device.audio.raw') && topics.includes('media.audio.vad_filtered')) {
-      processors.push({
-        id: 'vad-processor',
-        label: 'VAD Processor',
-        description: 'Voice Activity Detection',
-        inputTopics: ['device.audio.raw'],
-        outputTopics: ['media.audio.vad_filtered']
-      })
-    }
+    // Create a processor for each consumer group
+    consumerGroups.forEach(group => {
+      const groupId = group.groupId || group.name
+      if (!groupId || groupId.startsWith('__') || groupId.startsWith('_')) {
+        return // Skip internal groups
+      }
 
-    // Identify transcription service
-    if (topics.includes('media.audio.vad_filtered') &&
-        topics.some(t => t.includes('transcribed'))) {
+      // Determine input topics based on group name patterns
+      const inputTopics = this.determineInputTopics(groupId, topics)
+      const outputTopics = this.determineOutputTopics(groupId, topics)
+      
       processors.push({
-        id: 'transcription-service',
-        label: 'Speech-to-Text',
-        description: 'Audio transcription',
-        inputTopics: ['media.audio.vad_filtered'],
-        outputTopics: topics.filter(t => t.includes('transcribed'))
+        id: `consumer-${groupId}`,
+        label: this.getConsumerLabel(groupId),
+        description: this.getConsumerDescription(groupId),
+        inputTopics,
+        outputTopics
       })
-    }
+    })
 
-    // Identify vision processor
-    if (topics.some(t => t.includes('image') && t.includes('raw')) &&
-        topics.some(t => t.includes('vision'))) {
-      processors.push({
-        id: 'vision-processor',
-        label: 'Vision Analyzer',
-        description: 'Image analysis & OCR',
-        inputTopics: topics.filter(t => t.includes('image') && t.includes('raw')),
-        outputTopics: topics.filter(t => t.includes('vision'))
-      })
-    }
+    // Add known processors that might not have consumer groups yet
+    this.addKnownProcessors(processors, topics)
 
     return processors
+  }
+
+  private determineInputTopics(groupId: string, topics: string[]): string[] {
+    // Map consumer group names to their likely input topics
+    const inputMappings: Record<string, string[]> = {
+      'silero-vad-consumer': ['device.audio.raw'],
+      'parakeet-tdt-consumer': ['media.audio.vad_filtered'],
+      'minicpm-vision-consumer': ['device.image.camera.raw', 'device.video.screen.raw'],
+      'kafka-to-db-consumer': topics.filter(t => 
+        t.includes('.raw') || t.includes('.processed') || t.includes('.analysis')
+      )
+    }
+
+    // Check for exact matches first
+    if (inputMappings[groupId]) {
+      return inputMappings[groupId].filter(topic => topics.includes(topic))
+    }
+
+    // Pattern-based matching
+    if (groupId.includes('vad')) {
+      return topics.filter(t => t.includes('audio') && t.includes('raw'))
+    }
+    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr')) {
+      return topics.filter(t => t.includes('vad_filtered'))
+    }
+    if (groupId.includes('vision') || groupId.includes('image')) {
+      return topics.filter(t => (t.includes('image') || t.includes('video')) && t.includes('raw'))
+    }
+    if (groupId.includes('db') || groupId.includes('database') || groupId.includes('storage')) {
+      return topics.filter(t => !t.includes('raw')) // Processed data to database
+    }
+    
+    // Default: try to infer from group name
+    return topics.filter(t => t.includes(groupId.split('-')[0]))
+  }
+
+  private determineOutputTopics(groupId: string, topics: string[]): string[] {
+    // Map consumer groups to their output topics
+    const outputMappings: Record<string, string[]> = {
+      'silero-vad-consumer': ['media.audio.vad_filtered'],
+      'parakeet-tdt-consumer': ['media.text.transcribed.words'],
+      'minicpm-vision-consumer': ['media.image.analysis.minicpm_results'],
+      'kafka-to-db-consumer': [] // Database consumer doesn't produce topics
+    }
+
+    if (outputMappings[groupId]) {
+      return outputMappings[groupId].filter(topic => topics.includes(topic))
+    }
+
+    // Pattern-based output detection
+    if (groupId.includes('vad')) {
+      return topics.filter(t => t.includes('vad_filtered'))
+    }
+    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr')) {
+      return topics.filter(t => t.includes('transcribed'))
+    }
+    if (groupId.includes('vision') || groupId.includes('image')) {
+      return topics.filter(t => t.includes('vision') || t.includes('analysis'))
+    }
+    
+    return [] // Many consumers just store to database
+  }
+
+  private getConsumerLabel(groupId: string): string {
+    const labelMappings: Record<string, string> = {
+      'silero-vad-consumer': 'VAD Processor',
+      'parakeet-tdt-consumer': 'Speech-to-Text',
+      'minicpm-vision-consumer': 'Vision Analyzer',
+      'kafka-to-db-consumer': 'Database Writer'
+    }
+
+    if (labelMappings[groupId]) {
+      return labelMappings[groupId]
+    }
+
+    // Generate label from group ID
+    return groupId
+      .replace(/-consumer$/, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  private getConsumerDescription(groupId: string): string {
+    const descriptionMappings: Record<string, string> = {
+      'silero-vad-consumer': 'Voice Activity Detection',
+      'parakeet-tdt-consumer': 'Audio transcription',
+      'minicpm-vision-consumer': 'Image analysis & OCR',
+      'kafka-to-db-consumer': 'Data persistence'
+    }
+
+    return descriptionMappings[groupId] || 'Data processing service'
+  }
+
+  private addKnownProcessors(processors: any[], topics: string[]): void {
+    // Add processors for known services that might not have active consumer groups
+    const knownServices = [
+      { groupId: 'silero-vad-consumer', required: ['device.audio.raw'] },
+      { groupId: 'parakeet-tdt-consumer', required: ['media.audio.vad_filtered'] },
+      { groupId: 'minicpm-vision-consumer', required: ['device.image.camera.raw'] }
+    ]
+
+    knownServices.forEach(service => {
+      const hasRequiredTopics = service.required.some(topic => topics.includes(topic))
+      const alreadyExists = processors.some(p => p.id === `consumer-${service.groupId}`)
+      
+      if (hasRequiredTopics && !alreadyExists) {
+        processors.push({
+          id: `consumer-${service.groupId}`,
+          label: this.getConsumerLabel(service.groupId),
+          description: this.getConsumerDescription(service.groupId),
+          inputTopics: this.determineInputTopics(service.groupId, topics),
+          outputTopics: this.determineOutputTopics(service.groupId, topics)
+        })
+      }
+    })
   }
 
   private getTopicLabel(topic: string): string {
