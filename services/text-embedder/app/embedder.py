@@ -56,26 +56,28 @@ class TextEmbedder:
         """Prepare email data for embedding."""
         parts = []
 
-        # Add sender info
-        if email_data.get("sender_name"):
-            parts.append(
-                f"From: {email_data['sender_name']} <{email_data.get('sender_email', '')}>"
-            )
-        elif email_data.get("sender_email"):
-            parts.append(f"From: {email_data['sender_email']}")
+        # Handle both direct fields and Kafka message format with 'data' wrapper
+        data = email_data.get("data", email_data)
+
+        # Add sender info - handle "Name <email@domain.com>" format
+        sender_raw = data.get("sender") or data.get("sender_email") or data.get("from_address")
+        if sender_raw:
+            parts.append(f"From: {sender_raw}")
 
         # Add subject
-        if email_data.get("subject"):
-            parts.append(f"Subject: {email_data['subject']}")
+        if data.get("subject"):
+            parts.append(f"Subject: {data['subject']}")
 
         # Add body
-        if email_data.get("body_text"):
-            parts.append(f"\n{email_data['body_text']}")
-        elif email_data.get("body_html"):
+        if data.get("body"):  # Primary field name from actual data
+            parts.append(f"\n{data['body']}")
+        elif data.get("body_text"):
+            parts.append(f"\n{data['body_text']}")
+        elif data.get("body_html"):
             # Basic HTML stripping - in production, use proper HTML parser
             import re
 
-            text = re.sub("<[^<]+?>", "", email_data["body_html"])
+            text = re.sub("<[^<]+?>", "", data["body_html"])
             parts.append(f"\n{text}")
 
         return "\n".join(parts)
