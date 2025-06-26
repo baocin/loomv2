@@ -9,9 +9,7 @@ from typing import AsyncGenerator, Dict, Any
 class KafkaConsumer:
     def __init__(self):
         """Initialize Kafka consumer"""
-        self.bootstrap_servers = os.getenv(
-            "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-        )
+        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
         self.group_id = os.getenv("LOOM_KAFKA_CONSUMER_GROUP", "x-url-processor")
 

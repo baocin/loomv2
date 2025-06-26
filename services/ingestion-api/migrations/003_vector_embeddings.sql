@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS emails_with_embeddings (
     device_id TEXT,
     timestamp TIMESTAMPTZ NOT NULL,
     received_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Email fields
     subject TEXT,
     sender_name TEXT,
@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS emails_with_embeddings (
     attachments JSONB,
     folder TEXT,
     email_source TEXT,
-    
+
     -- Embedding fields
     embedding vector(384),  -- all-MiniLM-L6-v2 produces 384-dim embeddings
     embedding_model TEXT,
     embedding_timestamp TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Metadata
     metadata JSONB
 );
@@ -46,24 +46,24 @@ CREATE TABLE IF NOT EXISTS twitter_likes_with_embeddings (
     timestamp TIMESTAMPTZ NOT NULL,
     liked_at TIMESTAMPTZ,
     received_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Tweet fields
     tweet_url TEXT,
     tweet_text TEXT,
     author_username TEXT,
     author_name TEXT,
     author_profile_url TEXT,
-    
+
     -- Embedding fields
     embedding vector(384),
     embedding_model TEXT,
     embedding_timestamp TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Screenshot/extraction reference
     screenshot_url TEXT,
     extracted_content JSONB,
     extraction_timestamp TIMESTAMPTZ,
-    
+
     -- Metadata
     metadata JSONB
 );
@@ -81,18 +81,18 @@ CREATE TABLE IF NOT EXISTS twitter_extraction_results (
     tweet_id TEXT NOT NULL UNIQUE,
     url TEXT NOT NULL,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Screenshot data
     screenshot_path TEXT,
     screenshot_size_bytes INTEGER,
     screenshot_dimensions JSONB,
-    
+
     -- Extracted content
     extracted_text TEXT,
     extracted_links JSONB,
     extracted_media JSONB,
     extracted_metadata JSONB,
-    
+
     -- Processing metadata
     processor_version TEXT,
     processing_duration_ms INTEGER,
@@ -119,7 +119,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         e.id,
         e.trace_id,
         e.subject,
@@ -150,7 +150,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         t.id,
         t.trace_id,
         t.tweet_id,

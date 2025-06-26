@@ -36,7 +36,7 @@ class XUrlProcessorService:
                 data = message
                 trace_id = data.get("trace_id")
                 tweet_id = data.get("tweet_id")
-                
+
             url = data.get("url")
             metadata = data.get("metadata", {})
 
@@ -53,11 +53,15 @@ class XUrlProcessorService:
                 logging.debug(f"Skipping non-X.com URL: {url}")
                 return
 
-            logging.info(f"Processing X.com URL: {url} (trace_id: {trace_id}, tweet_id: {tweet_id})")
+            logging.info(
+                f"Processing X.com URL: {url} (trace_id: {trace_id}, tweet_id: {tweet_id})"
+            )
 
             # Setup browser and process tweet
             await self.tweet_processor.setup()
-            tweet_data = await self.tweet_processor.scrape_tweet(url, trace_id, tweet_id)
+            tweet_data = await self.tweet_processor.scrape_tweet(
+                url, trace_id, tweet_id
+            )
             await self.tweet_processor.cleanup()
 
             if tweet_data:
@@ -83,11 +87,15 @@ class XUrlProcessorService:
                         "full_data": tweet_data.get("tweet", {}),
                     },
                     "processor_version": "1.0.0",
-                    "processing_duration_ms": tweet_data.get("processing_duration_ms", 0),
+                    "processing_duration_ms": tweet_data.get(
+                        "processing_duration_ms", 0
+                    ),
                 }
 
                 self.kafka_producer.send_message(
-                    topic=output_topic, key=tweet_data.get("tweet_id", url), value=output_message
+                    topic=output_topic,
+                    key=tweet_data.get("tweet_id", url),
+                    value=output_message,
                 )
 
                 logging.info(f"Successfully processed and archived X.com URL: {url}")

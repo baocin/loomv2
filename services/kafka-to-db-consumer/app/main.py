@@ -3,8 +3,8 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, Dict
-from datetime import datetime
 
 import asyncpg
 import structlog
@@ -35,7 +35,9 @@ logger = structlog.get_logger(__name__)
 # Configuration
 import os
 
-DATABASE_URL = os.getenv("LOOM_DATABASE_URL", "postgresql://loom:loom@localhost:5432/loom")
+DATABASE_URL = os.getenv(
+    "LOOM_DATABASE_URL", "postgresql://loom:loom@localhost:5432/loom"
+)
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_GROUP_ID = "kafka-to-db-consumer"
 
@@ -406,15 +408,16 @@ class KafkaToDBConsumer:
             extracted_metadata = EXCLUDED.extracted_metadata,
             timestamp = NOW()
         """
-        
+
         # Parse timestamp if it's a string
         timestamp = data.get("extraction_timestamp")
         if isinstance(timestamp, str):
             from dateutil import parser
+
             timestamp = parser.isoparse(timestamp)
         elif timestamp is None:
             timestamp = datetime.utcnow()
-        
+
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 query,
@@ -433,24 +436,27 @@ class KafkaToDBConsumer:
                 data.get("processing_duration_ms"),
                 data.get("error_message"),
             )
-            
+
             # Also update the twitter_likes_with_embeddings table if exists
             if data.get("screenshot_path"):
-                await conn.execute("""
+                await conn.execute(
+                    """
                     UPDATE twitter_likes_with_embeddings
                     SET screenshot_url = $1,
                         extracted_content = $2,
                         extraction_timestamp = NOW()
                     WHERE tweet_id = $3
-                """, 
-                data.get("screenshot_path"),
-                json.dumps({
-                    "text": data.get("extracted_text"),
-                    "links": data.get("extracted_links", []),
-                    "media": data.get("extracted_media", []),
-                }),
-                data.get("tweet_id")
-            )
+                """,
+                    data.get("screenshot_path"),
+                    json.dumps(
+                        {
+                            "text": data.get("extracted_text"),
+                            "links": data.get("extracted_links", []),
+                            "media": data.get("extracted_media", []),
+                        }
+                    ),
+                    data.get("tweet_id"),
+                )
 
     async def _insert_embedded_emails(self, table_name: str, data: Dict[str, Any]):
         """Insert email with embeddings."""
@@ -466,15 +472,60 @@ class KafkaToDBConsumer:
             embedding_model = EXCLUDED.embedding_model,
             embedding_timestamp = NOW()
         """
-        
+
+        # Parse timestamps if they're strings
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            from dateutil import parser
+
+            try:
+                timestamp = parser.isoparse(timestamp)
+                # Ensure timezone awareness
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                timestamp = datetime.utcnow()
+        elif timestamp is None:
+            timestamp = datetime.utcnow()
+
+        received_at = data.get("received_at")
+        if isinstance(received_at, str):
+            from dateutil import parser
+
+            try:
+                received_at = parser.isoparse(received_at)
+                # Ensure timezone awareness
+                if received_at.tzinfo is None:
+                    received_at = received_at.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                received_at = datetime.utcnow()
+        elif received_at is None:
+            received_at = datetime.utcnow()
+
+        embedding_timestamp = data.get("embedding_timestamp")
+        if isinstance(embedding_timestamp, str):
+            from dateutil import parser
+
+            try:
+                embedding_timestamp = parser.isoparse(embedding_timestamp)
+                # Ensure timezone awareness
+                if embedding_timestamp.tzinfo is None:
+                    embedding_timestamp = embedding_timestamp.replace(
+                        tzinfo=timezone.utc
+                    )
+            except (ValueError, TypeError):
+                embedding_timestamp = datetime.utcnow()
+        elif embedding_timestamp is None:
+            embedding_timestamp = datetime.utcnow()
+
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 query,
                 data.get("trace_id"),
                 data.get("message_id"),
                 data.get("device_id"),
-                data.get("timestamp", datetime.utcnow()),
-                data.get("received_at", datetime.utcnow()),
+                timestamp,
+                received_at,
                 data.get("subject"),
                 data.get("sender_name"),
                 data.get("sender_email"),
@@ -487,7 +538,7 @@ class KafkaToDBConsumer:
                 data.get("email_source"),
                 data.get("embedding"),  # This should be a list of floats
                 data.get("embedding_model"),
-                data.get("embedding_timestamp", datetime.utcnow()),
+                embedding_timestamp,
                 json.dumps(data.get("metadata", {})),
             )
 
@@ -506,16 +557,87 @@ class KafkaToDBConsumer:
             embedding_model = EXCLUDED.embedding_model,
             embedding_timestamp = NOW()
         """
-        
+
+        # Parse timestamps if they're strings
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            from dateutil import parser
+
+            try:
+                timestamp = parser.isoparse(timestamp)
+                # Ensure timezone awareness
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                timestamp = datetime.utcnow()
+        elif timestamp is None:
+            timestamp = datetime.utcnow()
+
+        liked_at = data.get("liked_at")
+        if isinstance(liked_at, str):
+            from dateutil import parser
+
+            try:
+                liked_at = parser.isoparse(liked_at)
+                # Ensure timezone awareness
+                if liked_at.tzinfo is None:
+                    liked_at = liked_at.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                liked_at = None
+
+        received_at = data.get("received_at")
+        if isinstance(received_at, str):
+            from dateutil import parser
+
+            try:
+                received_at = parser.isoparse(received_at)
+                # Ensure timezone awareness
+                if received_at.tzinfo is None:
+                    received_at = received_at.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                received_at = datetime.utcnow()
+        elif received_at is None:
+            received_at = datetime.utcnow()
+
+        embedding_timestamp = data.get("embedding_timestamp")
+        if isinstance(embedding_timestamp, str):
+            from dateutil import parser
+
+            try:
+                embedding_timestamp = parser.isoparse(embedding_timestamp)
+                # Ensure timezone awareness
+                if embedding_timestamp.tzinfo is None:
+                    embedding_timestamp = embedding_timestamp.replace(
+                        tzinfo=timezone.utc
+                    )
+            except (ValueError, TypeError):
+                embedding_timestamp = datetime.utcnow()
+        elif embedding_timestamp is None:
+            embedding_timestamp = datetime.utcnow()
+
+        extraction_timestamp = data.get("extraction_timestamp")
+        if isinstance(extraction_timestamp, str):
+            from dateutil import parser
+
+            try:
+                extraction_timestamp = parser.isoparse(extraction_timestamp)
+                # Ensure timezone awareness
+                if extraction_timestamp.tzinfo is None:
+                    extraction_timestamp = extraction_timestamp.replace(
+                        tzinfo=timezone.utc
+                    )
+            except (ValueError, TypeError):
+                extraction_timestamp = None
+
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 query,
                 data.get("trace_id"),
                 data.get("tweet_id"),
                 data.get("device_id"),
-                data.get("timestamp", datetime.utcnow()),
-                data.get("liked_at"),
-                data.get("received_at", datetime.utcnow()),
+                timestamp,
+                liked_at,
+                received_at,
                 data.get("tweet_url"),
                 data.get("tweet_text"),
                 data.get("author_username"),
@@ -523,10 +645,10 @@ class KafkaToDBConsumer:
                 data.get("author_profile_url"),
                 data.get("embedding"),  # This should be a list of floats
                 data.get("embedding_model"),
-                data.get("embedding_timestamp", datetime.utcnow()),
+                embedding_timestamp,
                 data.get("screenshot_url"),
                 json.dumps(data.get("extracted_content", {})),
-                data.get("extraction_timestamp"),
+                extraction_timestamp,
                 json.dumps(data.get("metadata", {})),
             )
 

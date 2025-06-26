@@ -30,7 +30,9 @@ class XTweetProcessor:
             viewport={"width": 700, "height": 3000}, user_agent=user_agent
         )
 
-    async def scrape_tweet(self, url: str, trace_id: str = None, tweet_id: str = None) -> Optional[Dict[str, Any]]:
+    async def scrape_tweet(
+        self, url: str, trace_id: str = None, tweet_id: str = None
+    ) -> Optional[Dict[str, Any]]:
         """Scrape tweet content and take screenshot"""
         _xhr_calls = []
 
@@ -72,7 +74,7 @@ class XTweetProcessor:
                 # Save screenshot with trace_id and tweet_id
                 if image_data:
                     import os
-                    import base64
+
                     screenshot_dir = "/app/screenshots"
                     os.makedirs(screenshot_dir, exist_ok=True)
                     screenshot_filename = f"{trace_id or 'unknown'}_{tweet_id}.png"
@@ -99,7 +101,7 @@ class XTweetProcessor:
                 tweet_text_elem = await page.query_selector('[data-testid="tweetText"]')
                 if tweet_text_elem:
                     extracted_text = await tweet_text_elem.inner_text()
-                
+
                 # Get author name
                 author_elem = await page.query_selector('[data-testid="User-Name"]')
                 author_name = await author_elem.inner_text() if author_elem else ""
@@ -113,15 +115,19 @@ class XTweetProcessor:
                 tweet_data = {}
 
             # Add our extracted data
-            tweet_data.update({
-                "url": url,
-                "tweet_id": tweet_id,
-                "trace_id": trace_id,
-                "screenshot_path": screenshot_path,
-                "extracted_text": extracted_text,
-                "author_name": author_name,
-                "extraction_timestamp": __import__("datetime").datetime.utcnow().isoformat(),
-            })
+            tweet_data.update(
+                {
+                    "url": url,
+                    "tweet_id": tweet_id,
+                    "trace_id": trace_id,
+                    "screenshot_path": screenshot_path,
+                    "extracted_text": extracted_text,
+                    "author_name": author_name,
+                    "extraction_timestamp": __import__("datetime")
+                    .datetime.utcnow()
+                    .isoformat(),
+                }
+            )
 
             return tweet_data
 

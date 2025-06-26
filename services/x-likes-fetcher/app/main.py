@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from x_likes_fetcher import XLikesFetcher
 from kafka_producer import KafkaProducer
+from db_checker import DatabaseChecker
 
 # Configure logging
 log_level = os.getenv("LOOM_LOG_LEVEL", "INFO")
@@ -21,6 +22,7 @@ logging.basicConfig(
 
 async def fetch_liked_tweets():
     """Fetch liked tweets and send URLs to Kafka for processing"""
+    db_checker = None
     try:
         logging.info("Starting X.com likes fetch process")
 
@@ -28,11 +30,26 @@ async def fetch_liked_tweets():
         x_fetcher = XLikesFetcher()
         kafka_producer = KafkaProducer()
 
+        # Initialize database checker
+        database_url = os.getenv(
+            "LOOM_DATABASE_URL", "postgresql://loom:loom@postgres:5432/loom"
+        )
+        db_checker = DatabaseChecker(database_url)
+        await db_checker.connect()
+
         # Setup browser and login
         await x_fetcher.setup()
 
-        # Fetch liked tweets
+        # Fetch ALL liked tweets first (no limits)
+        logging.info("Fetching all liked tweets from X.com...")
         liked_tweets = await x_fetcher.scrape_likes()
+        logging.info(
+            f"Scraping completed. Found {len(liked_tweets)} total liked tweets"
+        )
+
+        # Get existing tweet IDs from database for duplicate checking
+        existing_tweet_ids = await db_checker.get_existing_tweet_ids()
+        logging.info(f"Found {len(existing_tweet_ids)} existing tweets in database")
 
         # Get output topics from environment variables
         raw_topic = os.getenv("LOOM_KAFKA_OUTPUT_TOPIC", "external.twitter.liked.raw")
@@ -45,14 +62,30 @@ async def fetch_liked_tweets():
         if send_to_url_processor:
             logging.info(f"Using URL ingest topic: {url_topic}")
 
-        # Send each tweet data to Kafka
+        # Filter out already processed tweets and send new ones to Kafka
+        new_tweets = 0
+        skipped_tweets = 0
+
         for tweet_data in liked_tweets:
             # Generate a trace ID for this tweet
             trace_id = str(uuid.uuid4())
-            
+
             # Extract tweet ID from URL
-            tweet_id = tweet_data["tweetLink"].split("/")[-1] if tweet_data.get("tweetLink") else None
-            
+            tweet_id = (
+                tweet_data["tweetLink"].split("/")[-1]
+                if tweet_data.get("tweetLink")
+                else None
+            )
+
+            # Skip if tweet already exists in database
+            if tweet_id and tweet_id in existing_tweet_ids:
+                skipped_tweets += 1
+                logging.debug(f"Skipping already processed tweet: {tweet_id}")
+                continue
+
+            new_tweets += 1
+            logging.info(f"Processing new tweet {new_tweets}: {tweet_id}")
+
             # Send complete tweet data to raw topic
             raw_message = {
                 "schema_version": "v1",
@@ -104,14 +137,33 @@ async def fetch_liked_tweets():
                     topic=url_topic, key=tweet_data["tweetLink"], value=url_message
                 )
 
+        # Get processing statistics
+        stats = await db_checker.get_processing_stats()
+
         # Cleanup
         await x_fetcher.cleanup()
         kafka_producer.close()
+        await db_checker.disconnect()
 
-        logging.info(f"Successfully processed {len(liked_tweets)} liked tweets")
+        # Log comprehensive summary
+        logging.info(
+            f"Fetch completed - Total found: {len(liked_tweets)}, "
+            f"New: {new_tweets}, Skipped (already processed): {skipped_tweets}"
+        )
+        logging.info(
+            f"Database stats - Total processed: {stats['total_processed']}, "
+            f"With screenshots: {stats['with_screenshots']}, "
+            f"Errors: {stats['errors']}"
+        )
 
     except Exception as e:
         logging.error(f"Error in X.com likes fetch process: {e}")
+        # Ensure database connection is cleaned up on error
+        if db_checker:
+            try:
+                await db_checker.disconnect()
+            except Exception as cleanup_error:
+                logging.error(f"Error during cleanup: {cleanup_error}")
 
 
 def run_async_fetch():
@@ -123,8 +175,8 @@ def main():
     """Main application entry point"""
     logging.info("X.com likes fetcher service starting...")
 
-    # Get schedule interval from environment variable (default 6 hours)
-    schedule_interval_hours = int(os.getenv("LOOM_FETCH_INTERVAL_HOURS", "6"))
+    # Get schedule interval from environment variable (fixed at 6 hours)
+    schedule_interval_hours = 6
 
     # Schedule X.com likes fetching
     schedule.every(schedule_interval_hours).hours.do(run_async_fetch)

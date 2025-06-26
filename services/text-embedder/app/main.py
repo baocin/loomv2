@@ -40,10 +40,10 @@ consumer = None
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     global consumer
-    
+
     # Startup
     logger.info("Starting text embedder service")
-    
+
     # Create consumer
     consumer = TextEmbeddingConsumer(
         bootstrap_servers=settings.kafka_bootstrap_servers,
@@ -55,12 +55,12 @@ async def lifespan(app: FastAPI):
         database_url=settings.database_url,
         embedder=embedder,
     )
-    
+
     # Start consumer task
     consumer_task = asyncio.create_task(consumer.run())
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down text embedder service")
     if consumer:
@@ -98,7 +98,7 @@ async def health_check():
 async def readiness_check():
     """Readiness check endpoint."""
     ready = consumer is not None and consumer.running
-    
+
     return JSONResponse(
         content={
             "status": "ready" if ready else "not_ready",
@@ -129,7 +129,7 @@ async def embed_text(text: str):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

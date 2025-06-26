@@ -427,6 +427,8 @@ services:
       LOOM_RUN_ON_STARTUP: ${LOOM_RUN_ON_STARTUP_X:-true}
       LOOM_MAX_TWEETS_TO_FETCH: 1000  # Fetch up to 1000 tweets
       LOOM_MAX_FETCH_TIME_MINUTES: 120  # Stop after 2 hours
+      # Database configuration for duplicate checking
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       # X/Twitter authentication (from .env file)
       LOOM_X_USERNAME: ${X_USERNAME:-}
       LOOM_X_PASSWORD: ${X_PASSWORD:-}
@@ -438,6 +440,8 @@ services:
       - ~/.loom/x-likes-sessions:/app/sessions
       - ~/.loom/logs/x-likes:/app/logs
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_healthy
     healthcheck:
