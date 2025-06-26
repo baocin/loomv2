@@ -22,7 +22,17 @@
       "Bash(ls:*)",
       "Bash(docker build:*)",
       "Bash(docker volume:*)",
-      "Bash(docker run:*)"
+      "Bash(docker run:*)",
+      "Bash(--network loomv2_default )",
+      "Bash(-e KAFKA_BOOTSTRAP_SERVERS=kafka:29092 )",
+      "Bash(-e KAFKA_TOPIC_PREFIX=\"\" )",
+      "Bash(-e LOOM_KAFKA_INPUT_TOPIC=external.twitter.liked.raw )",
+      "Bash(-e LOOM_KAFKA_OUTPUT_TOPIC=task.url.processed.twitter_archived )",
+      "Bash(-e LOOM_LOG_LEVEL=INFO )",
+      "Bash(-e TZ=UTC )",
+      "Bash(-v ~/.loom/twitter_images:/app/screenshots )",
+      "Bash(-v ~/.loom/logs/x-url-processor:/app/logs )",
+      "Bash(loomv2-x-url-processor-ocr:*)"
     ]
   },
   "enableAllProjectMcpServers": false

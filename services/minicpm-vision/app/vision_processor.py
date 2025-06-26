@@ -3,7 +3,7 @@
 import base64
 import time
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import outlines
 import structlog

@@ -1,0 +1,6 @@
+torch>=2.0.0
+transformers>=4.35.0
+pillow>=10.0.0
+kafka-python>=2.0.2
+asyncio
+python-dotenv>=1.0.0
