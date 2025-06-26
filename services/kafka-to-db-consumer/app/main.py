@@ -4,6 +4,7 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from typing import Any, Dict
+from datetime import datetime
 
 import asyncpg
 import structlog
@@ -32,8 +33,10 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 # Configuration
-DATABASE_URL = "postgresql://loom:loom@localhost:5432/loom"
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+import os
+
+DATABASE_URL = os.getenv("LOOM_DATABASE_URL", "postgresql://loom:loom@localhost:5432/loom")
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_GROUP_ID = "kafka-to-db-consumer"
 
 # Topic to table mappings
@@ -45,6 +48,9 @@ TOPIC_TABLE_MAPPINGS = {
     "analysis.image.face_emotions": "analysis_image_face_emotions_raw",
     "analysis.context.reasoning_chains": "analysis_context_reasoning_chains_raw",
     "task.url.processed_content": "task_url_processed_content_raw",
+    "task.url.processed.twitter_archived": "twitter_extraction_results",
+    "analysis.text.embedded.emails": "emails_with_embeddings",
+    "analysis.text.embedded.twitter": "twitter_likes_with_embeddings",
 }
 
 
@@ -156,6 +162,12 @@ class KafkaToDBConsumer:
             await self._insert_reasoning_chains(table_name, data)
         elif topic == "task.url.processed_content":
             await self._insert_processed_content(table_name, data)
+        elif topic == "task.url.processed.twitter_archived":
+            await self._insert_twitter_extraction(table_name, data)
+        elif topic == "analysis.text.embedded.emails":
+            await self._insert_embedded_emails(table_name, data)
+        elif topic == "analysis.text.embedded.twitter":
+            await self._insert_embedded_twitter(table_name, data)
 
         logger.debug(
             "Message processed successfully",
@@ -377,6 +389,145 @@ class KafkaToDBConsumer:
                 data.get("tags"),
                 data.get("processing_duration_ms"),
                 data.get("processor_version"),
+            )
+
+    async def _insert_twitter_extraction(self, table_name: str, data: Dict[str, Any]):
+        """Insert Twitter extraction results."""
+        query = f"""
+        INSERT INTO {table_name} (
+            trace_id, tweet_id, url, timestamp,
+            screenshot_path, screenshot_size_bytes, screenshot_dimensions,
+            extracted_text, extracted_links, extracted_media, extracted_metadata,
+            processor_version, processing_duration_ms, error_message
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ON CONFLICT (tweet_id) DO UPDATE SET
+            screenshot_path = EXCLUDED.screenshot_path,
+            extracted_text = EXCLUDED.extracted_text,
+            extracted_metadata = EXCLUDED.extracted_metadata,
+            timestamp = NOW()
+        """
+        
+        # Parse timestamp if it's a string
+        timestamp = data.get("extraction_timestamp")
+        if isinstance(timestamp, str):
+            from dateutil import parser
+            timestamp = parser.isoparse(timestamp)
+        elif timestamp is None:
+            timestamp = datetime.utcnow()
+        
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                query,
+                data.get("trace_id"),
+                data.get("tweet_id"),
+                data.get("url"),
+                timestamp,
+                data.get("screenshot_path"),
+                data.get("screenshot_size_bytes"),
+                json.dumps(data.get("screenshot_dimensions", {})),
+                data.get("extracted_text"),
+                json.dumps(data.get("extracted_links", [])),
+                json.dumps(data.get("extracted_media", [])),
+                json.dumps(data.get("extracted_metadata", {})),
+                data.get("processor_version"),
+                data.get("processing_duration_ms"),
+                data.get("error_message"),
+            )
+            
+            # Also update the twitter_likes_with_embeddings table if exists
+            if data.get("screenshot_path"):
+                await conn.execute("""
+                    UPDATE twitter_likes_with_embeddings
+                    SET screenshot_url = $1,
+                        extracted_content = $2,
+                        extraction_timestamp = NOW()
+                    WHERE tweet_id = $3
+                """, 
+                data.get("screenshot_path"),
+                json.dumps({
+                    "text": data.get("extracted_text"),
+                    "links": data.get("extracted_links", []),
+                    "media": data.get("extracted_media", []),
+                }),
+                data.get("tweet_id")
+            )
+
+    async def _insert_embedded_emails(self, table_name: str, data: Dict[str, Any]):
+        """Insert email with embeddings."""
+        query = f"""
+        INSERT INTO {table_name} (
+            trace_id, message_id, device_id, timestamp, received_at,
+            subject, sender_name, sender_email, recipient_email,
+            body_text, body_html, headers, attachments, folder, email_source,
+            embedding, embedding_model, embedding_timestamp, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        ON CONFLICT (trace_id) DO UPDATE SET
+            embedding = EXCLUDED.embedding,
+            embedding_model = EXCLUDED.embedding_model,
+            embedding_timestamp = NOW()
+        """
+        
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                query,
+                data.get("trace_id"),
+                data.get("message_id"),
+                data.get("device_id"),
+                data.get("timestamp", datetime.utcnow()),
+                data.get("received_at", datetime.utcnow()),
+                data.get("subject"),
+                data.get("sender_name"),
+                data.get("sender_email"),
+                data.get("recipient_email"),
+                data.get("body_text"),
+                data.get("body_html"),
+                json.dumps(data.get("headers", {})),
+                json.dumps(data.get("attachments", [])),
+                data.get("folder"),
+                data.get("email_source"),
+                data.get("embedding"),  # This should be a list of floats
+                data.get("embedding_model"),
+                data.get("embedding_timestamp", datetime.utcnow()),
+                json.dumps(data.get("metadata", {})),
+            )
+
+    async def _insert_embedded_twitter(self, table_name: str, data: Dict[str, Any]):
+        """Insert Twitter like with embeddings."""
+        query = f"""
+        INSERT INTO {table_name} (
+            trace_id, tweet_id, device_id, timestamp, liked_at, received_at,
+            tweet_url, tweet_text, author_username, author_name, author_profile_url,
+            embedding, embedding_model, embedding_timestamp,
+            screenshot_url, extracted_content, extraction_timestamp, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        ON CONFLICT (tweet_id) DO UPDATE SET
+            tweet_text = EXCLUDED.tweet_text,
+            embedding = EXCLUDED.embedding,
+            embedding_model = EXCLUDED.embedding_model,
+            embedding_timestamp = NOW()
+        """
+        
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                query,
+                data.get("trace_id"),
+                data.get("tweet_id"),
+                data.get("device_id"),
+                data.get("timestamp", datetime.utcnow()),
+                data.get("liked_at"),
+                data.get("received_at", datetime.utcnow()),
+                data.get("tweet_url"),
+                data.get("tweet_text"),
+                data.get("author_username"),
+                data.get("author_name"),
+                data.get("author_profile_url"),
+                data.get("embedding"),  # This should be a list of floats
+                data.get("embedding_model"),
+                data.get("embedding_timestamp", datetime.utcnow()),
+                data.get("screenshot_url"),
+                json.dumps(data.get("extracted_content", {})),
+                data.get("extraction_timestamp"),
+                json.dumps(data.get("metadata", {})),
             )
 
 

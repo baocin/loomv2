@@ -30,7 +30,7 @@ class XTweetProcessor:
             viewport={"width": 700, "height": 3000}, user_agent=user_agent
         )
 
-    async def scrape_tweet(self, url: str) -> Optional[Dict[str, Any]]:
+    async def scrape_tweet(self, url: str, trace_id: str = None, tweet_id: str = None) -> Optional[Dict[str, Any]]:
         """Scrape tweet content and take screenshot"""
         _xhr_calls = []
 
@@ -60,13 +60,26 @@ class XTweetProcessor:
                 logging.info(f"Tweet does not exist: {url}")
                 return None
 
-            tweet_id = url.split("/")[-1]
+            if not tweet_id:
+                tweet_id = url.split("/")[-1]
 
             # Take screenshot
+            screenshot_path = None
             try:
                 image_data = await page.locator('[data-testid="tweet"]').screenshot(
                     timeout=5000
                 )
+                # Save screenshot with trace_id and tweet_id
+                if image_data:
+                    import os
+                    import base64
+                    screenshot_dir = "/app/screenshots"
+                    os.makedirs(screenshot_dir, exist_ok=True)
+                    screenshot_filename = f"{trace_id or 'unknown'}_{tweet_id}.png"
+                    screenshot_path = os.path.join(screenshot_dir, screenshot_filename)
+                    with open(screenshot_path, "wb") as f:
+                        f.write(image_data)
+                    logging.info(f"Screenshot saved to {screenshot_path}")
             except Exception as e:
                 logging.error(f"Screenshot failed: {e} - {url}")
                 try:
@@ -79,17 +92,38 @@ class XTweetProcessor:
                     )
                     image_data = None
 
+            # Extract text content from the page
+            extracted_text = ""
+            try:
+                # Get tweet text
+                tweet_text_elem = await page.query_selector('[data-testid="tweetText"]')
+                if tweet_text_elem:
+                    extracted_text = await tweet_text_elem.inner_text()
+                
+                # Get author name
+                author_elem = await page.query_selector('[data-testid="User-Name"]')
+                author_name = await author_elem.inner_text() if author_elem else ""
+            except Exception as e:
+                logging.error(f"Failed to extract text content: {e}")
+
             # Collect background API calls for tweet data
             tweet_data = await self._collect_background_calls(_xhr_calls)
 
-            if tweet_data:
-                tweet_data["image_data"] = image_data
-                tweet_data["url"] = url
-                tweet_data["tweet_id"] = tweet_id
+            if not tweet_data:
+                tweet_data = {}
 
-                return tweet_data
+            # Add our extracted data
+            tweet_data.update({
+                "url": url,
+                "tweet_id": tweet_id,
+                "trace_id": trace_id,
+                "screenshot_path": screenshot_path,
+                "extracted_text": extracted_text,
+                "author_name": author_name,
+                "extraction_timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+            })
 
-            return None
+            return tweet_data
 
         except Exception as e:
             logging.error(f"Error scraping tweet {url}: {e}")

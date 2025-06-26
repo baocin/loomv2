@@ -10,9 +10,9 @@ class KafkaProducer:
     def __init__(self):
         """Initialize Kafka producer"""
         self.bootstrap_servers = os.getenv(
-            "LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+            "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
         )
-        self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
+        self.topic_prefix = os.getenv("KAFKA_TOPIC_PREFIX", "")
 
         self.producer = KP(
             bootstrap_servers=self.bootstrap_servers,

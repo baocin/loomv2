@@ -21,8 +21,8 @@ RUN playwright install-deps chromium
 # Copy application code
 COPY app/ ./app/
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Create logs and screenshots directories
+RUN mkdir -p /app/logs /app/screenshots
 
 # Set environment variables
 ENV PYTHONPATH=/app

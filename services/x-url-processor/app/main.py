@@ -26,8 +26,19 @@ class XUrlProcessorService:
     async def process_message(self, message):
         """Process a single URL message from Kafka"""
         try:
-            data = message.get("data", {})
+            # Handle both wrapped and direct message formats
+            if "data" in message:
+                data = message.get("data", {})
+                # Check for trace_id at both top level and inside data
+                trace_id = message.get("trace_id") or data.get("trace_id")
+                tweet_id = data.get("tweet_id")
+            else:
+                data = message
+                trace_id = data.get("trace_id")
+                tweet_id = data.get("tweet_id")
+                
             url = data.get("url")
+            metadata = data.get("metadata", {})
 
             # Only process X.com/Twitter URLs
             if not url:
@@ -42,11 +53,11 @@ class XUrlProcessorService:
                 logging.debug(f"Skipping non-X.com URL: {url}")
                 return
 
-            logging.info(f"Processing X.com URL: {url}")
+            logging.info(f"Processing X.com URL: {url} (trace_id: {trace_id}, tweet_id: {tweet_id})")
 
             # Setup browser and process tweet
             await self.tweet_processor.setup()
-            tweet_data = await self.tweet_processor.scrape_tweet(url)
+            tweet_data = await self.tweet_processor.scrape_tweet(url, trace_id, tweet_id)
             await self.tweet_processor.cleanup()
 
             if tweet_data:
@@ -56,21 +67,27 @@ class XUrlProcessorService:
                 )
 
                 # Send processed tweet data to Kafka
+                # Flatten the structure for the DB consumer
                 output_message = {
-                    "schema_version": "v1",
-                    "device_id": None,
-                    "timestamp": tweet_data.get("created_at"),
-                    "data": {
-                        "url": url,
-                        "source": "x.com",
-                        "tweet_data": tweet_data,
-                        "screenshot_available": tweet_data.get("image_data")
-                        is not None,
+                    "trace_id": tweet_data.get("trace_id"),
+                    "tweet_id": tweet_data.get("tweet_id"),
+                    "url": tweet_data.get("url"),
+                    "extraction_timestamp": tweet_data.get("extraction_timestamp"),
+                    "screenshot_path": tweet_data.get("screenshot_path"),
+                    "extracted_text": tweet_data.get("extracted_text"),
+                    "extracted_links": tweet_data.get("extracted_links", []),
+                    "extracted_media": tweet_data.get("extracted_media", []),
+                    "extracted_metadata": {
+                        "author_name": tweet_data.get("author_name"),
+                        "created_at": tweet_data.get("created_at"),
+                        "full_data": tweet_data.get("tweet", {}),
                     },
+                    "processor_version": "1.0.0",
+                    "processing_duration_ms": tweet_data.get("processing_duration_ms", 0),
                 }
 
                 self.kafka_producer.send_message(
-                    topic=output_topic, key=url, value=output_message
+                    topic=output_topic, key=tweet_data.get("tweet_id", url), value=output_message
                 )
 
                 logging.info(f"Successfully processed and archived X.com URL: {url}")

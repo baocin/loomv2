@@ -10,7 +10,7 @@ class KafkaConsumer:
     def __init__(self):
         """Initialize Kafka consumer"""
         self.bootstrap_servers = os.getenv(
-            "LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+            "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
         )
         self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
         self.group_id = os.getenv("LOOM_KAFKA_CONSUMER_GROUP", "x-url-processor")
@@ -24,7 +24,7 @@ class KafkaConsumer:
                 bootstrap_servers=self.bootstrap_servers,
                 group_id=self.group_id,
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-                auto_offset_reset="latest",
+                auto_offset_reset="earliest",
                 enable_auto_commit=True,
                 consumer_timeout_ms=1000,
             )
