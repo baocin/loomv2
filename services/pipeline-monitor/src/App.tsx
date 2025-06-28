@@ -13,7 +13,8 @@ import 'reactflow/dist/style.css'
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
 import { LogViewer } from './components/LogViewer'
-import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics } from './hooks/usePipelineData'
+import { TestMessagePanel } from './components/TestMessagePanel'
+import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
 
 const STORAGE_KEY = 'loom-pipeline-node-positions'
 
@@ -73,6 +74,8 @@ function App() {
   })
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [logViewerTopic, setLogViewerTopic] = useState<string | null>(null)
+  const [showTestPanel, setShowTestPanel] = useState(false)
+  const [testPanelTopic, setTestPanelTopic] = useState<string>('')
 
   const { data: pipelineData, isLoading: isPipelineLoading } = usePipelineData()
   const { data: topicMetrics, isLoading: isTopicMetricsLoading } = useTopicMetrics()
@@ -80,6 +83,8 @@ function App() {
   const { data: latestMessage } = useLatestMessage(selectedTopic || '')
   const clearCacheMutation = useClearCache()
   const clearAllTopicsMutation = useClearAllTopics()
+  const { data: autoDiscoveryData } = useAutoDiscovery()
+  const { data: serviceHealthData } = useServiceHealth()
 
   // Custom nodes change handler (keep basic functionality)
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
@@ -130,6 +135,19 @@ function App() {
           updatedData.metrics = metrics
           updatedData.status = new Date().getTime() - new Date(metrics.lastHeartbeat).getTime() < 30000 ? 'active' : 'idle'
         }
+
+        // Add health status from auto-discovery
+        if (serviceHealthData?.services) {
+          const health = serviceHealthData.services.find((s: any) =>
+            s.serviceId.includes(node.id) ||
+            s.serviceName.toLowerCase().includes(node.data.label.toLowerCase())
+          )
+          if (health) {
+            updatedData.health = health
+            updatedData.status = health.status === 'healthy' ? 'active' :
+                                health.status === 'degraded' ? 'idle' : 'error'
+          }
+        }
       }
 
       // Restore saved position if available, otherwise use default
@@ -155,6 +173,7 @@ function App() {
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'kafka-topic') {
       setSelectedTopic(node.id)
+      setTestPanelTopic(node.id) // Auto-select in test panel
       setModalData({
         isOpen: true,
         title: node.id,
@@ -251,6 +270,40 @@ function App() {
           <div>Active Consumers: {consumerMetrics?.filter(c =>
             new Date().getTime() - new Date(c.lastHeartbeat).getTime() < 30000
           ).length || 0}</div>
+
+          {/* Service Health Summary */}
+          {serviceHealthData && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="font-semibold mb-1">Service Health</div>
+              <div className="text-xs space-y-1">
+                <div>Total Services: {serviceHealthData.pipeline?.totalServices || 0}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600">Healthy: {serviceHealthData.pipeline?.healthy || 0}</span>
+                  <span className="text-red-600">Unhealthy: {serviceHealthData.pipeline?.unhealthy || 0}</span>
+                </div>
+                {serviceHealthData.pipeline?.overallHealth && (
+                  <div className={`font-semibold ${
+                    serviceHealthData.pipeline.overallHealth === 'healthy' ? 'text-green-600' :
+                    serviceHealthData.pipeline.overallHealth === 'degraded' ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    Pipeline: {serviceHealthData.pipeline.overallHealth.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Auto-Discovery Summary */}
+          {autoDiscoveryData && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="font-semibold mb-1">Auto-Discovery</div>
+              <div className="text-xs space-y-1">
+                <div>Discovered Flows: {autoDiscoveryData.flows?.length || 0}</div>
+                <div>K8s Services: {autoDiscoveryData.services?.kubernetes?.length || 0}</div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-2">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -268,6 +321,15 @@ function App() {
           <div className="text-xs text-gray-500 mt-2">
             Click on nodes to view raw data
           </div>
+          <button
+            onClick={() => setShowTestPanel(!showTestPanel)}
+            className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            {showTestPanel ? 'Hide' : 'Show'} Test Panel
+          </button>
           <button
             onClick={handleClearCache}
             disabled={clearCacheMutation.isPending}
@@ -339,6 +401,16 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Test Message Panel */}
+      {showTestPanel && (
+        <div className="absolute top-4 right-4 z-10 w-80">
+          <TestMessagePanel
+            selectedTopic={testPanelTopic}
+            onTopicChange={setTestPanelTopic}
+          />
+        </div>
+      )}
 
       <ReactFlow
         nodes={nodes}

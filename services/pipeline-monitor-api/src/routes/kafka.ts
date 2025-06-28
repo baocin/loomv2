@@ -5,10 +5,16 @@ import { MemoryCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { config } from '../config'
 import { PipelineBuilder } from '../services/pipelineBuilder'
+import { K8sDiscovery } from '../services/k8sDiscovery'
+import { ServiceRegistry } from '../services/serviceRegistry'
+import { HealthMonitor } from '../services/healthMonitor'
 
 export function createKafkaRoutes(
   kafkaClient: KafkaClient,
-  metricsCollector: KafkaMetricsCollector
+  metricsCollector: KafkaMetricsCollector,
+  k8sDiscovery?: K8sDiscovery,
+  serviceRegistry?: ServiceRegistry,
+  healthMonitor?: HealthMonitor
 ): Router {
   const router = Router()
   const messageCache = new MemoryCache<any>(config.cache.cacheTimeout)
@@ -216,6 +222,138 @@ export function createKafkaRoutes(
         error: 'Failed to clear topics',
         details: error instanceof Error ? error.message : String(error)
       })
+    }
+  })
+
+  // Auto-discovery endpoint
+  router.get('/discover/all', async (req, res) => {
+    try {
+      // Get all topics
+      const topics = await kafkaClient.getTopics()
+      const userTopics = topics.filter(topic =>
+        !topic.startsWith('__') && !topic.startsWith('_')
+      )
+
+      // Get consumer groups
+      const consumerGroups = await kafkaClient.getConsumerGroups()
+      const userGroups = consumerGroups.filter(group =>
+        !group.groupId.startsWith('__') && !group.groupId.startsWith('_')
+      )
+
+      // Get flows
+      const flows = await pipelineBuilder.detectFlows()
+
+      // Get K8s services if available
+      let k8sServices: any[] = []
+      if (k8sDiscovery) {
+        try {
+          k8sServices = await k8sDiscovery.discoverServices()
+        } catch (error) {
+          logger.warn('K8s discovery failed', error)
+        }
+      }
+
+      // Get registered services
+      let registeredServices: any[] = []
+      if (serviceRegistry) {
+        registeredServices = serviceRegistry.getAllServices()
+      }
+
+      // Get health statuses
+      let healthStatuses: any[] = []
+      if (healthMonitor) {
+        healthStatuses = healthMonitor.getAllHealthStatuses()
+      }
+
+      res.json({
+        topics: userTopics,
+        consumers: userGroups,
+        flows,
+        services: {
+          kubernetes: k8sServices,
+          registered: registeredServices
+        },
+        health: healthStatuses,
+        summary: {
+          topicCount: userTopics.length,
+          consumerCount: userGroups.length,
+          flowCount: flows.length,
+          serviceCount: registeredServices.length + k8sServices.length
+        }
+      })
+    } catch (error) {
+      logger.error('Failed to perform auto-discovery', error)
+      res.status(500).json({ error: 'Failed to perform auto-discovery' })
+    }
+  })
+
+  // Service health endpoint
+  router.get('/services/health', async (req, res) => {
+    try {
+      if (!healthMonitor) {
+        res.status(501).json({ error: 'Health monitoring not available' })
+        return
+      }
+
+      const pipelineHealth = healthMonitor.getPipelineHealth()
+      const healthStatuses = healthMonitor.getAllHealthStatuses()
+
+      res.json({
+        pipeline: pipelineHealth,
+        services: healthStatuses,
+        timestamp: new Date().toISOString()
+      })
+    } catch (error) {
+      logger.error('Failed to get service health', error)
+      res.status(500).json({ error: 'Failed to get service health' })
+    }
+  })
+
+  // Service registry endpoint
+  router.get('/services/registry', async (req, res) => {
+    try {
+      if (!serviceRegistry) {
+        res.status(501).json({ error: 'Service registry not available' })
+        return
+      }
+
+      const services = serviceRegistry.getAllServices()
+      const topology = serviceRegistry.buildTopology()
+
+      res.json({
+        services,
+        topology: Array.from(topology.entries()).map(([from, to]) => ({
+          from,
+          to: Array.from(to)
+        })),
+        timestamp: new Date().toISOString()
+      })
+    } catch (error) {
+      logger.error('Failed to get service registry', error)
+      res.status(500).json({ error: 'Failed to get service registry' })
+    }
+  })
+
+  // Service metrics endpoint
+  router.get('/services/:serviceId/metrics', async (req, res) => {
+    try {
+      const { serviceId } = req.params
+
+      if (!healthMonitor) {
+        res.status(501).json({ error: 'Health monitoring not available' })
+        return
+      }
+
+      const metrics = await healthMonitor.getServiceMetrics(serviceId)
+      if (!metrics) {
+        res.status(404).json({ error: 'Service not found' })
+        return
+      }
+
+      res.json(metrics)
+    } catch (error) {
+      logger.error(`Failed to get metrics for service ${req.params.serviceId}`, error)
+      res.status(500).json({ error: 'Failed to get service metrics' })
     }
   })
 

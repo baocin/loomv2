@@ -103,6 +103,100 @@ export class KafkaClient {
     }
   }
 
+  async getConsumerGroupDetails(groupId: string): Promise<any> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    try {
+      const description = await this.admin.describeGroups([groupId])
+      return description.groups[0]
+    } catch (error) {
+      logger.error(`Failed to describe consumer group ${groupId}`, error)
+      throw error
+    }
+  }
+
+  async getTopicConfigurations(topics: string[]): Promise<any> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    try {
+      const configs = await this.admin.describeConfigs({
+        resources: topics.map(topic => ({
+          type: 2, // TOPIC
+          name: topic
+        })),
+        includeSynonyms: false
+      })
+      return configs
+    } catch (error) {
+      logger.error('Failed to fetch topic configurations', error)
+      throw error
+    }
+  }
+
+  async getConsumerGroupSubscriptions(): Promise<Map<string, string[]>> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    const subscriptions = new Map<string, string[]>()
+
+    try {
+      const groups = await this.getConsumerGroups()
+
+      for (const group of groups) {
+        if (group.groupId.startsWith('__') || group.groupId.startsWith('_')) {
+          continue // Skip internal groups
+        }
+
+        try {
+          const offsets = await this.admin.fetchOffsets({ groupId: group.groupId })
+          const topics = offsets.map((offset: any) => offset.topic)
+          subscriptions.set(group.groupId, [...new Set(topics)])
+        } catch (error) {
+          logger.warn(`Failed to get subscriptions for group ${group.groupId}`, error)
+        }
+      }
+
+      return subscriptions
+    } catch (error) {
+      logger.error('Failed to fetch consumer group subscriptions', error)
+      throw error
+    }
+  }
+
+  async getConsumerLag(groupId: string, topics?: string[]): Promise<any> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    try {
+      const groupOffsets = await this.admin.fetchOffsets({ groupId, topics })
+      const lag: any[] = []
+
+      for (const topicOffset of groupOffsets) {
+        const topicHighWatermarks = await this.admin.fetchTopicOffsets(topicOffset.topic)
+
+        for (const partition of topicOffset.partitions) {
+          const highWatermark = topicHighWatermarks.find(
+            hw => hw.partition === partition.partition
+          )
+
+          if (highWatermark && partition.offset) {
+            const currentLag = parseInt(highWatermark.high) - parseInt(partition.offset)
+            lag.push({
+              topic: topicOffset.topic,
+              partition: partition.partition,
+              currentOffset: partition.offset,
+              highWatermark: highWatermark.high,
+              lag: currentLag
+            })
+          }
+        }
+      }
+
+      return lag
+    } catch (error) {
+      logger.error(`Failed to calculate lag for group ${groupId}`, error)
+      throw error
+    }
+  }
+
   async getConsumerGroupOffsets(groupId: string, topics?: string[]) {
     if (!this.admin) throw new Error('Kafka admin not connected')
 

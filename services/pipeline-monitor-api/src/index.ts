@@ -10,6 +10,9 @@ import { MonitorWebSocketServer } from './websocket/server'
 import { createKafkaRoutes } from './routes/kafka'
 import { createDatabaseRoutes } from './routes/database'
 import { createHealthRoutes } from './routes/health'
+import { K8sDiscovery } from './services/k8sDiscovery'
+import { ServiceRegistry } from './services/serviceRegistry'
+import { HealthMonitor } from './services/healthMonitor'
 
 class PipelineMonitorAPI {
   private app: express.Application
@@ -18,12 +21,18 @@ class PipelineMonitorAPI {
   private databaseClient: DatabaseClient
   private metricsCollector: KafkaMetricsCollector
   private wsServer: MonitorWebSocketServer
+  private k8sDiscovery: K8sDiscovery
+  private serviceRegistry: ServiceRegistry
+  private healthMonitor: HealthMonitor
 
   constructor() {
     this.app = express()
     this.kafkaClient = new KafkaClient()
     this.databaseClient = new DatabaseClient()
     this.metricsCollector = new KafkaMetricsCollector(this.kafkaClient)
+    this.k8sDiscovery = new K8sDiscovery()
+    this.serviceRegistry = new ServiceRegistry()
+    this.healthMonitor = new HealthMonitor(this.serviceRegistry, this.k8sDiscovery, this.kafkaClient)
     this.wsServer = new MonitorWebSocketServer(this.metricsCollector, this.databaseClient, this.kafkaClient)
 
     this.setupMiddleware()
@@ -66,7 +75,13 @@ class PipelineMonitorAPI {
     ))
 
     // API routes
-    this.app.use('/api/kafka', createKafkaRoutes(this.kafkaClient, this.metricsCollector))
+    this.app.use('/api/kafka', createKafkaRoutes(
+      this.kafkaClient,
+      this.metricsCollector,
+      this.k8sDiscovery,
+      this.serviceRegistry,
+      this.healthMonitor
+    ))
     this.app.use('/api/database', createDatabaseRoutes(this.databaseClient))
 
     // Root endpoint
@@ -129,6 +144,9 @@ class PipelineMonitorAPI {
     logger.info('Shutting down Pipeline Monitor API...')
 
     try {
+      // Shutdown health monitor
+      this.healthMonitor.shutdown()
+
       // Close WebSocket server
       this.wsServer.shutdown()
 

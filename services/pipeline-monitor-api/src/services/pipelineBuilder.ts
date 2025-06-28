@@ -25,6 +25,24 @@ interface PipelineFlow {
   edges: PipelineEdge[]
 }
 
+interface TopicFlow {
+  source: string
+  processor: string
+  destination: string
+  health?: 'healthy' | 'warning' | 'error' | 'unknown'
+  lag?: number
+}
+
+interface ProcessorInfo {
+  id: string
+  label: string
+  description: string
+  inputTopics: string[]
+  outputTopics: string[]
+  health?: 'healthy' | 'warning' | 'error' | 'unknown'
+  lag?: number
+}
+
 export class PipelineBuilder {
   private kafkaClient: KafkaClient
   private metricsCollector: KafkaMetricsCollector
@@ -34,10 +52,206 @@ export class PipelineBuilder {
     this.metricsCollector = metricsCollector
   }
 
+  async detectFlows(): Promise<TopicFlow[]> {
+    const flows: TopicFlow[] = []
+
+    try {
+      // Get consumer group subscriptions
+      const subscriptions = await this.kafkaClient.getConsumerGroupSubscriptions()
+
+      // Comprehensive processor mappings for all workflows
+      const processorMappings: Record<string, { input: string[], output: string[] }> = {
+        // Audio Processing Pipeline
+        'silero-vad-consumer': {
+          input: ['device.audio.raw'],
+          output: ['media.audio.vad_filtered']
+        },
+        'parakeet-tdt-consumer': {
+          input: ['media.audio.vad_filtered'],
+          output: ['media.text.transcribed.words', 'media.text.word_timestamps']
+        },
+        'bud-e-emotion-consumer': {
+          input: ['media.audio.vad_filtered'],
+          output: ['analysis.audio.emotion_scores']
+        },
+
+        // Vision Processing Pipeline
+        'minicpm-vision-consumer': {
+          input: ['device.image.camera.raw', 'device.video.screen.raw'],
+          output: ['media.image.vision_annotations']
+        },
+        'face-emotion-consumer': {
+          input: ['media.image.vision_annotations'],
+          output: ['analysis.image.face_emotions']
+        },
+        'moondream-ocr-consumer': {
+          input: ['device.image.camera.raw', 'task.url.screenshot'],
+          output: ['media.image.analysis.moondream_results']
+        },
+
+        // Text Processing Pipeline
+        'text-embedder-consumer': {
+          input: [
+            'external.email.events.raw',
+            'external.twitter.liked.raw',
+            'media.text.transcribed.words',
+            'task.url.processed.content'
+          ],
+          output: [
+            'analysis.text.embedded.emails',
+            'analysis.text.embedded.twitter',
+            'analysis.text.embedded.general'
+          ]
+        },
+        'nomic-embed-consumer': {
+          input: [
+            'device.text.notes.raw',
+            'media.text.transcribed.words',
+            'task.url.processed.content',
+            'task.github.processed.content',
+            'task.document.processed.content'
+          ],
+          output: ['analysis.embeddings.nomic']
+        },
+
+        // High-Level Reasoning Pipeline
+        'mistral-reasoning-consumer': {
+          input: [
+            'media.text.word_timestamps',
+            'task.url.processed.content',
+            'analysis.audio.emotion_scores',
+            'analysis.image.face_emotions'
+          ],
+          output: ['analysis.context.reasoning_chains']
+        },
+        'onefilellm-consumer': {
+          input: ['device.text.notes.raw', 'media.text.transcribed.words'],
+          output: ['analysis.text.summaries']
+        },
+
+        // External Data Processing
+        'x-url-processor-consumer': {
+          input: ['task.url.ingest'],
+          output: ['task.url.processed.twitter_archived']
+        },
+        'hackernews-url-processor-consumer': {
+          input: ['task.url.ingest'],
+          output: ['task.url.processed.hackernews_archived']
+        },
+        'twitter-ocr-processor-consumer': {
+          input: ['external.twitter.liked.raw'],
+          output: ['task.url.screenshot', 'media.text.ocr_extracted']
+        },
+
+        // Data Fetchers (Scheduled Services)
+        'x-likes-fetcher': {
+          input: [],
+          output: ['external.twitter.liked.raw']
+        },
+        'hackernews-fetcher': {
+          input: [],
+          output: ['external.hackernews.activity.raw']
+        },
+        'email-fetcher': {
+          input: [],
+          output: ['external.email.events.raw']
+        },
+        'calendar-fetcher': {
+          input: [],
+          output: ['external.calendar.events.raw']
+        },
+
+        // Database Consumer (consumes everything for storage)
+        'kafka-to-db-consumer': {
+          input: [
+            // Raw device data
+            'device.audio.raw',
+            'device.image.camera.raw',
+            'device.video.screen.raw',
+            'device.sensor.gps.raw',
+            'device.sensor.accelerometer.raw',
+            'device.health.heartrate.raw',
+            'device.state.power.raw',
+            'device.system.apps.macos.raw',
+            'device.system.apps.android.raw',
+            // Processed media
+            'media.audio.vad_filtered',
+            'media.text.transcribed.words',
+            'media.image.vision_annotations',
+            // Analysis results
+            'analysis.audio.emotion_scores',
+            'analysis.image.face_emotions',
+            'analysis.context.reasoning_chains',
+            'analysis.text.embedded.emails',
+            'analysis.text.embedded.twitter',
+            // External data
+            'external.twitter.liked.raw',
+            'external.hackernews.activity.raw',
+            'external.email.events.raw',
+            'external.calendar.events.raw',
+            // Task results
+            'task.url.processed.twitter_archived',
+            'task.url.processed.hackernews_archived'
+          ],
+          output: [] // Database consumer doesn't produce topics
+        }
+      }
+
+      // Add discovered subscriptions to mappings
+      for (const [groupId, topics] of subscriptions) {
+        if (!processorMappings[groupId]) {
+          processorMappings[groupId] = {
+            input: topics,
+            output: []
+          }
+        } else {
+          // Update input topics with actual subscriptions
+          processorMappings[groupId].input = topics
+        }
+      }
+
+      // Build flows based on mappings
+      for (const [processor, mapping] of Object.entries(processorMappings)) {
+        if (mapping.input.length > 0 && mapping.output.length > 0) {
+          for (const inputTopic of mapping.input) {
+            for (const outputTopic of mapping.output) {
+              flows.push({
+                source: inputTopic,
+                processor: processor,
+                destination: outputTopic
+              })
+            }
+          }
+        }
+      }
+
+      // Add consumer lag information
+      for (const flow of flows) {
+        try {
+          const lag = await this.kafkaClient.getConsumerLag(flow.processor, [flow.source])
+          if (lag && lag.length > 0) {
+            const totalLag = lag.reduce((sum, l) => sum + l.lag, 0)
+            flow.lag = totalLag
+            flow.health = totalLag > 1000 ? 'warning' : totalLag > 10000 ? 'error' : 'healthy'
+          }
+        } catch (error) {
+          logger.warn(`Failed to get lag for ${flow.processor}`, error)
+          flow.health = 'unknown'
+        }
+      }
+
+      return flows
+    } catch (error) {
+      logger.error('Failed to detect flows', error)
+      return flows
+    }
+  }
+
   async buildPipeline(): Promise<PipelineFlow> {
     try {
       const topics = await this.kafkaClient.getTopics()
       const consumerGroups = await this.kafkaClient.getConsumerGroups()
+      const flows = await this.detectFlows()
 
       // Filter out internal topics and monitoring topics
       const userTopics = topics.filter(t =>
@@ -438,9 +652,36 @@ export class PipelineBuilder {
 
   private getConsumerLabel(groupId: string): string {
     const labelMappings: Record<string, string> = {
+      // Audio Pipeline
       'silero-vad-consumer': 'VAD Processor',
       'parakeet-tdt-consumer': 'Speech-to-Text',
+      'bud-e-emotion-consumer': 'Audio Emotion',
+
+      // Vision Pipeline
       'minicpm-vision-consumer': 'Vision Analyzer',
+      'face-emotion-consumer': 'Face Emotion',
+      'moondream-ocr-consumer': 'OCR Processor',
+
+      // Text Pipeline
+      'text-embedder-consumer': 'Text Embedder',
+      'nomic-embed-consumer': 'Nomic Embedder',
+
+      // Reasoning Pipeline
+      'mistral-reasoning-consumer': 'Mistral Reasoning',
+      'onefilellm-consumer': 'OneFile LLM',
+
+      // External Data
+      'x-url-processor-consumer': 'Twitter Processor',
+      'hackernews-url-processor-consumer': 'HackerNews Processor',
+      'twitter-ocr-processor-consumer': 'Twitter OCR',
+
+      // Fetchers
+      'x-likes-fetcher': 'Twitter Fetcher',
+      'hackernews-fetcher': 'HackerNews Fetcher',
+      'email-fetcher': 'Email Fetcher',
+      'calendar-fetcher': 'Calendar Fetcher',
+
+      // Database
       'kafka-to-db-consumer': 'Database Writer'
     }
 
@@ -457,9 +698,36 @@ export class PipelineBuilder {
 
   private getConsumerDescription(groupId: string): string {
     const descriptionMappings: Record<string, string> = {
+      // Audio Pipeline
       'silero-vad-consumer': 'Voice Activity Detection',
       'parakeet-tdt-consumer': 'Audio transcription',
-      'minicpm-vision-consumer': 'Image analysis & OCR',
+      'bud-e-emotion-consumer': 'Audio emotion analysis',
+
+      // Vision Pipeline
+      'minicpm-vision-consumer': 'Image analysis & captioning',
+      'face-emotion-consumer': 'Facial emotion detection',
+      'moondream-ocr-consumer': 'OCR text extraction',
+
+      // Text Pipeline
+      'text-embedder-consumer': 'Text vectorization',
+      'nomic-embed-consumer': 'Multimodal embeddings',
+
+      // Reasoning Pipeline
+      'mistral-reasoning-consumer': 'Context understanding',
+      'onefilellm-consumer': 'Document summarization',
+
+      // External Data
+      'x-url-processor-consumer': 'Twitter content archiving',
+      'hackernews-url-processor-consumer': 'HackerNews archiving',
+      'twitter-ocr-processor-consumer': 'Twitter screenshot OCR',
+
+      // Fetchers
+      'x-likes-fetcher': 'Twitter likes collection',
+      'hackernews-fetcher': 'HackerNews monitoring',
+      'email-fetcher': 'Email synchronization',
+      'calendar-fetcher': 'Calendar event sync',
+
+      // Database
       'kafka-to-db-consumer': 'Data persistence'
     }
 
@@ -469,9 +737,31 @@ export class PipelineBuilder {
   private addKnownProcessors(processors: any[], topics: string[]): void {
     // Add processors for known services that might not have active consumer groups
     const knownServices = [
+      // Audio Pipeline
       { groupId: 'silero-vad-consumer', required: ['device.audio.raw'] },
       { groupId: 'parakeet-tdt-consumer', required: ['media.audio.vad_filtered'] },
-      { groupId: 'minicpm-vision-consumer', required: ['device.image.camera.raw'] }
+      { groupId: 'bud-e-emotion-consumer', required: ['media.audio.vad_filtered'] },
+
+      // Vision Pipeline
+      { groupId: 'minicpm-vision-consumer', required: ['device.image.camera.raw'] },
+      { groupId: 'face-emotion-consumer', required: ['media.image.vision_annotations'] },
+      { groupId: 'moondream-ocr-consumer', required: ['device.image.camera.raw'] },
+
+      // Text Pipeline
+      { groupId: 'text-embedder-consumer', required: ['external.email.events.raw'] },
+      { groupId: 'nomic-embed-consumer', required: ['device.text.notes.raw'] },
+
+      // Reasoning Pipeline
+      { groupId: 'mistral-reasoning-consumer', required: ['media.text.word_timestamps'] },
+      { groupId: 'onefilellm-consumer', required: ['device.text.notes.raw'] },
+
+      // External Data
+      { groupId: 'x-url-processor-consumer', required: ['task.url.ingest'] },
+      { groupId: 'hackernews-url-processor-consumer', required: ['task.url.ingest'] },
+      { groupId: 'twitter-ocr-processor-consumer', required: ['external.twitter.liked.raw'] },
+
+      // Database
+      { groupId: 'kafka-to-db-consumer', required: ['device.audio.raw'] }
     ]
 
     knownServices.forEach(service => {
@@ -516,6 +806,17 @@ export class PipelineBuilder {
       })
     }
 
+    // Identify task URL ingest producer
+    if (topics.some(t => t.startsWith('task.url.ingest'))) {
+      producers.push({
+        id: 'url-ingest-scheduler',
+        type: 'scheduler',
+        label: 'URL Scheduler',
+        description: 'Schedules URLs for processing',
+        outputTopics: topics.filter(t => t.startsWith('task.url.ingest'))
+      })
+    }
+
     // Identify scheduled data fetchers
     if (topics.some(t => t.startsWith('external.hackernews'))) {
       producers.push({
@@ -529,10 +830,10 @@ export class PipelineBuilder {
 
     if (topics.some(t => t.startsWith('external.twitter'))) {
       producers.push({
-        id: 'twitter-fetcher',
+        id: 'x-likes-fetcher',
         type: 'external',
-        label: 'Twitter Fetcher',
-        description: 'Social media data collection',
+        label: 'X Likes Fetcher',
+        description: 'Twitter/X likes data collection',
         outputTopics: topics.filter(t => t.includes('twitter'))
       })
     }
@@ -630,17 +931,20 @@ export class PipelineBuilder {
         'device.state.power.raw',
         'device.metadata.raw',
         'device.text.notes.raw',
-        'digital.notes.raw'
+        'device.system.apps.macos.raw',
+        'device.system.apps.android.raw',
+        'digital.notes.raw',
+        'digital.clipboard.raw'
       ],
+      'url-ingest-scheduler': ['task.url.ingest'],
       'hackernews-fetcher': ['external.hackernews.activity.raw'],
-      'twitter-fetcher': ['external.twitter.liked.raw'],
+      'x-likes-fetcher': ['external.twitter.liked.raw'],
       'calendar-fetcher': ['external.calendar.events.raw'],
       'email-fetcher': ['external.email.events.raw'],
       'reddit-fetcher': ['external.reddit.activity.raw'],
       'web-analytics': ['external.web.visits.raw'],
       'macos-client': ['device.system.apps.macos.raw'],
-      'android-client': ['device.system.apps.android.raw'],
-      'task-scheduler': ['task.url.ingest', 'task.url.processed_content']
+      'android-client': ['device.system.apps.android.raw']
     }
 
     // Check if this producer should produce this topic
@@ -655,7 +959,13 @@ export class PipelineBuilder {
     }
     if (producer.type === 'external' && topic.startsWith('external.')) {
       const topicParts = topic.split('.')
-      const producerName = producer.id.replace('-fetcher', '').replace('-analytics', '')
+      let producerName = producer.id.replace('-fetcher', '').replace('-analytics', '')
+
+      // Handle special cases
+      if (producer.id === 'x-likes-fetcher') {
+        producerName = 'twitter' // x-likes-fetcher produces twitter topics
+      }
+
       return topicParts.includes(producerName)
     }
     if (producer.type === 'device' && topic.includes('device.system')) {

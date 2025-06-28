@@ -124,3 +124,54 @@ export const useClearAllTopics = () => {
     },
   })
 }
+
+export const useAutoDiscovery = () => {
+  return useQuery({
+    queryKey: ['autoDiscovery'],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/kafka/discover/all`)
+        if (!response.ok) throw new Error('Failed to fetch auto-discovery data')
+        return response.json()
+      } catch (error) {
+        console.error('Failed to fetch auto-discovery data:', error)
+        throw error
+      }
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds
+  })
+}
+
+export const useServiceHealth = () => {
+  return useQuery({
+    queryKey: ['serviceHealth'],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/kafka/services/health`)
+        if (!response.ok) throw new Error('Failed to fetch service health')
+        return response.json()
+      } catch (error) {
+        console.error('Failed to fetch service health:', error)
+        throw error
+      }
+    },
+    refetchInterval: 10000, // Refresh every 10 seconds
+  })
+}
+
+export const useServiceRegistry = () => {
+  return useQuery({
+    queryKey: ['serviceRegistry'],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/kafka/services/registry`)
+        if (!response.ok) throw new Error('Failed to fetch service registry')
+        return response.json()
+      } catch (error) {
+        console.error('Failed to fetch service registry:', error)
+        throw error
+      }
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  })
+}
