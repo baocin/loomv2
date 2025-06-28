@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  schema-registry:
+    build: .
+    container_name: loom-schema-registry
+    ports:
+      - "8010:8010"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SCHEMA_PATH=/app/schemas
+      - CACHE_TTL=3600
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../../../shared/schemas:/app/schemas:ro
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - loom-shared
+
+  redis:
+    image: redis:7-alpine
+    container_name: loom-schema-registry-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - loom-shared
+
+volumes:
+  redis_data:
+
+networks:
+  loom-shared:
+    driver: bridge

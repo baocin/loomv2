@@ -1,0 +1,270 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared-redis-config
+  namespace: loom-dev
+data:
+  redis.conf: |
+    appendonly yes
+    databases 16
+    save 900 1
+    save 300 10
+    save 60 10000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shared-redis
+  namespace: loom-dev
+  labels:
+    app: shared-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shared-redis
+  template:
+    metadata:
+      labels:
+        app: shared-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        volumeMounts:
+        - name: config
+          mountPath: /etc/redis
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: shared-redis-config
+      - name: data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shared-redis
+  namespace: loom-dev
+  labels:
+    app: shared-redis
+spec:
+  selector:
+    app: shared-redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schema-registry
+  namespace: loom-dev
+  labels:
+    app: schema-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: schema-registry
+  template:
+    metadata:
+      labels:
+        app: schema-registry
+    spec:
+      containers:
+      - name: schema-registry
+        image: loom/schema-registry:latest
+        ports:
+        - containerPort: 8010
+        env:
+        - name: REDIS_URL
+          value: "redis://shared-redis:6379/0"
+        - name: SCHEMA_PATH
+          value: "/app/schemas"
+        - name: CACHE_TTL
+          value: "3600"
+        - name: LOG_LEVEL
+          value: "INFO"
+        volumeMounts:
+        - name: schemas
+          mountPath: /app/schemas
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8010
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8010
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: schemas
+        hostPath:
+          path: /home/aoi/code/loomv2/shared/schemas
+          type: Directory
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry
+  namespace: loom-dev
+  labels:
+    app: schema-registry
+spec:
+  selector:
+    app: schema-registry
+  ports:
+  - port: 8010
+    targetPort: 8010
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: schema-registry-ingress
+  namespace: loom-dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /schema-registry
+        pathType: Prefix
+        backend:
+          service:
+            name: schema-registry
+            port:
+              number: 8010
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privacy-filter
+  namespace: loom-dev
+  labels:
+    app: privacy-filter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: privacy-filter
+  template:
+    metadata:
+      labels:
+        app: privacy-filter
+    spec:
+      containers:
+      - name: privacy-filter
+        image: loom/privacy-filter:latest
+        ports:
+        - containerPort: 8011
+        env:
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: REDIS_URL
+          value: "redis://shared-redis:6379/1"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8011
+          initialDelaySeconds: 60  # Longer for model loading
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8011
+          initialDelaySeconds: 30
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: privacy-filter
+  namespace: loom-dev
+  labels:
+    app: privacy-filter
+spec:
+  selector:
+    app: privacy-filter
+  ports:
+  - port: 8011
+    targetPort: 8011
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: privacy-filter-ingress
+  namespace: loom-dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /privacy-filter
+        pathType: Prefix
+        backend:
+          service:
+            name: privacy-filter
+            port:
+              number: 8011

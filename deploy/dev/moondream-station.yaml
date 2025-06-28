@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moondream-station
+  namespace: loom-dev
+  labels:
+    app: moondream-station
+    service: moondream-station
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moondream-station
+  template:
+    metadata:
+      labels:
+        app: moondream-station
+        service: moondream-station
+        version: v1
+    spec:
+      containers:
+      - name: moondream-station
+        image: loom/moondream-station:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 2020
+          name: moondream
+        env:
+        - name: LOOM_ENVIRONMENT
+          value: "development"
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: LOOM_MOONDREAM_HOST
+          value: "http://localhost:2020"
+        - name: LOOM_MAX_IMAGE_SIZE
+          value: "2048"
+        - name: LOOM_ENABLE_OBJECT_DETECTION
+          value: "true"
+        - name: LOOM_ENABLE_OCR
+          value: "true"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 5
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/data
+      volumes:
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: "2Gi"
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moondream-station
+  namespace: loom-dev
+  labels:
+    app: moondream-station
+spec:
+  selector:
+    app: moondream-station
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: moondream
+    port: 2020
+    targetPort: 2020
+    protocol: TCP
+  type: ClusterIP
+
+---
+# GPU variant deployment (commented out by default)
+# Uncomment for better performance on GPU nodes
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: moondream-station-gpu
+#   namespace: loom-dev
+#   labels:
+#     app: moondream-station-gpu
+#     service: moondream-station
+#     version: v1-gpu
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: moondream-station-gpu
+#   template:
+#     metadata:
+#       labels:
+#         app: moondream-station-gpu
+#         service: moondream-station
+#         version: v1-gpu
+#     spec:
+#       containers:
+#       - name: moondream-station
+#         image: loom/moondream-station:latest-gpu
+#         imagePullPolicy: Always
+#         ports:
+#         - containerPort: 8000
+#           name: http
+#         - containerPort: 2020
+#           name: moondream
+#         env:
+#         - name: LOOM_ENVIRONMENT
+#           value: "development"
+#         - name: LOOM_LOG_LEVEL
+#           value: "INFO"
+#         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+#           value: "kafka:29092"
+#         - name: LOOM_MOONDREAM_HOST
+#           value: "http://localhost:2020"
+#         - name: CUDA_VISIBLE_DEVICES
+#           value: "0"
+#         resources:
+#           requests:
+#             memory: "4Gi"
+#             cpu: "2000m"
+#             nvidia.com/gpu: 1
+#           limits:
+#             memory: "8Gi"
+#             cpu: "4000m"
+#             nvidia.com/gpu: 1
+#         livenessProbe:
+#           httpGet:
+#             path: /healthz
+#             port: 8000
+#           initialDelaySeconds: 60
+#           periodSeconds: 30
+#           timeoutSeconds: 10
+#           failureThreshold: 3
+#         readinessProbe:
+#           httpGet:
+#             path: /readyz
+#             port: 8000
+#           initialDelaySeconds: 30
+#           periodSeconds: 10
+#           timeoutSeconds: 10
+#           failureThreshold: 5
+#         volumeMounts:
+#         - name: temp-storage
+#           mountPath: /app/data
+#       nodeSelector:
+#         accelerator: nvidia-gpu
+#       tolerations:
+#       - key: "nvidia.com/gpu"
+#         operator: "Exists"
+#         effect: "NoSchedule"
+#       volumes:
+#       - name: temp-storage
+#         emptyDir:
+#           sizeLimit: "5Gi"
+#       restartPolicy: Always

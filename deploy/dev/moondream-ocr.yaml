@@ -1,0 +1,100 @@
+---
+# Moondream OCR Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moondream-ocr
+  namespace: loom-dev
+  labels:
+    app: moondream-ocr
+    component: ai-processing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moondream-ocr
+  template:
+    metadata:
+      labels:
+        app: moondream-ocr
+        component: ai-processing
+    spec:
+      containers:
+      - name: moondream-ocr
+        image: loom/moondream-ocr:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8007
+        env:
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-infra-chart:9092"
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        - name: LOOM_ENVIRONMENT
+          value: "development"
+        - name: VISION_MODEL_DEVICE
+          value: "cpu"  # Change to "cuda" if GPU available
+        - name: MOONDREAM_MODEL_CACHE
+          value: "/home/aoi/.loom/moondream"
+        - name: HF_HOME
+          value: "/home/aoi/.loom/moondream"
+        - name: TORCH_HOME
+          value: "/home/aoi/.loom/moondream"
+        - name: TRANSFORMERS_CACHE
+          value: "/home/aoi/.loom/moondream"
+        volumeMounts:
+        - name: model-cache
+          mountPath: /home/aoi/.loom
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "4Gi"
+          limits:
+            cpu: "4000m"
+            memory: "16Gi"
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8007
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 40  # Allow 10 minutes for startup (15s * 40)
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8007
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8007
+          initialDelaySeconds: 5
+          periodSeconds: 15
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: model-cache
+        hostPath:
+          path: /home/aoi/.loom
+          type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moondream-ocr
+  namespace: loom-dev
+  labels:
+    app: moondream-ocr
+spec:
+  selector:
+    app: moondream-ocr
+  ports:
+  - port: 8007
+    targetPort: 8007
+    name: http

@@ -1,0 +1,96 @@
+replicaCount: 1
+
+image:
+  repository: loom/moondream-ocr
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8007
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 1000m
+    memory: 4Gi
+
+# Volume configuration for model cache
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  existingClaim: ""
+  # Path where the cache will be mounted
+  mountPath: /home/aoi/.loom
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application-specific configuration
+env:
+  LOOM_KAFKA_BOOTSTRAP_SERVERS: "kafka-infra-chart:9092"
+  LOOM_LOG_LEVEL: "INFO"
+  LOOM_ENVIRONMENT: "production"
+  VISION_MODEL_DEVICE: "cpu"  # Change to "cuda" for GPU
+  MOONDREAM_MODEL_CACHE: "/home/aoi/.loom/moondream"
+  HF_HOME: "/home/aoi/.loom/moondream"
+  TORCH_HOME: "/home/aoi/.loom/moondream"
+  TRANSFORMERS_CACHE: "/home/aoi/.loom/moondream"
+
+# Health check configuration
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8007
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 40
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8007
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8007
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3

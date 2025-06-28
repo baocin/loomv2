@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Schema Registry Service
+  schema-registry:
+    build: ./schema-registry
+    container_name: loom-schema-registry
+    ports:
+      - "8010:8010"
+    environment:
+      - REDIS_URL=redis://shared-redis:6379/0
+      - SCHEMA_PATH=/app/schemas
+      - CACHE_TTL=3600
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../../shared/schemas:/app/schemas:ro
+    depends_on:
+      - shared-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - loom-shared
+
+  # Privacy Filter Service
+  privacy-filter:
+    build: ./privacy-filter
+    container_name: loom-privacy-filter
+    ports:
+      - "8011:8011"
+    environment:
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://shared-redis:6379/1
+    depends_on:
+      - shared-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s  # Longer for model loading
+    restart: unless-stopped
+    networks:
+      - loom-shared
+
+  # Shared Redis instance
+  shared-redis:
+    image: redis:7-alpine
+    container_name: loom-shared-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    command: redis-server --appendonly yes --databases 16
+    volumes:
+      - shared_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - loom-shared
+
+  # Placeholder for future services
+  # device-identity:
+  #   build: ./device-identity
+  #   ports:
+  #     - "8012:8012"
+  #   networks:
+  #     - loom-shared
+
+  # event-router:
+  #   build: ./event-router
+  #   ports:
+  #     - "8013:8013"
+  #   networks:
+  #     - loom-shared
+
+volumes:
+  shared_redis_data:
+
+networks:
+  loom-shared:
+    driver: bridge
+    name: loom-shared-network

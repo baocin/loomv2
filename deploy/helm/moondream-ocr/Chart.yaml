@@ -1,0 +1,6 @@
+apiVersion: v2
+name: moondream-ocr
+description: Moondream OCR service for image analysis and text extraction
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,186 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gemma3n-processor
+  namespace: loom-dev
+  labels:
+    app: gemma3n-processor
+    service: gemma3n-processor
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gemma3n-processor
+  template:
+    metadata:
+      labels:
+        app: gemma3n-processor
+        service: gemma3n-processor
+        version: v1
+    spec:
+      containers:
+      - name: gemma3n-processor
+        image: loom/gemma3n-processor:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 11434
+          name: ollama
+        env:
+        - name: LOOM_ENVIRONMENT
+          value: "development"
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: LOOM_OLLAMA_HOST
+          value: "http://localhost:11434"
+        - name: LOOM_OLLAMA_MODEL
+          value: "gemma3n:e4b"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 5
+        volumeMounts:
+        - name: ollama-models
+          mountPath: /app/.ollama
+      # Node selector for CPU/GPU flexibility
+      nodeSelector:
+        loom.ai/compute-type: "cpu"  # Default to CPU nodes
+      tolerations:
+      - key: "loom.ai/gpu"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      volumes:
+      - name: ollama-models
+        emptyDir:
+          sizeLimit: "10Gi"
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gemma3n-processor
+  namespace: loom-dev
+  labels:
+    app: gemma3n-processor
+spec:
+  selector:
+    app: gemma3n-processor
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: ollama
+    port: 11434
+    targetPort: 11434
+    protocol: TCP
+  type: ClusterIP
+
+---
+# GPU variant deployment (commented out by default)
+# Uncomment and deploy for GPU-accelerated processing
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: gemma3n-processor-gpu
+#   namespace: loom-dev
+#   labels:
+#     app: gemma3n-processor-gpu
+#     service: gemma3n-processor
+#     version: v1-gpu
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: gemma3n-processor-gpu
+#   template:
+#     metadata:
+#       labels:
+#         app: gemma3n-processor-gpu
+#         service: gemma3n-processor
+#         version: v1-gpu
+#     spec:
+#       containers:
+#       - name: gemma3n-processor
+#         image: loom/gemma3n-processor:latest
+#         imagePullPolicy: Always
+#         ports:
+#         - containerPort: 8000
+#           name: http
+#         - containerPort: 11434
+#           name: ollama
+#         env:
+#         - name: LOOM_ENVIRONMENT
+#           value: "development"
+#         - name: LOOM_LOG_LEVEL
+#           value: "INFO"
+#         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+#           value: "kafka:29092"
+#         - name: LOOM_OLLAMA_HOST
+#           value: "http://localhost:11434"
+#         - name: LOOM_OLLAMA_MODEL
+#           value: "gemma3n:e4b"
+#         resources:
+#           requests:
+#             memory: "4Gi"
+#             cpu: "2000m"
+#             nvidia.com/gpu: 1
+#           limits:
+#             memory: "16Gi"
+#             cpu: "8000m"
+#             nvidia.com/gpu: 1
+#         livenessProbe:
+#           httpGet:
+#             path: /healthz
+#             port: 8000
+#           initialDelaySeconds: 60
+#           periodSeconds: 30
+#           timeoutSeconds: 10
+#           failureThreshold: 3
+#         readinessProbe:
+#           httpGet:
+#             path: /readyz
+#             port: 8000
+#           initialDelaySeconds: 30
+#           periodSeconds: 10
+#           timeoutSeconds: 10
+#           failureThreshold: 5
+#         volumeMounts:
+#         - name: ollama-models
+#           mountPath: /app/.ollama
+#       nodeSelector:
+#         loom.ai/compute-type: "gpu"
+#       tolerations:
+#       - key: "nvidia.com/gpu"
+#         operator: "Exists"
+#         effect: "NoSchedule"
+#       volumes:
+#       - name: ollama-models
+#         emptyDir:
+#           sizeLimit: "20Gi"
+#       restartPolicy: Always
