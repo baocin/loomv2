@@ -49,12 +49,7 @@ document_processor: DocumentProcessor
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup and shutdown."""
-    global \
-        kafka_consumer, \
-        kafka_producer, \
-        database, \
-        github_processor, \
-        document_processor
+    global kafka_consumer, kafka_producer, database, github_processor, document_processor
 
     # Startup
     logger.info("Starting OneFileLLM service", version="0.1.0")

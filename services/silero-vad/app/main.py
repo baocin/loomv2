@@ -57,13 +57,17 @@ async def lifespan(app: FastAPI):
     consumer = KafkaVADConsumer()
 
     try:
-        # Start consumer
+        # Start consumer (this will initialize the VAD model)
         await consumer.start()
+        
+        # Mark model as loaded since consumer.start() initializes it
+        global model_loaded
+        model_loaded = True
 
         # Create consumer task
         consumer_task = asyncio.create_task(consumer.consume())
 
-        logger.info("Silero VAD service started successfully")
+        logger.info("Silero VAD service started successfully, model loaded")
 
         yield
 

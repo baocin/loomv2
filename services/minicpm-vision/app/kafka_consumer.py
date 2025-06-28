@@ -77,9 +77,13 @@ class KafkaImageConsumer:
 
             # Load the vision model
             await self.vision_processor.load_model()
+            
+            # Update global model_loaded flag
+            import app.main
+            app.main.model_loaded = True
 
             self.running = True
-            logger.info("Kafka consumer and producer started successfully")
+            logger.info("Kafka consumer and producer started successfully, model loaded")
 
         except Exception as e:
             logger.error("Failed to start Kafka consumer/producer", error=str(e))

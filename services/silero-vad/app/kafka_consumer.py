@@ -259,24 +259,17 @@ class KafkaVADConsumer:
 
         if self.consumer:
             try:
-                # Check consumer metrics
-                metrics = await self.consumer.metrics()
-                health["consumer_metrics"] = {
-                    "records_consumed": metrics.get("records-consumed-total", 0),
-                    "bytes_consumed": metrics.get("bytes-consumed-total", 0),
-                }
+                # Check if consumer is subscribed and has assignment
+                health["consumer_subscribed"] = bool(self.consumer.subscription())
+                health["consumer_assigned"] = bool(self.consumer.assignment())
             except Exception as e:
                 health["status"] = "degraded"
                 health["consumer_error"] = str(e)
 
         if self.producer:
             try:
-                # Check producer metrics
-                metrics = await self.producer.metrics()
-                health["producer_metrics"] = {
-                    "record_sends": metrics.get("record-send-total", 0),
-                    "bytes_sent": metrics.get("bytes-sent-total", 0),
-                }
+                # Check if producer is started
+                health["producer_started"] = hasattr(self.producer, '_sender') and self.producer._sender is not None
             except Exception as e:
                 health["status"] = "degraded"
                 health["producer_error"] = str(e)

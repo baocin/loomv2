@@ -151,7 +151,7 @@ async def readiness_check() -> HealthStatus:
         )
     else:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=503,
             detail={
                 "status": "not_ready",
                 "timestamp": datetime.utcnow().isoformat(),
@@ -174,7 +174,7 @@ async def warmup() -> Dict[str, Any]:
 
     if not vision_processor:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=503,
             detail={"status": "error", "message": "Vision processor not initialized"},
         )
 
