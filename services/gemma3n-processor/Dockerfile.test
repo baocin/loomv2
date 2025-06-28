@@ -1,0 +1,24 @@
+# Simple test Dockerfile for Gemma 3N
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install basic dependencies
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    pydantic \
+    pydantic-settings \
+    httpx
+
+# Copy application code
+COPY app/ ./app/
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s \
+    CMD curl -f http://localhost:8000/healthz || exit 1
+
+EXPOSE 8000
+
+# Simple command for testing
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

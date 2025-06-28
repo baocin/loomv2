@@ -1,0 +1,91 @@
+[project]
+name = "gemma3n-processor"
+version = "0.1.0"
+description = "Gemma 3N Multimodal Processing Service for Loom v2"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "aiokafka>=0.10.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0", 
+    "structlog>=23.2.0",
+    "prometheus-client>=0.19.0",
+    "httpx>=0.25.0",
+    "pillow>=10.0.0",
+    "outlines>=0.0.46",
+    "lz4>=4.3.2",
+    "soundfile>=0.12.1",  # For audio processing
+    "librosa>=0.10.1",    # For audio features
+    "torch>=2.0.0",       # CPU/GPU inference backend
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "mypy>=1.5.0",
+    "bandit[toml]>=1.7.0",
+    "safety>=2.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"] 
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+indent-width = 4
+exclude = [".git", "__pycache__", ".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "Q"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]
