@@ -44,7 +44,7 @@ class KafkaProducerService:
             )
 
         except Exception as e:
-            logger.error("Failed to start Kafka producer", error=str(e))
+            logger.exception("Failed to start Kafka producer", error=str(e))
             self._is_connected = False
             raise
 
@@ -55,7 +55,7 @@ class KafkaProducerService:
                 await self._producer.stop()
                 logger.info("Kafka producer stopped")
             except Exception as e:
-                logger.error("Error stopping Kafka producer", error=str(e))
+                logger.exception("Error stopping Kafka producer", error=str(e))
             finally:
                 self._is_connected = False
                 self._producer = None
@@ -104,14 +104,17 @@ class KafkaProducerService:
                         },
                     )
 
-            # Create headers with trace information
-            headers = {
-                "trace_id": trace_context.get("trace_id", "").encode("utf-8"),
-                "services_encountered": ",".join(
-                    trace_context.get("services_encountered", []),
-                ).encode("utf-8"),
-                "producer_service": b"ingestion-api",
-            }
+            # Create headers with trace information (Kafka expects list of tuples)
+            headers = [
+                ("trace_id", trace_context.get("trace_id", "").encode("utf-8")),
+                (
+                    "services_encountered",
+                    ",".join(
+                        trace_context.get("services_encountered", []),
+                    ).encode("utf-8"),
+                ),
+                ("producer_service", b"ingestion-api"),
+            ]
 
             # Send message and wait for confirmation
             await self._producer.send(
@@ -135,7 +138,7 @@ class KafkaProducerService:
             device_id_for_log = (
                 message.device_id if hasattr(message, "device_id") else "unknown"
             )
-            logger.error(
+            logger.exception(
                 "Failed to send message to Kafka",
                 topic=topic,
                 device_id=device_id_for_log,
@@ -145,7 +148,7 @@ class KafkaProducerService:
         except Exception as e:
             # Don't log complex objects that might cause issues
             error_msg = str(e)
-            logger.error(
+            logger.exception(
                 "Unexpected error sending message",
                 topic=topic,
                 device_id=getattr(message, "device_id", "unknown"),

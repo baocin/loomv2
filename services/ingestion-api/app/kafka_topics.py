@@ -66,6 +66,40 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            # Network topics
+            "device.network.wifi.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.network.bluetooth.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days
+                    "compression.type": "producer",
+                },
+            },
+            # Environmental sensors
+            "device.sensor.temperature.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.sensor.barometer.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
             # New Sprint 4 topics
             settings.topic_device_system_apps_macos: {
                 "partitions": settings.kafka_default_partitions,
@@ -84,6 +118,15 @@ class KafkaTopicManager:
                 },
             },
             settings.topic_device_metadata: {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
+            # Android app usage statistics (pre-aggregated)
+            "device.app_usage.android.aggregated": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,
                 "config": {

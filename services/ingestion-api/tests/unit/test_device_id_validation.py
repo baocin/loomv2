@@ -4,16 +4,8 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.models import BaseMessage
-
-
-@pytest.fixture()
-def client():
-    """Test client fixture."""
-    return TestClient(app)
 
 
 @pytest.fixture()

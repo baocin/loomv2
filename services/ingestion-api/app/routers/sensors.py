@@ -8,10 +8,14 @@ from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
 from ..models import (
     AccelerometerReading,
+    BarometerReading,
     GPSReading,
     HeartRateReading,
+    NetworkBluetoothReading,
+    NetworkWiFiReading,
     PowerState,
     SensorReading,
+    TemperatureReading,
 )
 from ..tracing import get_trace_context
 
@@ -245,6 +249,256 @@ async def ingest_power_state(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to ingest power state data",
+        ) from e
+
+
+@router.post("/wifi", status_code=status.HTTP_201_CREATED)
+async def ingest_wifi_data(
+    wifi_reading: NetworkWiFiReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest WiFi network data.
+
+    Args:
+    ----
+        wifi_reading: WiFi network reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        wifi_reading.trace_id = trace_context.get("trace_id")
+        wifi_reading.services_encountered = trace_context.get(
+            "services_encountered",
+            [],
+        )
+
+        await kafka_producer.send_message(
+            topic="device.network.wifi.raw",
+            key=wifi_reading.device_id,
+            message=wifi_reading,
+        )
+
+        logger.info(
+            "WiFi data ingested",
+            device_id=wifi_reading.device_id,
+            message_id=wifi_reading.message_id,
+            ssid=wifi_reading.ssid,
+            connected=wifi_reading.connected,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": wifi_reading.message_id,
+                "topic": "device.network.wifi.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest WiFi data",
+            device_id=wifi_reading.device_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest WiFi data",
+        ) from e
+
+
+@router.post("/bluetooth", status_code=status.HTTP_201_CREATED)
+async def ingest_bluetooth_data(
+    bt_reading: NetworkBluetoothReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest Bluetooth device data.
+
+    Args:
+    ----
+        bt_reading: Bluetooth device reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        bt_reading.trace_id = trace_context.get("trace_id")
+        bt_reading.services_encountered = trace_context.get("services_encountered", [])
+
+        await kafka_producer.send_message(
+            topic="device.network.bluetooth.raw",
+            key=bt_reading.device_id,
+            message=bt_reading,
+        )
+
+        logger.info(
+            "Bluetooth data ingested",
+            device_id=bt_reading.device_id,
+            message_id=bt_reading.message_id,
+            device_name=bt_reading.device_name,
+            connected=bt_reading.connected,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": bt_reading.message_id,
+                "topic": "device.network.bluetooth.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest Bluetooth data",
+            device_id=bt_reading.device_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest Bluetooth data",
+        ) from e
+
+
+@router.post("/temperature", status_code=status.HTTP_201_CREATED)
+async def ingest_temperature_data(
+    temp_reading: TemperatureReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest temperature sensor data.
+
+    Args:
+    ----
+        temp_reading: Temperature sensor reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        temp_reading.trace_id = trace_context.get("trace_id")
+        temp_reading.services_encountered = trace_context.get(
+            "services_encountered",
+            [],
+        )
+
+        await kafka_producer.send_message(
+            topic="device.sensor.temperature.raw",
+            key=temp_reading.device_id,
+            message=temp_reading,
+        )
+
+        logger.info(
+            "Temperature data ingested",
+            device_id=temp_reading.device_id,
+            message_id=temp_reading.message_id,
+            temperature=temp_reading.temperature,
+            unit=temp_reading.unit,
+            location=temp_reading.sensor_location,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": temp_reading.message_id,
+                "topic": "device.sensor.temperature.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest temperature data",
+            device_id=temp_reading.device_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest temperature data",
+        ) from e
+
+
+@router.post("/barometer", status_code=status.HTTP_201_CREATED)
+async def ingest_barometer_data(
+    baro_reading: BarometerReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest barometric pressure data.
+
+    Args:
+    ----
+        baro_reading: Barometer reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        baro_reading.trace_id = trace_context.get("trace_id")
+        baro_reading.services_encountered = trace_context.get(
+            "services_encountered",
+            [],
+        )
+
+        await kafka_producer.send_message(
+            topic="device.sensor.barometer.raw",
+            key=baro_reading.device_id,
+            message=baro_reading,
+        )
+
+        logger.info(
+            "Barometer data ingested",
+            device_id=baro_reading.device_id,
+            message_id=baro_reading.message_id,
+            pressure=baro_reading.pressure,
+            unit=baro_reading.unit,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": baro_reading.message_id,
+                "topic": "device.sensor.barometer.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest barometer data",
+            device_id=baro_reading.device_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest barometer data",
         ) from e
 
 

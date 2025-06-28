@@ -18,7 +18,17 @@ from app.tracing import (
 @pytest.fixture()
 def test_client():
     """Create a test client with tracing middleware."""
-    return TestClient(app)
+    from app.auth import verify_api_key
+
+    # Override the API key dependency
+    async def override_verify_api_key():
+        return "test-api-key"
+
+    app.dependency_overrides[verify_api_key] = override_verify_api_key
+    client = TestClient(app)
+    yield client
+    # Clean up
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture()

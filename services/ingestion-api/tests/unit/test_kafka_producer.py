@@ -307,7 +307,7 @@ class TestErrorHandling:
                 with pytest.raises(KafkaError):
                     await kafka_service.start()
 
-                mock_logger.error.assert_called()
+                mock_logger.exception.assert_called()
 
     @pytest.mark.asyncio()
     async def test_send_error_logging(self, kafka_service, mock_producer):
@@ -330,7 +330,7 @@ class TestErrorHandling:
                 with pytest.raises(KafkaError):
                     await kafka_service.send_audio_chunk(audio_chunk)
 
-                mock_logger.error.assert_called()
+                mock_logger.exception.assert_called()
 
 
 # Producer configuration is now handled through the start() method

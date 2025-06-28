@@ -9,12 +9,6 @@ from app.main import app, lifespan
 
 
 @pytest.fixture()
-def client():
-    """Test client fixture."""
-    return TestClient(app)
-
-
-@pytest.fixture()
 def mock_kafka_producer():
     """Mock Kafka producer fixture."""
     with patch("app.main.kafka_producer") as mock:

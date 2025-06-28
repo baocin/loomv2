@@ -11,6 +11,7 @@ from ..config import settings
 from ..kafka_producer import kafka_producer
 from ..models import (
     AndroidAppMonitoring,
+    AndroidAppUsageAggregated,
     APIResponse,
     DeviceMetadata,
     MacOSAppMonitoring,
@@ -186,6 +187,91 @@ async def upload_android_app_monitoring(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process app monitoring data: {e!s}",
+        )
+
+
+@router.post(
+    "/apps/android/usage",
+    status_code=status.HTTP_201_CREATED,
+    response_model=APIResponse,
+)
+async def upload_android_usage_stats(
+    usage_data: AndroidAppUsageAggregated,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Upload pre-aggregated Android app usage statistics.
+
+    This endpoint accepts pre-aggregated usage statistics from Android's UsageStats API,
+    including app usage times, screen time by category, notification stats, and app events.
+
+    Args:
+    ----
+        usage_data: Pre-aggregated Android app usage statistics
+
+    Returns:
+    -------
+        API response with message ID and topic information
+
+    Raises:
+    ------
+        HTTPException: If app monitoring is disabled or Kafka publishing fails
+
+    """
+    if not settings.app_monitoring_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="App monitoring is currently disabled",
+        )
+
+    try:
+        # Send to Kafka
+        await kafka_producer.send_message(
+            topic="device.app_usage.android.aggregated",
+            key=usage_data.device_id,
+            message=usage_data,
+        )
+
+        logger.info(
+            "Android usage stats sent to Kafka",
+            device_id=usage_data.device_id,
+            message_id=usage_data.message_id,
+            aggregation_start=usage_data.aggregation_period_start,
+            aggregation_end=usage_data.aggregation_period_end,
+            total_screen_time_ms=usage_data.total_screen_time_ms,
+            app_count=len(usage_data.app_usage_stats),
+            topic="device.app_usage.android.aggregated",
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": usage_data.message_id,
+                "topic": "device.app_usage.android.aggregated",
+                "aggregation_period": {
+                    "start": usage_data.aggregation_period_start.isoformat(),
+                    "end": usage_data.aggregation_period_end.isoformat(),
+                },
+                "stats": {
+                    "total_screen_time_ms": usage_data.total_screen_time_ms,
+                    "app_count": len(usage_data.app_usage_stats),
+                    "event_count": len(usage_data.app_event_stats),
+                },
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to process Android usage stats",
+            device_id=usage_data.device_id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process Android usage stats: {e!s}",
         )
 
 

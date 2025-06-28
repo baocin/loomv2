@@ -3,16 +3,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from tests.test_helpers import generate_test_device_id, generate_test_recorded_at
-
-
-@pytest.fixture()
-def client():
-    """Test client fixture."""
-    return TestClient(app)
 
 
 @pytest.fixture()

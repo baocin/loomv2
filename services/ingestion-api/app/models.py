@@ -42,7 +42,8 @@ class BaseMessage(BaseModel):
     def validate_device_id(cls, v):
         """Validate device_id is a valid UUID format."""
         if not v:
-            raise ValueError("device_id is required")
+            msg = "device_id is required"
+            raise ValueError(msg)
 
         # Check if it's a valid UUID format (accepts v4, v8, or any standard UUID)
         # UUIDv8 format: xxxxxxxx-xxxx-8xxx-xxxx-xxxxxxxxxxxx
@@ -51,9 +52,8 @@ class BaseMessage(BaseModel):
             re.IGNORECASE,
         )
         if not uuid_pattern.match(v):
-            raise ValueError(
-                "device_id must be a valid UUID format (preferably UUIDv8)",
-            )
+            msg = "device_id must be a valid UUID format (preferably UUIDv8)"
+            raise ValueError(msg)
 
         return v
 
@@ -61,7 +61,8 @@ class BaseMessage(BaseModel):
     def validate_recorded_at(cls, v):
         """Validate recorded_at is a UTC timestamp."""
         if not v:
-            raise ValueError("recorded_at is required")
+            msg = "recorded_at is required"
+            raise ValueError(msg)
 
         # Ensure timezone is UTC or add UTC if naive
         if v.tzinfo is None:
@@ -146,6 +147,75 @@ class PowerState(BaseMessage):
     battery_level: float = Field(description="Battery level percentage 0-100")
     is_charging: bool = Field(description="Whether device is charging")
     power_source: str | None = Field(default=None, description="Power source type")
+    lid_closed: bool | None = Field(
+        default=None,
+        description="Whether laptop lid is closed",
+    )
+    thermal_state: str | None = Field(
+        default=None,
+        description="Thermal state (nominal, fair, serious, critical)",
+    )
+
+
+class NetworkWiFiReading(BaseMessage):
+    """WiFi network information."""
+
+    ssid: str = Field(description="Network SSID")
+    bssid: str | None = Field(default=None, description="Access point MAC address")
+    signal_strength: int = Field(description="Signal strength in dBm")
+    frequency: float | None = Field(default=None, description="Frequency in MHz")
+    channel: int | None = Field(default=None, description="WiFi channel")
+    security: str | None = Field(
+        default=None,
+        description="Security type (WPA2, WPA3, etc.)",
+    )
+    connected: bool = Field(default=False, description="Whether currently connected")
+    ip_address: str | None = Field(
+        default=None,
+        description="Local IP address if connected",
+    )
+
+
+class NetworkBluetoothReading(BaseMessage):
+    """Bluetooth device detection."""
+
+    device_name: str = Field(description="Bluetooth device name")
+    device_address: str = Field(description="Bluetooth MAC address")
+    device_type: str | None = Field(
+        default=None,
+        description="Device type (headphones, keyboard, etc.)",
+    )
+    rssi: int | None = Field(
+        default=None,
+        description="Received signal strength indicator",
+    )
+    connected: bool = Field(default=False, description="Whether currently connected")
+    paired: bool = Field(default=False, description="Whether device is paired")
+
+
+class TemperatureReading(BaseMessage):
+    """Temperature sensor reading."""
+
+    temperature: float = Field(description="Temperature value")
+    unit: str = Field(
+        default="celsius",
+        description="Temperature unit (celsius, fahrenheit)",
+    )
+    sensor_location: str | None = Field(
+        default=None,
+        description="Sensor location (cpu, battery, ambient, etc.)",
+    )
+
+
+class BarometerReading(BaseMessage):
+    """Barometric pressure reading."""
+
+    pressure: float = Field(description="Atmospheric pressure")
+    unit: str = Field(default="hPa", description="Pressure unit (hPa, inHg, mmHg)")
+    altitude: float | None = Field(
+        default=None,
+        description="Calculated altitude in meters",
+    )
 
 
 class ImageData(BaseMessage):
@@ -293,6 +363,118 @@ class AndroidAppMonitoring(BaseMessage):
     def validate_app_list(cls, v):
         if len(v) > 100:  # Will be configurable via settings
             raise ValueError("Too many applications in single request")
+        return v
+
+
+# Android App Usage Statistics (Pre-aggregated from UsageStats API)
+
+
+class AndroidAppUsageStats(BaseModel):
+    """Pre-aggregated app usage statistics from Android UsageStats API."""
+
+    package_name: str = Field(description="Android package name")
+    app_name: str | None = Field(default=None, description="Human-readable app name")
+    total_time_foreground_ms: int = Field(
+        description="Total time app was in foreground (milliseconds)",
+    )
+    last_time_used: datetime = Field(description="Last time the app was used")
+    last_time_foreground_service_used: datetime | None = Field(
+        default=None,
+        description="Last time app's foreground service was used",
+    )
+    total_time_foreground_service_used_ms: int = Field(
+        default=0,
+        description="Total time foreground service was used (milliseconds)",
+    )
+    launch_count: int = Field(default=0, description="Number of times app was launched")
+
+
+class AndroidAppEventStats(BaseModel):
+    """App event statistics from Android UsageEvents."""
+
+    package_name: str = Field(description="Android package name")
+    event_type: str = Field(
+        description="Event type (MOVE_TO_FOREGROUND, MOVE_TO_BACKGROUND, etc.)",
+    )
+    event_count: int = Field(description="Number of times this event occurred")
+    last_event_time: datetime = Field(description="Last time this event occurred")
+
+
+class AndroidScreenTimeStats(BaseModel):
+    """Screen time statistics aggregated by category or app."""
+
+    category: str = Field(
+        description="App category (SOCIAL, PRODUCTIVITY, GAME, etc.)",
+    )
+    total_time_ms: int = Field(description="Total screen time in milliseconds")
+    app_count: int = Field(description="Number of apps in this category")
+    percentage_of_total: float = Field(
+        description="Percentage of total screen time",
+        ge=0,
+        le=100,
+    )
+
+
+class AndroidNotificationStats(BaseModel):
+    """Notification statistics per app."""
+
+    package_name: str = Field(description="Android package name")
+    notification_count: int = Field(description="Total notifications received")
+    interaction_count: int = Field(
+        default=0,
+        description="Number of notifications interacted with",
+    )
+    dismissal_count: int = Field(
+        default=0,
+        description="Number of notifications dismissed",
+    )
+
+
+class AndroidAppUsageAggregated(BaseMessage):
+    """Pre-aggregated Android app usage data."""
+
+    aggregation_period_start: datetime = Field(
+        description="Start of aggregation period",
+    )
+    aggregation_period_end: datetime = Field(description="End of aggregation period")
+    aggregation_interval_minutes: int = Field(
+        default=60,
+        description="Aggregation interval in minutes",
+    )
+    total_screen_time_ms: int = Field(
+        description="Total screen time during period (milliseconds)",
+    )
+    total_unlocks: int = Field(default=0, description="Number of device unlocks")
+    app_usage_stats: list[AndroidAppUsageStats] = Field(
+        description="Per-app usage statistics",
+        max_items=500,
+    )
+    app_event_stats: list[AndroidAppEventStats] = Field(
+        default_factory=list,
+        description="App event statistics",
+        max_items=1000,
+    )
+    screen_time_by_category: list[AndroidScreenTimeStats] = Field(
+        default_factory=list,
+        description="Screen time grouped by app category",
+    )
+    notification_stats: list[AndroidNotificationStats] = Field(
+        default_factory=list,
+        description="Notification statistics per app",
+        max_items=200,
+    )
+
+    @validator("aggregation_period_end")
+    def validate_period(cls, v, values):
+        if "aggregation_period_start" in values:
+            if v <= values["aggregation_period_start"]:
+                raise ValueError("End time must be after start time")
+        return v
+
+    @validator("app_usage_stats")
+    def validate_usage_stats(cls, v):
+        if len(v) > 500:
+            raise ValueError("Too many app usage entries")
         return v
 
 
