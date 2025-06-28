@@ -187,11 +187,17 @@ class LoomAPIClient:
             payload = {
                 **self._get_common_payload(),
                 "image_data": image_b64,
+                "format": metadata.get("format", "png"),
+                "width": metadata.get("width", 0),
+                "height": metadata.get("height", 0),
+                "camera_type": "screen",
+                "file_size": len(image_data),
                 "metadata": metadata,
+                "message_id": f"{self.device_id}-{datetime.now(UTC).timestamp()}",
+                "schema_version": "v1",
             }
 
-            # Note: This endpoint may need to be created in the Loom API
-            return await self._make_request("POST", "/media/screen", payload)
+            return await self._make_request("POST", "/images/screenshot", payload)
 
         except Exception as e:
             logger.error("Error sending screen capture", error=str(e))
@@ -205,12 +211,13 @@ class LoomAPIClient:
         try:
             payload = {
                 **self._get_common_payload(),
-                "apps_data": apps_data,
-                "metadata": metadata,
+                "running_applications": apps_data.get("running_applications", []),
+                "message_id": f"{self.device_id}-{datetime.now(UTC).timestamp()}",
+                "schema_version": "v1",
             }
 
-            # Note: This endpoint may need to be created in the Loom API
-            return await self._make_request("POST", "/system/apps", payload)
+            # Ubuntu clients report as 'android' since there's no separate Ubuntu endpoint
+            return await self._make_request("POST", "/system/apps/android", payload)
 
         except Exception as e:
             logger.error("Error sending app monitoring data", error=str(e))
@@ -220,16 +227,21 @@ class LoomAPIClient:
     async def send_clipboard_data(
         self, clipboard_data: dict[str, Any], metadata: dict[str, Any]
     ) -> bool:
-        """Send clipboard data."""
+        """Send clipboard data as generic sensor data."""
         try:
-            payload = {
-                **self._get_common_payload(),
-                "clipboard_data": clipboard_data,
-                "metadata": metadata,
+            sensor_data = {
+                "sensor_type": "clipboard",
+                "value": len(clipboard_data.get("text", "")),
+                "unit": "characters",
+                "readings": {
+                    "content_type": clipboard_data.get("content_type", "text"),
+                    "content_length": len(clipboard_data.get("text", "")),
+                    "has_content": bool(clipboard_data.get("text")),
+                    **metadata,
+                },
             }
 
-            # Note: This endpoint may need to be created in the Loom API
-            return await self._make_request("POST", "/system/clipboard", payload)
+            return await self.send_sensor_data("generic", sensor_data)
 
         except Exception as e:
             logger.error("Error sending clipboard data", error=str(e))

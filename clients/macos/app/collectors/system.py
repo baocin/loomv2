@@ -117,7 +117,7 @@ class SystemCollector(BaseCollector):
                             else None
                         ),
                     }
-            except:
+            except Exception:
                 pass
 
             # Temperature sensors (if available)
@@ -129,14 +129,14 @@ class SystemCollector(BaseCollector):
                         {"label": entry.label, "current": entry.current}
                         for entry in entries
                     ]
-            except:
+            except Exception:
                 pass
 
             # Load average (Unix-like systems)
             load_avg = None
             try:
                 load_avg = psutil.getloadavg()
-            except:
+            except Exception:
                 pass
 
             metrics = {
@@ -209,12 +209,16 @@ class SystemCollector(BaseCollector):
                         [p.info for p in processes if p.info["cpu_percent"] > 0],
                         key=lambda x: x["cpu_percent"],
                         reverse=True,
-                    )[:10],  # Top 10 CPU consumers
+                    )[
+                        :10
+                    ],  # Top 10 CPU consumers
                     "top_memory": sorted(
                         [p.info for p in processes if p.info["memory_percent"] > 0],
                         key=lambda x: x["memory_percent"],
                         reverse=True,
-                    )[:10],  # Top 10 memory consumers
+                    )[
+                        :10
+                    ],  # Top 10 memory consumers
                 },
                 "battery": battery,
                 "temperatures": temperatures,

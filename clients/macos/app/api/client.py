@@ -62,6 +62,8 @@ class LoomAPIClient:
     async def send_audio(self, audio_data: bytes, metadata: dict[str, Any]) -> bool:
         """Send audio data to the ingestion API."""
         try:
+            import base64
+
             payload = {
                 "device_id": self.device_id,
                 "recorded_at": datetime.utcnow().isoformat(),
@@ -70,7 +72,10 @@ class LoomAPIClient:
                 "channels": metadata.get("channels", 1),
                 "duration_ms": metadata.get("duration_ms", 0),
                 "format": metadata.get("format", "wav"),
-                "audio_data": audio_data.hex(),  # Convert to hex string
+                "chunk_data": base64.b64encode(audio_data).decode(
+                    "utf-8"
+                ),  # Use base64 encoding
+                "message_id": f"{self.device_id}-{datetime.utcnow().timestamp()}",
             }
 
             response = await self.client.post(
@@ -147,9 +152,9 @@ class LoomAPIClient:
                 if "timestamp" not in reading:
                     reading["timestamp"] = datetime.utcnow().isoformat()
                 if "message_id" not in reading:
-                    reading[
-                        "message_id"
-                    ] = f"{self.device_id}-{datetime.utcnow().timestamp()}"
+                    reading["message_id"] = (
+                        f"{self.device_id}-{datetime.utcnow().timestamp()}"
+                    )
 
             payload = {"device_id": self.device_id, "readings": sensor_readings}
 
@@ -187,16 +192,37 @@ class LoomAPIClient:
         )
 
     async def send_app_data(self, app_data: dict[str, Any]) -> bool:
-        """Send application monitoring data as generic sensor data."""
-        return await self.send_sensor_data(
-            "generic",
-            {
-                "sensor_type": "app_monitoring",
-                "value": app_data.get("active_app_count", 0),
-                "unit": "count",
-                "readings": app_data,
-            },
-        )
+        """Send application monitoring data to the system/apps endpoint."""
+        try:
+            payload = {
+                "device_id": self.device_id,
+                "recorded_at": datetime.utcnow().isoformat(),
+                "running_applications": app_data.get("running_applications", []),
+                "message_id": f"{self.device_id}-{datetime.utcnow().timestamp()}",
+                "schema_version": "v1",
+            }
+
+            response = await self.client.post(
+                f"{self.base_url}/system/apps/macos", json=payload
+            )
+
+            if response.status_code == 200 or response.status_code == 201:
+                logger.info(
+                    "App monitoring data sent successfully",
+                    app_count=len(app_data.get("running_applications", [])),
+                )
+                return True
+            else:
+                logger.error(
+                    "Failed to send app monitoring data",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+                return False
+
+        except Exception as e:
+            logger.error("Error sending app monitoring data", error=str(e))
+            return False
 
     async def send_location_data(self, location: dict[str, Any]) -> bool:
         """Send GPS location data."""
@@ -233,24 +259,46 @@ class LoomAPIClient:
     async def send_screen_capture(
         self, image_data: bytes, metadata: dict[str, Any]
     ) -> bool:
-        """Send screen capture data (placeholder - would need actual endpoint)."""
-        # Note: This would require a dedicated endpoint for image data
-        # For now, we'll send metadata only
-        return await self.send_sensor_data(
-            "generic",
-            {
-                "sensor_type": "screen_capture",
-                "value": len(image_data),
-                "unit": "bytes",
-                "readings": {
-                    "image_size_bytes": len(image_data),
-                    "width": metadata.get("width", 0),
-                    "height": metadata.get("height", 0),
-                    "format": metadata.get("format", "png"),
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            },
-        )
+        """Send screen capture data to the screenshot endpoint."""
+        try:
+            import base64
+
+            payload = {
+                "device_id": self.device_id,
+                "recorded_at": datetime.utcnow().isoformat(),
+                "message_id": f"{self.device_id}-{datetime.utcnow().timestamp()}",
+                "image_data": base64.b64encode(image_data).decode("utf-8"),
+                "format": metadata.get("format", "png"),
+                "width": metadata.get("width", 0),
+                "height": metadata.get("height", 0),
+                "camera_type": "screen",
+                "file_size": len(image_data),
+                "metadata": metadata,
+                "schema_version": "v1",
+            }
+
+            response = await self.client.post(
+                f"{self.base_url}/images/screenshot", json=payload
+            )
+
+            if response.status_code == 200 or response.status_code == 201:
+                logger.info(
+                    "Screenshot sent successfully",
+                    size_bytes=len(image_data),
+                    dimensions=f"{metadata.get('width')}x{metadata.get('height')}",
+                )
+                return True
+            else:
+                logger.error(
+                    "Failed to send screenshot",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+                return False
+
+        except Exception as e:
+            logger.error("Error sending screenshot", error=str(e))
+            return False
 
     async def get_status(self) -> dict[str, Any]:
         """Get client status."""
