@@ -100,11 +100,13 @@ class XUrlProcessorService:
                 )
 
                 # If we have a screenshot, send it to the Twitter images topic for OCR
-                if tweet_data.get("screenshot_path") and os.path.exists(tweet_data["screenshot_path"]):
+                if tweet_data.get("screenshot_path") and os.path.exists(
+                    tweet_data["screenshot_path"]
+                ):
                     try:
                         with open(tweet_data["screenshot_path"], "rb") as f:
                             image_data = base64.b64encode(f.read()).decode("utf-8")
-                        
+
                         image_message = {
                             "schema_version": "v1",
                             "device_id": None,
@@ -118,16 +120,18 @@ class XUrlProcessorService:
                                 "metadata": {
                                     "source": "x-url-processor",
                                     "author": tweet_data.get("author_name"),
-                                }
-                            }
+                                },
+                            },
                         }
-                        
+
                         self.kafka_producer.send_message(
                             topic="external.twitter.images.raw",
                             key=tweet_data.get("tweet_id", url),
                             value=image_message,
                         )
-                        logging.info(f"Sent screenshot to Twitter images topic for OCR: {url}")
+                        logging.info(
+                            f"Sent screenshot to Twitter images topic for OCR: {url}"
+                        )
                     except Exception as e:
                         logging.error(f"Failed to send screenshot for OCR: {e}")
 

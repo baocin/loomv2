@@ -60,7 +60,9 @@ class TextEmbedder:
         data = email_data.get("data", email_data)
 
         # Add sender info - handle "Name <email@domain.com>" format
-        sender_raw = data.get("sender") or data.get("sender_email") or data.get("from_address")
+        sender_raw = (
+            data.get("sender") or data.get("sender_email") or data.get("from_address")
+        )
         if sender_raw:
             parts.append(f"From: {sender_raw}")
 

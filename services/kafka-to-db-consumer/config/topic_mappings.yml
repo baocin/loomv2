@@ -1,0 +1,695 @@
+# Topic to Database Table Mapping Configuration
+# This file defines how Kafka topic messages are mapped to database tables
+# Each topic can specify field mappings, upsert strategy, and data transformations
+
+# Configuration schema version
+schema_version: "v1"
+
+# Global defaults
+defaults:
+  upsert_key: "trace_id, timestamp"  # For hypertables
+  conflict_strategy: "ignore"  # ignore, update, replace
+  timestamp_field: "timestamp"
+  device_id_field: "device_id"
+  schema_version_field: "schema_version"
+
+# Topic mappings
+topics:
+  # Device Audio/Video/Image Topics
+  device.audio.raw:
+    table: "device_audio_raw"
+    description: "Raw microphone audio chunks"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.chunk_number: chunk_number
+      data.audio_data: audio_data
+      data.format: format
+      data.sample_rate: sample_rate
+      data.channels: channels
+      data.duration_ms: duration_ms
+      metadata: metadata
+    data_types:
+      chunk_number: integer
+      sample_rate: integer
+      channels: integer
+      duration_ms: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.chunk_number
+      - data.audio_data
+      - data.format
+      - data.sample_rate
+      - data.channels
+      - data.duration_ms
+
+  device.video.screen.raw:
+    table: "device_video_screen_raw"
+    description: "Screen recording keyframes"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.frame_data: frame_data
+      data.format: video_format
+      data.width: width
+      data.height: height
+      data.frame_number: frame_number
+      data.timestamp_ms: timestamp_ms
+      metadata.app_name: app_name
+      metadata.window_title: window_title
+    data_types:
+      width: integer
+      height: integer
+      frame_number: integer
+      timestamp_ms: integer
+      timestamp: timestamp
+    transforms:
+      frame_data: "base64_decode"
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  device.image.camera.raw:
+    table: "device_image_camera_raw"
+    description: "Photos from cameras and screenshots"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.image_data: image_data
+      data.format: image_format
+      data.width: width
+      data.height: height
+      data.source: source
+      metadata.location.latitude: latitude
+      metadata.location.longitude: longitude
+      metadata.camera_model: camera_model
+    data_types:
+      width: integer
+      height: integer
+      latitude: float
+      longitude: float
+      timestamp: timestamp
+    transforms:
+      image_data: "base64_decode"
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  # Device Sensor Topics
+  device.sensor.gps.raw:
+    table: "device_sensor_gps_raw"
+    description: "GPS location data from devices"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.latitude: latitude
+      data.longitude: longitude
+      data.altitude: altitude
+      data.accuracy: accuracy
+      data.speed: speed
+      data.heading: bearing
+      data.provider: provider
+      metadata.activity: activity
+      metadata.battery_level: battery_level
+    data_types:
+      latitude: float
+      longitude: float
+      altitude: float
+      accuracy: float
+      speed: float
+      bearing: float
+      battery_level: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.latitude
+      - data.longitude
+
+  device.sensor.accelerometer.raw:
+    table: "device_sensor_accelerometer_raw"
+    description: "3-axis motion sensor data"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.x: x_axis
+      data.y: y_axis
+      data.z: z_axis
+      data.magnitude: magnitude
+      data.sample_rate: sample_rate
+      metadata.activity: activity
+      metadata.device_orientation: device_orientation
+    data_types:
+      x_axis: float
+      y_axis: float
+      z_axis: float
+      magnitude: float
+      sample_rate: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  # Device Health Topics
+  device.health.heartrate.raw:
+    table: "device_health_heartrate_raw"
+    description: "Heart rate measurements"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.heart_rate: heart_rate
+      data.confidence: confidence
+      data.measurement_type: measurement_type
+      data.variability: variability
+      metadata.activity: activity
+      metadata.device_model: device_model
+    data_types:
+      heart_rate: integer
+      confidence: float
+      variability: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.heart_rate
+
+  device.health.steps.raw:
+    table: "device_health_steps_raw"
+    description: "Step count data"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.step_count: step_count
+      data.distance_meters: distance_meters
+      data.calories_burned: calories_burned
+      data.active_minutes: active_minutes
+      metadata.activity_type: activity_type
+      metadata.floor_count: floor_count
+    data_types:
+      step_count: integer
+      distance_meters: float
+      calories_burned: float
+      active_minutes: integer
+      floor_count: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.step_count
+
+  # Device State Topics
+  device.state.power.raw:
+    table: "device_state_power_raw"
+    description: "Device power and battery status"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.battery_level: battery_level
+      data.is_charging: is_charging
+      data.is_plugged_in: is_plugged_in
+      data.temperature_celsius: battery_temperature
+      data.voltage: voltage
+      metadata: metadata
+    data_types:
+      battery_level: integer
+      is_charging: boolean
+      is_plugged_in: boolean
+      battery_temperature: float
+      voltage: float
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.battery_level
+      - data.is_charging
+
+  # Device System Topics
+  device.system.apps.macos.raw:
+    table: "device_system_apps_macos_raw"
+    description: "macOS app monitoring data"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.app_name: app_name
+      data.bundle_id: bundle_id
+      data.duration_seconds: duration_seconds
+      data.window_title: window_title
+      data.is_active: is_active
+      metadata.cpu_usage: cpu_usage
+      metadata.memory_usage_mb: memory_usage_mb
+    data_types:
+      duration_seconds: integer
+      is_active: boolean
+      cpu_usage: float
+      memory_usage_mb: float
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.app_name
+
+  device.system.apps.android.raw:
+    table: "device_system_apps_android_raw"
+    description: "Android app monitoring data"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.app_name: app_name
+      data.package_name: package_name
+      data.duration_seconds: duration_seconds
+      data.is_foreground: is_foreground
+      metadata.battery_usage: battery_usage
+      metadata.data_usage_mb: data_usage_mb
+    data_types:
+      duration_seconds: integer
+      is_foreground: boolean
+      battery_usage: float
+      data_usage_mb: float
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.app_name
+
+  # Network Topics
+  device.network.wifi.raw:
+    table: "device_network_wifi_raw"
+    description: "Wi-Fi connection state"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.ssid: ssid
+      data.bssid: bssid
+      data.signal_strength: signal_strength
+      data.link_speed_mbps: link_speed_mbps
+      data.frequency_mhz: frequency_mhz
+      metadata.ip_address: ip_address
+      metadata.security_type: security_type
+    data_types:
+      signal_strength: integer
+      link_speed_mbps: integer
+      frequency_mhz: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  device.network.bluetooth.raw:
+    table: "device_network_bluetooth_raw"
+    description: "Nearby Bluetooth devices"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.device_address: device_address
+      data.device_name: device_name
+      data.rssi: rssi
+      data.device_type: device_type
+      metadata.is_connected: is_connected
+      metadata.services: services
+    data_types:
+      rssi: integer
+      is_connected: boolean
+      services: array
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  # Digital Data Topics
+  digital.clipboard.raw:
+    table: "digital_clipboard_raw"
+    description: "Clipboard content"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.content: content
+      data.content_type: content_type
+      data.source_app: source_app
+      metadata.content_length: content_length
+      metadata.has_formatting: has_formatting
+    data_types:
+      content_length: integer
+      has_formatting: boolean
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  # External Data Topics - Updated to use twitter_posts
+  external.twitter.liked.raw:
+    table: "twitter_posts"
+    description: "Liked tweets from Twitter/X"
+    upsert_key: "tweet_id, timestamp"
+    conflict_strategy: "update"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.tweet_id: tweet_id
+      data.tweet_url: tweet_url
+      data.tweet_text: tweet_text
+      data.author_username: author_username
+      data.author_display_name: author_display_name
+      data.created_at: created_at_twitter
+      data.like_count: like_count
+      data.retweet_count: retweet_count
+      data.reply_count: reply_count
+      data.is_retweet: is_retweet
+      data.has_media: has_media
+      data.media_urls: media_urls
+      metadata.fetched_at: liked_at
+      metadata.user_agent: user_agent
+    data_types:
+      like_count: integer
+      retweet_count: integer
+      reply_count: integer
+      is_retweet: boolean
+      has_media: boolean
+      media_urls: array
+      created_at_twitter: timestamp
+      liked_at: timestamp
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.tweet_id
+      - data.tweet_text
+
+  external.calendar.events.raw:
+    table: "external_calendar_events_raw"
+    description: "Calendar events"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.event_id: event_id
+      data.title: title
+      data.description: description
+      data.start_time: start_time
+      data.end_time: end_time
+      data.location: location
+      data.attendees: attendees
+      metadata.calendar_name: calendar_name
+      metadata.is_recurring: is_recurring
+    data_types:
+      start_time: timestamp
+      end_time: timestamp
+      attendees: array
+      is_recurring: boolean
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.event_id
+
+  external.email.events.raw:
+    table: "external_email_events_raw"
+    description: "Email events from all IMAP accounts"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.email_id: email_id
+      data.subject: subject
+      data.sender: sender
+      data.recipients: recipients
+      data.body_preview: body_preview
+      data.has_attachments: has_attachments
+      metadata.account_name: account_name
+      metadata.folder: folder
+    data_types:
+      recipients: array
+      has_attachments: boolean
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.email_id
+
+  # Media Processing Topics
+  media.audio.vad_filtered:
+    table: "media_audio_voice_segments_raw"
+    description: "Audio segments identified as containing speech"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.audio_data: segment_audio_data
+      data.format: audio_format
+      data.sample_rate: audio_sample_rate
+      data.channels: audio_channels
+      data.duration_ms: duration_ms
+      data.speech_probability: confidence_score
+      data.start_time: segment_start_time
+      data.end_time: segment_end_time
+      metadata.vad_model: model_version
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      audio_sample_rate: integer
+      audio_channels: integer
+      duration_ms: integer
+      confidence_score: float
+      segment_start_time: integer
+      segment_end_time: integer
+      processing_time_ms: integer
+      timestamp: timestamp
+    transforms:
+      segment_audio_data: "base64_decode"
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  media.text.transcribed.words:
+    table: "media_text_word_timestamps_raw"
+    description: "Word-by-word speech transcription with timestamps"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.transcript: full_transcript
+      data.language: language_code
+      data.duration_seconds: duration_seconds
+      data.audio_trace_id: audio_trace_id
+      metadata.asr_model: model_version
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      duration_seconds: float
+      processing_time_ms: integer
+      timestamp: timestamp
+    array_mappings:
+      # Special handling for arrays - expand each element to separate rows
+      data.words:
+        table_column_prefix: "word_"
+        element_mappings:
+          word: word_text
+          start: start_time_ms
+          end: end_time_ms
+          confidence: confidence_score
+        sequence_field: word_sequence
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  media.image.analysis.minicpm_results:
+    table: "media_image_analysis_minicpm_results"
+    description: "Vision-language analysis results"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.image_trace_id: image_trace_id
+      data.caption: caption
+      data.objects_detected: objects_detected
+      data.text_detected: text_detected
+      data.scene_description: scene_description
+      metadata.model_version: model_version
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      objects_detected: array
+      processing_time_ms: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  # Analysis Result Topics
+  analysis.audio.emotion_results:
+    table: "analysis_audio_emotion_scores_raw"
+    description: "Speech emotion recognition results"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.audio_trace_id: audio_trace_id
+      data.emotion_scores: emotion_scores
+      data.dominant_emotion: dominant_emotion
+      data.confidence: confidence
+      metadata.model_version: model_version
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      emotion_scores: json
+      confidence: float
+      processing_time_ms: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+
+  analysis.text.embedded.emails:
+    table: "emails_with_embeddings"
+    description: "Email content with text embeddings"
+    upsert_key: "email_id"
+    conflict_strategy: "update"
+    field_mappings:
+      trace_id: trace_id
+      email_id: email_id
+      device_id: device_id
+      timestamp: timestamp
+      data.subject: subject
+      data.body_text: body_text
+      data.embedding: embedding
+      data.embedding_model: model
+      data.embedding_dimensions: dimensions
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      embedding: float_array
+      dimensions: integer
+      processing_time_ms: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - email_id
+      - data.embedding
+
+  analysis.text.embedded.twitter:
+    table: "twitter_posts"
+    description: "Twitter content with text embeddings - updates existing records"
+    upsert_key: "tweet_id, timestamp"
+    conflict_strategy: "update"
+    field_mappings:
+      trace_id: trace_id
+      tweet_id: tweet_id
+      device_id: device_id
+      timestamp: timestamp
+      data.embedding: embedding
+      data.embedding_model: embedding_model
+      data.embedding_dimensions: embedding_dimensions
+      metadata.processing_time_ms: processing_time_ms
+    data_types:
+      embedding: float_array
+      embedding_dimensions: integer
+      processing_time_ms: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - tweet_id
+      - data.embedding
+
+  # Task Topics
+  task.url.ingest:
+    table: "task_url_ingest"
+    description: "URLs to be processed"
+    upsert_key: "trace_id"  # Non-hypertable
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.url: url
+      data.source: source
+      data.priority: priority
+      metadata.referrer: referrer
+      metadata.tags: tags
+    data_types:
+      priority: integer
+      tags: array
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.url
+
+# Global transformations
+transformations:
+  base64_decode:
+    description: "Decode base64 string to bytes"
+    input_type: "string"
+    output_type: "bytes"
+  
+  timestamp_parse:
+    description: "Parse ISO timestamp string to PostgreSQL timestamp"
+    input_type: "string"
+    output_type: "timestamp"
+  
+  json_stringify:
+    description: "Convert object to JSON string"
+    input_type: "object"
+    output_type: "string"
+
+# Data type mappings
+data_type_mappings:
+  string: "TEXT"
+  integer: "INTEGER"
+  float: "REAL"
+  boolean: "BOOLEAN"
+  timestamp: "TIMESTAMPTZ"
+  bytes: "BYTEA"
+  array: "TEXT[]"
+  float_array: "REAL[]"
+  json: "JSONB"

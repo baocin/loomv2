@@ -169,28 +169,39 @@ class DatabaseHandler:
             # Map incoming data fields to database schema
             # Handle both direct fields and Kafka message format with 'data' wrapper
             data = email_data.get("data", email_data)  # Support both formats
-            
+
             # Extract sender information - handle multiple field name formats
             sender_email = None
             sender_name = None
-            
+
             # Parse sender field: "Name <email@domain.com>" or just "email@domain.com"
-            sender_raw = data.get("sender") or data.get("sender_email") or data.get("from_address")
+            sender_raw = (
+                data.get("sender")
+                or data.get("sender_email")
+                or data.get("from_address")
+            )
             if sender_raw:
                 import re
+
                 # Try to parse "Name <email@domain.com>" format
-                match = re.match(r'^(.+?)\s*<(.+?)>$', sender_raw)
+                match = re.match(r"^(.+?)\s*<(.+?)>$", sender_raw)
                 if match:
                     sender_name = match.group(1).strip()
                     sender_email = match.group(2).strip()
                 else:
                     # Just an email address
                     sender_email = sender_raw.strip()
-            
+
             # Extract recipient information
             recipient_email = data.get("receiver") or data.get("recipient_email")
-            if not recipient_email and data.get("to_addresses") and isinstance(data.get("to_addresses"), list):
-                recipient_email = data.get("to_addresses")[0] if data.get("to_addresses") else None
+            if (
+                not recipient_email
+                and data.get("to_addresses")
+                and isinstance(data.get("to_addresses"), list)
+            ):
+                recipient_email = (
+                    data.get("to_addresses")[0] if data.get("to_addresses") else None
+                )
 
             query = """
                 INSERT INTO emails_with_embeddings (
@@ -212,17 +223,24 @@ class DatabaseHandler:
                 trace_id,
                 data.get("email_id") or data.get("message_id"),
                 email_data.get("device_id") or data.get("device_id"),
-                self._parse_timestamp(email_data.get("timestamp") or data.get("timestamp") or data.get("date_received")),
+                self._parse_timestamp(
+                    email_data.get("timestamp")
+                    or data.get("timestamp")
+                    or data.get("date_received")
+                ),
                 data.get("subject"),
                 sender_name,
                 sender_email,
                 recipient_email,
-                data.get("body") or data.get("body_text"),  # Use "body" field from actual data
+                data.get("body")
+                or data.get("body_text"),  # Use "body" field from actual data
                 data.get("body_html"),
                 json.dumps(data.get("headers") or data.get("metadata", {})),
                 json.dumps(data.get("attachments", [])),
                 str(data.get("folder") or data.get("labels", [])),
-                data.get("account_name") or data.get("source_account") or "email_fetcher",
+                data.get("account_name")
+                or data.get("source_account")
+                or "email_fetcher",
                 embedding_str,
                 "sentence-transformers/all-MiniLM-L6-v2",
                 json.dumps(email_data.get("metadata", {})),
