@@ -33,11 +33,13 @@ RAW_TOPICS: List[str] = [
     "device.state.power.raw",
     "device.network.wifi.raw",
     "device.network.bluetooth.raw",
+    "device.app_usage.android.aggregated",
     "os.events.app_lifecycle.raw",
     "os.events.notifications.raw",
     "digital.clipboard.raw",
     "digital.web_analytics.raw",
     "external.twitter.liked.raw",
+    "external.twitter.images.raw",
     "external.calendar.events.raw",
     "external.email.events.raw",
     "task.url.ingest",
@@ -64,7 +66,7 @@ DLQ_TOPICS: List[str] = [
 ]
 
 DEFAULT_PARTITIONS = 3
-DEFAULT_REPLICATION_FACTOR = 3
+DEFAULT_REPLICATION_FACTOR = 1  # Use 1 for development, 3 for production
 
 
 def parse_args() -> argparse.Namespace:

@@ -1227,14 +1227,14 @@ class E2ETestRunner:
             test_results["ai_services"] = await self.test_ai_services()
 
             # Inject processed data
-            test_results[
-                "processed_injection"
-            ] = await self.run_processed_data_injection()
+            test_results["processed_injection"] = (
+                await self.run_processed_data_injection()
+            )
 
             # Verify database
-            test_results[
-                "database_verification"
-            ] = await self.run_database_verification()
+            test_results["database_verification"] = (
+                await self.run_database_verification()
+            )
 
             # Calculate overall success
             api_success = all(test_results["api_tests"].values())
@@ -1363,7 +1363,7 @@ async def main():
             ) as response:
                 if response.status != 200:
                     raise Exception("Ingestion API not responding")
-    except:
+    except Exception:
         print("\n❌ Development environment not running!")
         print("Please start it first with: make dev-up")
         print("Or: tilt up")

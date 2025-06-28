@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Test script to send a Twitter screenshot to MiniCPM-Vision for OCR."""
 
-import base64
 import json
 import time
 from kafka import KafkaProducer
 
+
 def main():
     # Create Kafka producer
     producer = KafkaProducer(
-        bootstrap_servers=['localhost:9092'],
-        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        bootstrap_servers=["localhost:9092"],
+        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
-    
+
     # Create a test image message
     test_message = {
         "schema_version": "v1",
@@ -28,17 +28,20 @@ def main():
             "image_data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
             "metadata": {
                 "source": "x-url-processor",
-                "processing_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            }
-        }
+                "processing_timestamp": time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                ),
+            },
+        },
     }
-    
+
     # Send to Twitter images topic
-    producer.send('external.twitter.images.raw', value=test_message)
+    producer.send("external.twitter.images.raw", value=test_message)
     producer.flush()
-    
+
     print("Test message sent to external.twitter.images.raw topic")
     print(json.dumps(test_message, indent=2))
+
 
 if __name__ == "__main__":
     main()
