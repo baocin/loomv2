@@ -164,9 +164,9 @@ services:
       timeout: 10s
       retries: 3
 
-  parakeet-tdt:
+  kyutai-stt:
     build:
-      context: ./services/parakeet-tdt
+      context: ./services/kyutai-stt
       dockerfile: Dockerfile
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -186,14 +186,12 @@ services:
         condition: service_healthy
       silero-vad:
         condition: service_healthy
-    volumes:
-      - ~/.loom/models:/models  # Model cache directory
     healthcheck:
-      test: ["CMD", "python3", "-c", "import httpx; r = httpx.get('http://localhost:8002/healthz'); r.raise_for_status()"]
+      test: ["CMD", "curl", "-f", "http://localhost:8002/healthz"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s  # Allow time for model download
+      start_period: 120s  # Allow time for model download
 
   minicpm-vision:
     build:
@@ -269,6 +267,7 @@ services:
       dockerfile: Dockerfile
     environment:
       VITE_API_URL: http://localhost:8082
+      VITE_TEST_PRODUCER_URL: http://localhost:8008
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -505,7 +504,7 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Database Consumer
+  # Database Consumer (Legacy)
   kafka-to-db-consumer:
     build:
       context: ./services/kafka-to-db-consumer
@@ -514,6 +513,7 @@ services:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_LOG_LEVEL: INFO
+      CONSUMER_TYPE: legacy  # Use legacy consumer
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -525,7 +525,37 @@ services:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Generic Database Consumer (New mapping-based)
+  generic-kafka-to-db-consumer:
+    build:
+      context: ./services/kafka-to-db-consumer
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_LOG_LEVEL: INFO
+      CONSUMER_TYPE: generic  # Use new generic consumer
+      KAFKA_GROUP_ID: generic-kafka-to-db-consumer
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8009:8001"  # Different port to avoid conflict
+    volumes:
+      - ~/.loom/logs/generic-kafka-to-db:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -627,6 +657,84 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s  # Allow time for model download
+    restart: unless-stopped
+
+  moondream-ocr:
+    build:
+      context: ./services/moondream-ocr
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PORT: 8007
+      MOONDREAM_MODEL_CACHE: /home/aoi/.loom/moondream
+      HF_HOME: /home/aoi/.loom/moondream
+      TORCH_HOME: /home/aoi/.loom/moondream
+      TRANSFORMERS_CACHE: /home/aoi/.loom/moondream
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8007:8007"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ~/.loom:/home/aoi/.loom  # Model cache directory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s  # Allow time for model download
+    deploy:
+      resources:
+        limits:
+          memory: 8G  # Moondream requires significant memory
+        reservations:
+          memory: 4G
+    restart: unless-stopped
+
+  twitter-ocr-processor:
+    build:
+      context: ./services/twitter-ocr-processor
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      MOONDREAM_OCR_URL: http://moondream-ocr:8007
+      LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      moondream-ocr:
+        condition: service_started
+    restart: unless-stopped
+
+  kafka-test-producer:
+    build:
+      context: ./services/kafka-test-producer
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8008:8008"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
 
   # onefilellm:  # Temporarily disabled due to GitHub access issues

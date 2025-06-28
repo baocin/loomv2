@@ -7,8 +7,11 @@ k8s_yaml([
     'deploy/dev/postgres.yaml',
     'deploy/dev/kafka-to-db-consumer.yaml',
     'deploy/dev/ai-services.yaml',
+    'deploy/dev/moondream-ocr.yaml',
+    'deploy/dev/twitter-ocr-processor.yaml',
     'deploy/dev/cronjobs.yaml',
     'deploy/dev/pipeline-monitor.yaml',
+    'deploy/dev/shared-services.yaml',
 ], allow_duplicates=True)
 
 # Build and deploy ingestion-api
@@ -64,6 +67,28 @@ docker_build(
     live_update=[
         sync('services/parakeet-tdt/app', '/app/app'),
         run('pip install -e .', trigger=['services/parakeet-tdt/pyproject.toml']),
+    ]
+)
+
+# Moondream OCR service
+docker_build(
+    'loom/moondream-ocr',
+    'services/moondream-ocr',
+    dockerfile='services/moondream-ocr/Dockerfile',
+    live_update=[
+        sync('services/moondream-ocr/app', '/app/app'),
+        run('pip install -e .', trigger=['services/moondream-ocr/pyproject.toml']),
+    ]
+)
+
+# Twitter OCR Processor service
+docker_build(
+    'loom/twitter-ocr-processor',
+    'services/twitter-ocr-processor',
+    dockerfile='services/twitter-ocr-processor/Dockerfile',
+    live_update=[
+        sync('services/twitter-ocr-processor/app', '/app/app'),
+        run('pip install -r requirements.txt', trigger=['services/twitter-ocr-processor/requirements.txt']),
     ]
 )
 
@@ -152,6 +177,11 @@ k8s_resource('kafka-to-db-consumer', port_forwards='8001:8001')
 k8s_resource('pipeline-monitor-api', port_forwards='8082:8080')
 k8s_resource('pipeline-monitor-frontend', port_forwards='3000:3000')
 
+# Shared services port forwards
+k8s_resource('shared-redis', port_forwards='6379:6379')
+k8s_resource('schema-registry', port_forwards='8010:8010')
+k8s_resource('privacy-filter', port_forwards='8011:8011')
+
 # Note: AI services run as Kafka consumers without external ports
 # They can be monitored via their health endpoints through kubectl port-forward
 
@@ -162,10 +192,15 @@ k8s_resource('kafka-to-db-consumer', resource_deps=['kafka-infra-chart', 'postgr
 k8s_resource('pipeline-monitor-api', resource_deps=['kafka-infra-chart', 'postgres'])
 k8s_resource('pipeline-monitor-frontend', resource_deps=['pipeline-monitor-api'])
 
+# Shared services dependencies
+k8s_resource('schema-registry', resource_deps=['shared-redis'])
+k8s_resource('privacy-filter', resource_deps=['shared-redis'])
+
 # AI services dependencies
 k8s_resource('silero-vad', resource_deps=['kafka-infra-chart'])
 k8s_resource('minicpm-vision', resource_deps=['kafka-infra-chart'])
 k8s_resource('parakeet-tdt', resource_deps=['kafka-infra-chart'])
+k8s_resource('moondream-ocr', resource_deps=['kafka-infra-chart'])
 
 # Scheduled services dependencies
 k8s_resource('scheduled-consumers', resource_deps=['kafka-infra-chart'])
@@ -214,10 +249,16 @@ Available services:
 - Kafka: localhost:9092
 - PostgreSQL: localhost:5432
 
+Shared Services:
+- Schema Registry: http://localhost:8010
+- Privacy Filter: http://localhost:8011
+- Redis Cache: localhost:6379
+
 AI Model Services (Kafka consumers):
 - Silero VAD: Voice Activity Detection
 - MiniCPM Vision: Image analysis and OCR
 - Parakeet TDT: Speech-to-text transcription
+- Moondream OCR: Advanced image analysis and text extraction
 
 External Data Services:
 - HackerNews Fetcher: News aggregation
@@ -233,3 +274,32 @@ Manual commands:
 Logs: `tilt logs <service-name>`
 Service status: `kubectl get pods -n loom-dev`
 """)
+
+# Shared Services
+print("Building shared services...")
+
+# Schema Registry Service
+docker_build(
+    'loom/schema-registry',
+    'services/shared/schema-registry',
+    dockerfile='services/shared/schema-registry/Dockerfile',
+    live_update=[
+        sync('services/shared/schema-registry/app', '/app/app'),
+        run('pip install -r requirements.txt', trigger=['services/shared/schema-registry/requirements.txt']),
+    ]
+)
+
+# Privacy Filter Service
+docker_build(
+    'loom/privacy-filter',
+    'services/shared/privacy-filter',
+    dockerfile='services/shared/privacy-filter/Dockerfile',
+    live_update=[
+        sync('services/shared/privacy-filter/app', '/app/app'),
+        run('pip install -r requirements.txt', trigger=['services/shared/privacy-filter/requirements.txt']),
+    ]
+)
+
+print("🛡️ Shared Services:")
+print("- Schema Registry: http://localhost:8010/docs")
+print("- Privacy Filter: http://localhost:8011/docs")
