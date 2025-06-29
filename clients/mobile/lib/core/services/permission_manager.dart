@@ -20,15 +20,19 @@ class PermissionManager {
     ],
     'audio': [
       permission_handler.Permission.microphone,
-      if (Platform.isAndroid) permission_handler.Permission.storage,
+      // Storage/Photos permission for saving audio files
+      if (Platform.isAndroid) permission_handler.Permission.photos,
+      if (Platform.isIOS) permission_handler.Permission.photos,
     ],
     'screenshot': [
-      // On Android, screenshots require special permissions (handled by app)
-      if (Platform.isAndroid) permission_handler.Permission.systemAlertWindow,
+      // Screenshots don't require special permissions for in-app captures
+      // System-wide screenshots would need MEDIA_PROJECTION but we don't use that
     ],
     'camera': [
       permission_handler.Permission.camera,
-      if (Platform.isAndroid) permission_handler.Permission.storage,
+      // Photos permission for saving captured images
+      if (Platform.isAndroid) permission_handler.Permission.photos,
+      if (Platform.isIOS) permission_handler.Permission.photos,
     ],
     'background_service': [
       permission_handler.Permission.notification,
@@ -215,11 +219,11 @@ class PermissionManager {
   static Map<String, String> getPermissionDescriptions() {
     return {
       'gps': 'Location access for GPS tracking and context awareness',
-      'audio': 'Microphone access for audio recording and voice detection',
-      'network': 'Network info for WiFi network detection and connectivity',
-      'background_service': 'Background processing for continuous data collection',
-      'screenshot': 'Screen capture access for taking screenshots',
-      'camera': 'Camera access for taking photos',
+      'audio': 'Microphone and storage access for audio recording',
+      'network': 'Location access for WiFi network detection and connectivity',
+      'background_service': 'Background processing and notification permissions',
+      'screenshot': 'In-app screenshot capability (no special permissions needed)',
+      'camera': 'Camera and photo storage access for taking pictures',
       'accelerometer': 'Motion sensor data (no permission needed)',
       'battery': 'Battery status monitoring (no permission needed)',
     };

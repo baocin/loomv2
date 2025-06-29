@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:record/record.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import '../core/services/data_source_interface.dart';
+import '../core/services/permission_manager.dart';
 import '../core/models/audio_data.dart';
 import '../core/utils/content_hasher.dart';
 
@@ -149,14 +149,17 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
 
   Future<bool> _checkPermissions() async {
     try {
-      final permission = await Permission.microphone.status;
+      // Use centralized permission manager
+      final permissionStatus = await PermissionManager.checkAllPermissions();
+      final audioStatus = permissionStatus['audio'];
       
-      if (permission.isDenied) {
-        final result = await Permission.microphone.request();
-        return result.isGranted;
+      if (audioStatus != null && audioStatus.isGranted) {
+        return true;
       }
       
-      return permission.isGranted;
+      // Try to request permission if not granted
+      final result = await PermissionManager.requestDataSourcePermissions('audio');
+      return result.granted;
     } catch (e) {
       print('Error checking microphone permissions: $e');
       return false;
