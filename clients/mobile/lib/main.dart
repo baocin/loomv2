@@ -15,7 +15,6 @@ import 'screens/settings_screen.dart';
 import 'data_sources/screenshot_data_source.dart';
 import 'data_sources/camera_data_source.dart';
 import 'widgets/screenshot_widget.dart';
-import 'widgets/camera_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +75,6 @@ class _HomePageState extends State<HomePage> {
   bool _isServiceRunning = false;
   bool _isDataCollectionRunning = false;
   PermissionSummary? _permissionSummary;
-  String _serviceStatus = 'Initializing...';
   DateTime? _lastUpdate;
   final Map<String, bool> _dataSourceStates = {};
   BatteryProfile _currentProfile = BatteryProfile.balanced;
@@ -102,7 +100,6 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isServiceRunning = isRunning;
       _isDataCollectionRunning = widget.dataService.isRunning;
-      _serviceStatus = isRunning ? 'Service is running' : 'Service is stopped';
     });
   }
 
@@ -118,7 +115,6 @@ class _HomePageState extends State<HomePage> {
       if (event != null) {
         setState(() {
           _lastUpdate = DateTime.parse(event['current_time'] ?? DateTime.now().toIso8601String());
-          _serviceStatus = 'Running for ${event['running_duration']} seconds';
         });
       }
     });
@@ -230,34 +226,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _toggleService() async {
-    if (!_isServiceRunning) {
-      // Request permissions first
-      final granted = await PermissionService.requestAllPermissions();
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please grant all permissions to start the service')),
-        );
-        return;
-      }
-
-      await BackgroundServiceManager.startService();
-      setState(() {
-        _serviceStatus = 'Starting service...';
-      });
-    } else {
-      await BackgroundServiceManager.stopService();
-      setState(() {
-        _serviceStatus = 'Stopping service...';
-      });
-    }
-
-    // Check status after a delay
-    Future.delayed(const Duration(seconds: 1), () {
-      _checkServiceStatus();
-      _checkPermissions();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +266,49 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Permissions Status (moved to top for visibility)
+            Card(
+              color: _permissionSummary != null && !_permissionSummary!.allGranted 
+                  ? Colors.orange.shade50 
+                  : null,
+              child: Column(
+                children: [
+                  if (_permissionSummary != null) ..._buildPermissionSummary(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showPermissionDialog(),
+                        icon: Icon(
+                          _permissionSummary?.allGranted == true 
+                              ? Icons.check_circle 
+                              : Icons.warning,
+                          color: _permissionSummary?.allGranted == true 
+                              ? Colors.green 
+                              : Colors.orange,
+                        ),
+                        label: Text(
+                          _permissionSummary?.allGranted == true 
+                              ? 'All Permissions Granted' 
+                              : 'Manage Permissions',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _permissionSummary?.allGranted == true
+                              ? Colors.green.shade50
+                              : Colors.orange.shade100,
+                          foregroundColor: _permissionSummary?.allGranted == true
+                              ? Colors.green.shade800
+                              : Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
             // Data Collection Control
             Card(
               child: ListTile(
@@ -308,19 +319,6 @@ class _HomePageState extends State<HomePage> {
                 trailing: Switch(
                   value: _isDataCollectionRunning,
                   onChanged: (_) => _toggleDataCollection(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Background Service Control
-            Card(
-              child: ListTile(
-                title: const Text('Background Service'),
-                subtitle: Text(_serviceStatus),
-                trailing: Switch(
-                  value: _isServiceRunning,
-                  onChanged: (_) => _toggleService(),
                 ),
               ),
             ),
@@ -367,22 +365,39 @@ class _HomePageState extends State<HomePage> {
 
                     return ExpansionTile(
                       title: Text(dataSource.displayName),
-                      subtitle: Text('Queue: $queueSize ${_getDataSourceSubtitle(sourceId, config)}'),
+                      subtitle: Row(
+                        children: [
+                          if (queueSize > 0) ...[  
+                            Icon(_getDataSourceIcon(sourceId), size: 14),
+                            const SizedBox(width: 4),
+                            Text('$queueSize', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(child: Text(_getDataSourceSubtitle(sourceId, config))),
+                        ],
+                      ),
                       leading: Icon(
                         _getDataSourceIcon(sourceId),
                         color: isEnabled ? Colors.green : Colors.grey,
                       ),
-                      trailing: Switch(
-                        value: isEnabled,
-                        onChanged: (value) async {
-                          await widget.dataService.setDataSourceEnabled(sourceId, value);
-                          setState(() {
-                            _dataSourceStates[sourceId] = value;
-                          });
-                        },
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.expand_more, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: isEnabled,
+                            onChanged: (value) async {
+                              await widget.dataService.setDataSourceEnabled(sourceId, value);
+                              setState(() {
+                                _dataSourceStates[sourceId] = value;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                       children: [
-                        if (config != null) ..._buildConfigTiles(sourceId, config),
+                        if (config != null) ..._buildConfigTiles(sourceId, config, _currentProfile == BatteryProfile.custom),
                         if (sourceId == 'screenshot') ..._buildScreenshotSettings(),
                         if (sourceId == 'camera') ..._buildCameraSettings(),
                       ],
@@ -392,23 +407,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            const SizedBox(height: 16),
-            const Text(
-              'Permissions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  if (_permissionSummary != null) ..._buildPermissionSummary(),
-                  ElevatedButton(
-                    onPressed: () => _showPermissionDialog(),
-                    child: const Text('Manage Permissions'),
-                  ),
-                ],
-              ),
-            ),
 
             if (_lastUpdate != null) ...[
               const SizedBox(height: 16),
@@ -436,12 +434,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _changeBatteryProfile(BatteryProfile profile) async {
-    // Apply the profile config to the data collection service
-    // Apply the profile config to the data collection service
-    // Note: This would require updating the service's config
     setState(() {
       _currentProfile = profile;
     });
+    
+    if (profile != BatteryProfile.custom) {
+      // Apply the predefined profile configuration
+      final profileConfig = BatteryProfileManager.getProfileConfig(profile);
+      
+      for (final sourceId in widget.dataService.availableDataSources.keys) {
+        final config = profileConfig.getConfig(sourceId);
+        await widget.dataService.updateDataSourceConfig(sourceId, config);
+      }
+    }
     
     // Restart data collection with new profile
     if (_isDataCollectionRunning) {
@@ -450,7 +455,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
   
-  List<Widget> _buildConfigTiles(String sourceId, DataSourceConfigParams config) {
+  List<Widget> _buildConfigTiles(String sourceId, DataSourceConfigParams config, bool isCustomMode) {
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -461,17 +466,66 @@ class _HomePageState extends State<HomePage> {
               subtitle: Text('${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s'),
               dense: true,
             ),
-            ListTile(
-              title: const Text('Upload Batch Size'),
-              subtitle: Text('${config.uploadBatchSize} items'),
-              dense: true,
-            ),
-            if (config.dutyCycle != null)
+            if (isCustomMode) ...[  
               ListTile(
-                title: const Text('Duty Cycle'),
-                subtitle: Text('${config.dutyCycle!.dutyCyclePercentage.toStringAsFixed(1)}% active'),
+                title: const Text('Upload Batch Size'),
+                subtitle: Slider(
+                  value: config.uploadBatchSize.toDouble(),
+                  min: 1,
+                  max: 50,
+                  divisions: 49,
+                  label: '${config.uploadBatchSize} items',
+                  onChanged: (value) async {
+                    final newConfig = config.copyWith(uploadBatchSize: value.toInt());
+                    await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
+                    setState(() {});
+                  },
+                ),
                 dense: true,
               ),
+              if (config.dutyCycle != null)
+                ListTile(
+                  title: const Text('Duty Cycle'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}% active'),
+                      Slider(
+                        value: config.dutyCycle!.dutyCyclePercentage,
+                        min: 0.1,
+                        max: 1.0,
+                        divisions: 9,
+                        label: '${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}%',
+                        onChanged: (value) async {
+                          final totalMs = config.dutyCycle!.totalCycleDuration.inMilliseconds;
+                          final activeMs = (totalMs * value).round();
+                          final sleepMs = totalMs - activeMs;
+                          final newDutyCycle = DutyCycleConfig(
+                            activeMs: activeMs,
+                            sleepMs: sleepMs,
+                          );
+                          final newConfig = config.copyWith(dutyCycle: newDutyCycle);
+                          await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                  dense: true,
+                ),
+            ] else ...[
+              ListTile(
+                title: const Text('Upload Batch Size'),
+                subtitle: Text('${config.uploadBatchSize} items'),
+                dense: true,
+              ),
+              if (config.dutyCycle != null)
+                ListTile(
+                  title: const Text('Duty Cycle'),
+                  subtitle: Text('${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}% active'),
+                  dense: true,
+                ),
+            ],
             ListTile(
               title: const Text('Priority'),
               subtitle: Text(config.priority.name.toUpperCase()),

@@ -23,7 +23,8 @@ class PermissionManager {
       if (Platform.isAndroid) permission_handler.Permission.storage,
     ],
     'screenshot': [
-      // No special permissions needed for screenshots
+      // On Android, screenshots require special permissions (handled by app)
+      if (Platform.isAndroid) permission_handler.Permission.systemAlertWindow,
     ],
     'camera': [
       permission_handler.Permission.camera,
@@ -217,6 +218,10 @@ class PermissionManager {
       'audio': 'Microphone access for audio recording and voice detection',
       'network': 'Network info for WiFi network detection and connectivity',
       'background_service': 'Background processing for continuous data collection',
+      'screenshot': 'Screen capture access for taking screenshots',
+      'camera': 'Camera access for taking photos',
+      'accelerometer': 'Motion sensor data (no permission needed)',
+      'battery': 'Battery status monitoring (no permission needed)',
     };
   }
 

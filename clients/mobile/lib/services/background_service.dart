@@ -71,6 +71,8 @@ class BackgroundServiceManager {
   static void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
+    Map<String, int> queueSizes = {};
+
     if (service is AndroidServiceInstance) {
       service.on('setAsForeground').listen((event) {
         service.setAsForegroundService();
@@ -79,6 +81,13 @@ class BackgroundServiceManager {
       service.on('setAsBackground').listen((event) {
         service.setAsBackgroundService();
       });
+      
+      // Listen for queue updates from main app
+      service.on('updateQueues').listen((event) {
+        if (event != null && event['queues'] != null) {
+          queueSizes = Map<String, int>.from(event['queues']);
+        }
+      });
     }
 
     service.on('stopService').listen((event) {
@@ -86,13 +95,16 @@ class BackgroundServiceManager {
     });
 
     // Update notification periodically
-    Timer.periodic(const Duration(seconds: 30), (timer) async {
+    Timer.periodic(const Duration(seconds: 5), (timer) async {
       if (service is AndroidServiceInstance) {
         if (await service.isForegroundService()) {
+          // Build notification content with queue data
+          String notificationContent = _buildNotificationContent(queueSizes);
+          
           // Update the notification
           await _showNotification(
             'Loom Service Active',
-            'Running for ${timer.tick * 30} seconds',
+            notificationContent,
           );
 
           // Send update to main app
@@ -100,7 +112,7 @@ class BackgroundServiceManager {
             'update',
             {
               'current_time': DateTime.now().toIso8601String(),
-              'running_duration': timer.tick * 30,
+              'running_duration': timer.tick * 5,
             },
           );
         }
@@ -143,5 +155,41 @@ class BackgroundServiceManager {
       body,
       details,
     );
+  }
+
+  static String _buildNotificationContent(Map<String, int> queueSizes) {
+    if (queueSizes.isEmpty) {
+      return 'Monitoring sensors...';
+    }
+
+    final List<String> items = [];
+    int totalQueued = 0;
+
+    // Map data sources to emojis
+    final Map<String, String> sourceEmojis = {
+      'gps': '📍',
+      'accelerometer': '📊',
+      'battery': '🔋',
+      'network': '📶',
+      'audio': '🎤',
+      'screenshot': '📸',
+      'camera': '📷',
+    };
+
+    // Build queue status for each source with data
+    queueSizes.forEach((source, count) {
+      if (count > 0) {
+        final emoji = sourceEmojis[source] ?? '📊';
+        items.add('$emoji $count');
+        totalQueued += count;
+      }
+    });
+
+    if (items.isEmpty) {
+      return 'All data uploaded ✓';
+    }
+
+    // Join items and add total
+    return '${items.join(' • ')} (Total: $totalQueued)';
   }
 }

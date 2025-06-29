@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart' as permission_handler;
 import '../core/services/device_manager.dart';
 import '../core/services/data_source_interface.dart';
@@ -256,6 +257,9 @@ class DataCollectionService {
     if (config != null && queue.length >= config.uploadBatchSize) {
       _uploadQueuedDataForSource(sourceId);
     }
+    
+    // Update background service with queue information
+    _updateBackgroundServiceQueues();
   }
 
   /// Set up upload timers for each data source
@@ -283,6 +287,8 @@ class DataCollectionService {
     try {
       await _uploadDataByType(sourceId, dataToUpload);
       print('Successfully uploaded ${dataToUpload.length} $sourceId data points');
+      // Update background service after successful upload
+      _updateBackgroundServiceQueues();
     } catch (e) {
       print('Error uploading $sourceId data: $e');
       // Re-add failed uploads to queue (with a limit)
@@ -443,6 +449,20 @@ class DataCollectionService {
   
   /// Get current configuration
   DataCollectionConfig? get config => _config;
+  
+  /// Update background service with current queue sizes
+  void _updateBackgroundServiceQueues() {
+    final service = FlutterBackgroundService();
+    final queueData = <String, int>{};
+    
+    _uploadQueues.forEach((sourceId, queue) {
+      if (queue.isNotEmpty) {
+        queueData[sourceId] = queue.length;
+      }
+    });
+    
+    service.invoke('updateQueues', {'queues': queueData});
+  }
   
   /// Dispose the service
   void dispose() {
