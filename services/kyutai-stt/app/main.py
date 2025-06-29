@@ -71,11 +71,11 @@ async def lifespan(app: FastAPI):
     try:
         # Start Kafka consumer (this will initialize the ASR model)
         await kafka_consumer.start()
-        
+
         # Mark model as loaded since consumer.start() initializes it
         global model_loaded
         model_loaded = True
-        
+
         logger.info("Kyutai-STT service started successfully, model loaded")
 
         yield

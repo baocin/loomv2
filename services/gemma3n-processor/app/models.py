@@ -1,7 +1,7 @@
 """Data models for Gemma 3N Processor service."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -55,29 +55,37 @@ class AnalysisResult(BaseModel):
 
     type: str = Field(..., description="Type of analysis (text, image, audio)")
     content: str = Field(..., description="Analysis result content")
-    confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence score")
+    confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Confidence score"
+    )
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
 class MultimodalAnalysisResult(BaseMessage):
     """Multimodal analysis output to be sent to Kafka."""
-    
+
     model_config = {"protected_namespaces": ()}
 
     # Core analysis
     analysis_type: str = Field(..., description="Type of multimodal analysis performed")
     primary_result: str = Field(..., description="Primary analysis result")
-    
+
     # Individual modality results
-    text_analysis: Optional[AnalysisResult] = Field(None, description="Text analysis result")
-    image_analysis: Optional[AnalysisResult] = Field(None, description="Image analysis result")
-    audio_analysis: Optional[AnalysisResult] = Field(None, description="Audio analysis result")
-    
+    text_analysis: Optional[AnalysisResult] = Field(
+        None, description="Text analysis result"
+    )
+    image_analysis: Optional[AnalysisResult] = Field(
+        None, description="Image analysis result"
+    )
+    audio_analysis: Optional[AnalysisResult] = Field(
+        None, description="Audio analysis result"
+    )
+
     # Cross-modal insights
     multimodal_insights: Optional[List[str]] = Field(
         None, description="Insights from cross-modal analysis"
     )
-    
+
     # Structured outputs
     entities: Optional[List[Dict[str, Any]]] = Field(
         None, description="Extracted entities across modalities"
@@ -85,18 +93,14 @@ class MultimodalAnalysisResult(BaseMessage):
     sentiment: Optional[Dict[str, float]] = Field(
         None, description="Sentiment analysis results"
     )
-    topics: Optional[List[str]] = Field(
-        None, description="Identified topics/themes"
-    )
-    
+    topics: Optional[List[str]] = Field(None, description="Identified topics/themes")
+
     # Processing metadata
     processing_time_ms: float = Field(
         ..., description="Time taken to process in milliseconds"
     )
-    model_version: str = Field(
-        default="gemma3n:e4b", description="Model version used"
-    )
-    
+    model_version: str = Field(default="gemma3n:e4b", description="Model version used")
+
     # Quality metrics
     input_quality: Optional[Dict[str, float]] = Field(
         None, description="Quality metrics for input data"
@@ -132,13 +136,19 @@ class HealthStatus(BaseModel):
     checks: Optional[Dict[str, bool]] = Field(
         None, description="Individual component checks"
     )
-    
-    
+
+
 class ProcessingMetrics(BaseModel):
     """Metrics for monitoring processing performance."""
-    
+
     requests_processed: int = Field(default=0, description="Total requests processed")
-    total_processing_time: float = Field(default=0.0, description="Total processing time")
-    average_processing_time: float = Field(default=0.0, description="Average processing time")
+    total_processing_time: float = Field(
+        default=0.0, description="Total processing time"
+    )
+    average_processing_time: float = Field(
+        default=0.0, description="Average processing time"
+    )
     errors_count: int = Field(default=0, description="Number of errors encountered")
-    last_processed: Optional[datetime] = Field(None, description="Last processing timestamp")
+    last_processed: Optional[datetime] = Field(
+        None, description="Last processing timestamp"
+    )

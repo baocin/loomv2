@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-down dev-compose-logs topics-create
+.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-down dev-compose-logs topics-create base-images
 
 # Default target
 help: ## Show this help message
@@ -113,7 +113,12 @@ format: ## Format code
 	@find services/ -name "*.py" -exec ruff --fix {} \;
 
 # Docker
-docker: ## Build all Docker images
+base-images: ## Build base Docker images for all services
+	@echo "Building base Docker images..."
+	@cd docker/base-images && ./build.sh
+	@echo "✅ Base images built successfully"
+
+docker: base-images ## Build all Docker images
 	@echo "Building ingestion-api image..."
 	@cd services/ingestion-api && make docker
 	@echo "Building pipeline-monitor-api image..."

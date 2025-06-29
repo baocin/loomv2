@@ -1,6 +1,6 @@
 """Configuration for Moondream Station service."""
 
-from typing import List, Optional
+from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -39,23 +39,23 @@ class Settings(BaseSettings):
     moondream_api_path: str = "/v1"
     moondream_timeout: int = 30
     moondream_max_retries: int = 3
-    
+
     # Processing configuration
     max_image_size: int = 2048  # Max dimension for image resizing
     jpeg_quality: int = 95  # JPEG compression quality
     batch_size: int = 1  # Process one image at a time
     processing_timeout: int = 60  # Timeout per image
-    
+
     # Model configuration
     default_caption_prompt: str = "Describe this image in detail."
     enable_object_detection: bool = True
     enable_ocr: bool = True
     confidence_threshold: float = 0.7
-    
+
     # Health check configuration
     health_check_interval: int = 30
     readiness_timeout: int = 5
-    
+
     # Storage configuration
     temp_storage_path: str = "/app/data/temp"
     max_temp_storage_mb: int = 1000

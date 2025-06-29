@@ -2208,4 +2208,3 @@ usage: bandit
        [--version]
        [targets ...]
 bandit: error: unrecognized arguments: services/ingestion-api/tests/unit/test_config.py services/ingestion-api/tests/integration/test_full_api_integration.py services/face-emotion/app/kafka_consumer.py services/silero-vad/app/dlq_handler.py services/onefilellm/app/config.py services/scheduled-consumers/app/consumers/twitter_consumer.py
-

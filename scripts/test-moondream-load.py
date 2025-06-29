@@ -23,7 +23,7 @@ model = AutoModelForCausalLM.from_pretrained(
     model_id,
     trust_remote_code=True,
     torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-    low_cpu_mem_usage=True
+    low_cpu_mem_usage=True,
 )
 print("Model loaded!")
 
@@ -32,7 +32,7 @@ print(f"Total loading time: {elapsed:.2f} seconds")
 
 # Test with a simple image
 print("\nTesting OCR on a simple image...")
-img = Image.new('RGB', (100, 100), color='white')
+img = Image.new("RGB", (100, 100), color="white")
 
 try:
     enc_image = model.encode_image(img)

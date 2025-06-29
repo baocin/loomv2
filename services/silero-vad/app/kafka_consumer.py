@@ -269,7 +269,10 @@ class KafkaVADConsumer:
         if self.producer:
             try:
                 # Check if producer is started
-                health["producer_started"] = hasattr(self.producer, '_sender') and self.producer._sender is not None
+                health["producer_started"] = (
+                    hasattr(self.producer, "_sender")
+                    and self.producer._sender is not None
+                )
             except Exception as e:
                 health["status"] = "degraded"
                 health["producer_error"] = str(e)

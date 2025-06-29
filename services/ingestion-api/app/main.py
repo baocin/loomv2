@@ -13,7 +13,17 @@ from .config import settings
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, devices, documents, github, images, notes, sensors, system, urls
+from .routers import (
+    audio,
+    devices,
+    documents,
+    github,
+    images,
+    notes,
+    sensors,
+    system,
+    urls,
+)
 from .tracing import TracingMiddleware, get_trace_context
 
 

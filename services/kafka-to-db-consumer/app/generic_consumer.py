@@ -3,7 +3,6 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import asyncpg
@@ -20,25 +19,32 @@ logger = structlog.get_logger(__name__)
 class GenericKafkaToDBConsumer:
     """Generic consumer that uses YAML mapping configuration to route messages to database tables."""
 
-    def __init__(self, database_url: str, kafka_bootstrap_servers: str, group_id: str = "generic-kafka-to-db-consumer"):
+    def __init__(
+        self,
+        database_url: str,
+        kafka_bootstrap_servers: str,
+        group_id: str = "generic-kafka-to-db-consumer",
+    ):
         """Initialize the generic consumer."""
         self.database_url = database_url
         self.kafka_bootstrap_servers = kafka_bootstrap_servers
         self.group_id = group_id
-        
+
         self.consumer: Optional[AIOKafkaConsumer] = None
         self.db_pool: Optional[asyncpg.Pool] = None
         self.running = False
-        
+
         # Initialize mapping engine
         self.mapping_engine = MappingEngine()
-        
+
         # Get supported topics from configuration
         self.supported_topics = self.mapping_engine.get_supported_topics()
-        
-        logger.info("Initialized generic consumer", 
-                   supported_topics=len(self.supported_topics),
-                   topics=self.supported_topics[:5])  # Log first 5 topics
+
+        logger.info(
+            "Initialized generic consumer",
+            supported_topics=len(self.supported_topics),
+            topics=self.supported_topics[:5],
+        )  # Log first 5 topics
 
     async def start(self):
         """Start the consumer service."""
@@ -131,7 +137,7 @@ class GenericKafkaToDBConsumer:
             "Processing message with generic consumer",
             topic=topic,
             trace_id=data.get("trace_id"),
-            keys=list(data.keys()) if isinstance(data, dict) else None
+            keys=list(data.keys()) if isinstance(data, dict) else None,
         )
 
         # Use mapping engine to convert message to database record(s)
@@ -144,38 +150,54 @@ class GenericKafkaToDBConsumer:
 
         # Handle multiple records (for array mappings)
         if isinstance(record_data, list):
-            await self._insert_multiple_records(table_name, record_data, upsert_key, topic, data)
+            await self._insert_multiple_records(
+                table_name, record_data, upsert_key, topic, data
+            )
         else:
-            await self._insert_single_record(table_name, record_data, upsert_key, topic, data)
+            await self._insert_single_record(
+                table_name, record_data, upsert_key, topic, data
+            )
 
         logger.debug(
             "Message processed successfully with generic consumer",
             topic=topic,
             table=table_name,
-            trace_id=record_data.get('trace_id') if isinstance(record_data, dict) else 'multiple',
+            trace_id=(
+                record_data.get("trace_id")
+                if isinstance(record_data, dict)
+                else "multiple"
+            ),
         )
 
-    async def _insert_single_record(self, table_name: str, record: Dict[str, Any], 
-                                   upsert_key: str, topic: str, original_message: Dict[str, Any]):
+    async def _insert_single_record(
+        self,
+        table_name: str,
+        record: Dict[str, Any],
+        upsert_key: str,
+        topic: str,
+        original_message: Dict[str, Any],
+    ):
         """Insert a single record into the database."""
         try:
             # Build dynamic INSERT query with ON CONFLICT
             columns = list(record.keys())
-            placeholders = [f'${i+1}' for i in range(len(columns))]
+            placeholders = [f"${i+1}" for i in range(len(columns))]
             values = [record[col] for col in columns]
 
             # Get topic configuration for conflict strategy
             topic_config = self.mapping_engine.get_topic_mapping(topic)
-            conflict_strategy = topic_config.get('conflict_strategy', 'ignore')
+            conflict_strategy = topic_config.get("conflict_strategy", "ignore")
 
             # Build conflict resolution clause
-            if conflict_strategy == 'ignore':
+            if conflict_strategy == "ignore":
                 conflict_clause = f"ON CONFLICT ({upsert_key}) DO NOTHING"
-            elif conflict_strategy == 'update':
+            elif conflict_strategy == "update":
                 # Update all columns except the conflict key
                 update_columns = [col for col in columns if col != upsert_key]
                 if update_columns:
-                    update_clauses = [f"{col} = EXCLUDED.{col}" for col in update_columns]
+                    update_clauses = [
+                        f"{col} = EXCLUDED.{col}" for col in update_columns
+                    ]
                     conflict_clause = f"ON CONFLICT ({upsert_key}) DO UPDATE SET {', '.join(update_clauses)}"
                 else:
                     conflict_clause = f"ON CONFLICT ({upsert_key}) DO NOTHING"
@@ -197,15 +219,21 @@ class GenericKafkaToDBConsumer:
                 "Failed to insert record",
                 table=table_name,
                 topic=topic,
-                trace_id=record.get('trace_id'),
+                trace_id=record.get("trace_id"),
                 error=str(e),
                 columns=list(record.keys()),
-                exc_info=True
+                exc_info=True,
             )
             raise
 
-    async def _insert_multiple_records(self, table_name: str, records: List[Dict[str, Any]], 
-                                     upsert_key: str, topic: str, original_message: Dict[str, Any]):
+    async def _insert_multiple_records(
+        self,
+        table_name: str,
+        records: List[Dict[str, Any]],
+        upsert_key: str,
+        topic: str,
+        original_message: Dict[str, Any],
+    ):
         """Insert multiple records into the database (for array mappings)."""
         if not records:
             return
@@ -218,7 +246,7 @@ class GenericKafkaToDBConsumer:
             all_columns = sorted(list(all_columns))
 
             # Prepare batch insert
-            placeholders_per_record = [f'${i+1}' for i in range(len(all_columns))]
+            placeholders_per_record = [f"${i+1}" for i in range(len(all_columns))]
             values_list = []
 
             for record in records:
@@ -231,19 +259,23 @@ class GenericKafkaToDBConsumer:
             value_groups = []
             for i in range(num_records):
                 offset = i * len(all_columns)
-                group_placeholders = [f'${offset + j + 1}' for j in range(len(all_columns))]
+                group_placeholders = [
+                    f"${offset + j + 1}" for j in range(len(all_columns))
+                ]
                 value_groups.append(f"({', '.join(group_placeholders)})")
 
             # Get conflict strategy
             topic_config = self.mapping_engine.get_topic_mapping(topic)
-            conflict_strategy = topic_config.get('conflict_strategy', 'ignore')
+            conflict_strategy = topic_config.get("conflict_strategy", "ignore")
 
-            if conflict_strategy == 'ignore':
+            if conflict_strategy == "ignore":
                 conflict_clause = f"ON CONFLICT ({upsert_key}) DO NOTHING"
-            elif conflict_strategy == 'update':
+            elif conflict_strategy == "update":
                 update_columns = [col for col in all_columns if col != upsert_key]
                 if update_columns:
-                    update_clauses = [f"{col} = EXCLUDED.{col}" for col in update_columns]
+                    update_clauses = [
+                        f"{col} = EXCLUDED.{col}" for col in update_columns
+                    ]
                     conflict_clause = f"ON CONFLICT ({upsert_key}) DO UPDATE SET {', '.join(update_clauses)}"
                 else:
                     conflict_clause = f"ON CONFLICT ({upsert_key}) DO NOTHING"
@@ -264,7 +296,7 @@ class GenericKafkaToDBConsumer:
                 table=table_name,
                 topic=topic,
                 record_count=len(records),
-                trace_id=original_message.get('trace_id')
+                trace_id=original_message.get("trace_id"),
             )
 
         except Exception as e:
@@ -273,36 +305,35 @@ class GenericKafkaToDBConsumer:
                 table=table_name,
                 topic=topic,
                 record_count=len(records),
-                trace_id=original_message.get('trace_id'),
+                trace_id=original_message.get("trace_id"),
                 error=str(e),
-                exc_info=True
+                exc_info=True,
             )
             raise
 
     async def reload_configuration(self):
         """Reload mapping configuration (for hot-reloading)."""
         logger.info("Reloading mapping configuration")
-        
+
         # Reload config
         self.mapping_engine.reload_config()
-        
+
         # Check if supported topics changed
         new_topics = self.mapping_engine.get_supported_topics()
-        
+
         if set(new_topics) != set(self.supported_topics):
             logger.warning(
                 "Topic configuration changed - restart required",
                 old_topics=self.supported_topics,
-                new_topics=new_topics
+                new_topics=new_topics,
             )
             # Note: In production, you might want to restart the consumer automatically
             # For now, just log the warning
-        
+
         self.supported_topics = new_topics
-        
+
         logger.info(
-            "Configuration reloaded",
-            supported_topics=len(self.supported_topics)
+            "Configuration reloaded", supported_topics=len(self.supported_topics)
         )
 
 
@@ -314,13 +345,16 @@ consumer: Optional[GenericKafkaToDBConsumer] = None
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     global consumer
-    
+
     # Configuration from environment
     import os
-    database_url = os.getenv("LOOM_DATABASE_URL", "postgresql://loom:loom@localhost:5432/loom")
+
+    database_url = os.getenv(
+        "LOOM_DATABASE_URL", "postgresql://loom:loom@localhost:5432/loom"
+    )
     kafka_servers = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     group_id = os.getenv("KAFKA_GROUP_ID", "generic-kafka-to-db-consumer")
-    
+
     # Startup
     consumer = GenericKafkaToDBConsumer(database_url, kafka_servers, group_id)
     await consumer.start()
@@ -368,10 +402,12 @@ async def health_check():
 async def get_status():
     """Get consumer status and configuration."""
     global consumer
-    
+
     if not consumer:
-        return JSONResponse(content={"error": "Consumer not initialized"}, status_code=503)
-    
+        return JSONResponse(
+            content={"error": "Consumer not initialized"}, status_code=503
+        )
+
     return JSONResponse(
         content={
             "consumer_running": consumer.running,
@@ -388,10 +424,12 @@ async def get_status():
 async def get_topics():
     """Get supported topics and their configurations."""
     global consumer
-    
+
     if not consumer:
-        return JSONResponse(content={"error": "Consumer not initialized"}, status_code=503)
-    
+        return JSONResponse(
+            content={"error": "Consumer not initialized"}, status_code=503
+        )
+
     topics_info = {}
     for topic in consumer.supported_topics:
         topic_config = consumer.mapping_engine.get_topic_mapping(topic)
@@ -403,7 +441,7 @@ async def get_topics():
                 "field_count": len(topic_config.get("field_mappings", {})),
                 "required_fields": topic_config.get("required_fields", []),
             }
-    
+
     return JSONResponse(content=topics_info)
 
 
@@ -411,29 +449,33 @@ async def get_topics():
 async def reload_config():
     """Reload mapping configuration."""
     global consumer
-    
+
     if not consumer:
-        return JSONResponse(content={"error": "Consumer not initialized"}, status_code=503)
-    
+        return JSONResponse(
+            content={"error": "Consumer not initialized"}, status_code=503
+        )
+
     try:
         await consumer.reload_configuration()
-        
+
         # Validate new configuration
         config_errors = consumer.mapping_engine.validate_config()
-        
-        return JSONResponse(content={
-            "status": "success",
-            "message": "Configuration reloaded",
-            "supported_topics": len(consumer.supported_topics),
-            "configuration_valid": len(config_errors) == 0,
-            "errors": config_errors,
-        })
-    
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Configuration reloaded",
+                "supported_topics": len(consumer.supported_topics),
+                "configuration_valid": len(config_errors) == 0,
+                "errors": config_errors,
+            }
+        )
+
     except Exception as e:
         logger.error("Failed to reload configuration", error=str(e))
         return JSONResponse(
             content={"error": f"Failed to reload configuration: {str(e)}"},
-            status_code=500
+            status_code=500,
         )
 
 
@@ -441,17 +483,21 @@ async def reload_config():
 async def validate_config():
     """Validate current mapping configuration."""
     global consumer
-    
+
     if not consumer:
-        return JSONResponse(content={"error": "Consumer not initialized"}, status_code=503)
-    
+        return JSONResponse(
+            content={"error": "Consumer not initialized"}, status_code=503
+        )
+
     errors = consumer.mapping_engine.validate_config()
-    
-    return JSONResponse(content={
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "supported_topics": len(consumer.supported_topics),
-    })
+
+    return JSONResponse(
+        content={
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "supported_topics": len(consumer.supported_topics),
+        }
+    )
 
 
 if __name__ == "__main__":

@@ -14,17 +14,17 @@ DECLARE
     constraint_name TEXT;
 BEGIN
     constraint_name := table_name || '_' || column_name || '_fkey';
-    
+
     -- Check if constraint already exists
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint 
+        SELECT 1 FROM pg_constraint
         WHERE conname = constraint_name
     ) THEN
         -- Add foreign key with ON DELETE SET NULL instead of CASCADE
         -- This is safer for TimescaleDB hypertables
         EXECUTE format(
-            'ALTER TABLE %I ADD CONSTRAINT %I 
-             FOREIGN KEY (%I) REFERENCES devices(device_id) 
+            'ALTER TABLE %I ADD CONSTRAINT %I
+             FOREIGN KEY (%I) REFERENCES devices(device_id)
              ON DELETE SET NULL ON UPDATE CASCADE',
             table_name, constraint_name, column_name
         );
@@ -69,7 +69,7 @@ BEGIN
         -- Auto-register the device
         PERFORM auto_register_device(
             NEW.device_id,
-            CASE 
+            CASE
                 WHEN NEW.device_id LIKE '%-fetcher-%' THEN 'service_fetcher'
                 WHEN NEW.device_id LIKE '%-consumer-%' THEN 'service_consumer'
                 WHEN NEW.device_id LIKE 'android-%' THEN 'mobile_android'
@@ -86,14 +86,14 @@ BEGIN
             )
         );
     END IF;
-    
+
     -- Update last_seen_at for existing devices
     IF NEW.device_id IS NOT NULL THEN
-        UPDATE devices 
-        SET last_seen_at = NOW() 
+        UPDATE devices
+        SET last_seen_at = NOW()
         WHERE device_id = NEW.device_id;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -116,11 +116,11 @@ CREATE OR REPLACE FUNCTION update_device_name(
     p_new_name TEXT
 ) RETURNS void AS $$
 BEGIN
-    UPDATE devices 
+    UPDATE devices
     SET name = p_new_name,
         updated_at = NOW()
     WHERE device_id = p_device_id;
-    
+
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Device % not found', p_device_id;
     END IF;
@@ -138,10 +138,10 @@ BEGIN
     UPDATE device_sensor_gps_raw SET device_id = p_new_device_id WHERE device_id = p_old_device_id;
     UPDATE device_sensor_accelerometer_raw SET device_id = p_new_device_id WHERE device_id = p_old_device_id;
     -- Add more tables as needed
-    
+
     -- Delete old device record
     DELETE FROM devices WHERE device_id = p_old_device_id;
-    
+
     -- Update last_seen on new device
     UPDATE devices SET last_seen_at = NOW() WHERE device_id = p_new_device_id;
 END;
@@ -149,7 +149,7 @@ $$ LANGUAGE plpgsql;
 
 -- Create helpful views
 CREATE OR REPLACE VIEW device_data_summary AS
-SELECT 
+SELECT
     d.device_id,
     d.name,
     d.device_type,

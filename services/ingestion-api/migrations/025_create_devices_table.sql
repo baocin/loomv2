@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS devices (
     name TEXT NOT NULL,
     device_type TEXT NOT NULL CHECK (device_type IN (
         'mobile_android',
-        'mobile_ios', 
+        'mobile_ios',
         'desktop_macos',
         'desktop_linux',
         'desktop_windows',
@@ -59,25 +59,25 @@ CREATE TRIGGER devices_updated_at_trigger
 -- Insert default service devices
 INSERT INTO devices (device_id, name, device_type, service_name, metadata) VALUES
     -- Email fetchers (one per account)
-    ('email-fetcher-account-1', 'Primary Email Fetcher', 'service_fetcher', 'email-fetcher', 
+    ('email-fetcher-account-1', 'Primary Email Fetcher', 'service_fetcher', 'email-fetcher',
      '{"account": "account_1", "description": "Primary email account sync"}'),
     ('email-fetcher-account-2', 'Secondary Email Fetcher', 'service_fetcher', 'email-fetcher',
      '{"account": "account_2", "description": "Secondary email account sync"}'),
-    
+
     -- Social media fetchers
     ('x-likes-fetcher-default', 'X/Twitter Likes Fetcher', 'service_fetcher', 'x-likes-fetcher',
      '{"description": "Fetches liked tweets from X.com"}'),
-    
+
     -- Calendar fetchers (one per calendar)
     ('calendar-fetcher-primary', 'Primary Calendar Sync', 'service_fetcher', 'calendar-fetcher',
      '{"calendar": "primary", "description": "Primary calendar sync"}'),
     ('calendar-fetcher-work', 'Work Calendar Sync', 'service_fetcher', 'calendar-fetcher',
      '{"calendar": "work", "description": "Work calendar sync"}'),
-    
+
     -- Other scheduled consumers
     ('hackernews-fetcher-default', 'HackerNews Fetcher', 'service_fetcher', 'hackernews-fetcher',
      '{"description": "Fetches saved HackerNews items"}'),
-    
+
     -- Generic scheduled consumer
     ('scheduled-consumer-default', 'Default Scheduled Consumer', 'service_consumer', 'scheduled-consumer',
      '{"description": "Generic scheduled task consumer"}')
@@ -101,7 +101,7 @@ BEGIN
     INSERT INTO devices (device_id, name, device_type, metadata, last_seen_at)
     VALUES (
         p_device_id,
-        CASE 
+        CASE
             WHEN p_device_id LIKE 'email-fetcher-%' THEN 'Email Fetcher (' || p_device_id || ')'
             WHEN p_device_id LIKE 'x-likes-%' THEN 'X Likes Fetcher (' || p_device_id || ')'
             WHEN p_device_id LIKE 'calendar-%' THEN 'Calendar Sync (' || p_device_id || ')'
@@ -121,28 +121,28 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE VIEW device_activity_summary AS
 WITH recent_activity AS (
     -- Get activity from various raw data tables
-    SELECT device_id, MAX(timestamp) as last_activity 
-    FROM device_audio_raw 
+    SELECT device_id, MAX(timestamp) as last_activity
+    FROM device_audio_raw
     WHERE timestamp > NOW() - INTERVAL '7 days'
     GROUP BY device_id
-    
+
     UNION ALL
-    
-    SELECT device_id, MAX(timestamp) as last_activity 
-    FROM device_sensor_gps_raw 
+
+    SELECT device_id, MAX(timestamp) as last_activity
+    FROM device_sensor_gps_raw
     WHERE timestamp > NOW() - INTERVAL '7 days'
     GROUP BY device_id
-    
+
     UNION ALL
-    
-    SELECT device_id, MAX(timestamp) as last_activity 
-    FROM digital_clipboard_raw 
+
+    SELECT device_id, MAX(timestamp) as last_activity
+    FROM digital_clipboard_raw
     WHERE timestamp > NOW() - INTERVAL '7 days'
     GROUP BY device_id
-    
+
     -- Add more tables as needed
 )
-SELECT 
+SELECT
     d.device_id,
     d.name,
     d.device_type,
@@ -150,7 +150,7 @@ SELECT
     d.is_active,
     MAX(ra.last_activity) as last_data_received,
     d.last_seen_at,
-    CASE 
+    CASE
         WHEN MAX(ra.last_activity) > NOW() - INTERVAL '1 hour' THEN 'active'
         WHEN MAX(ra.last_activity) > NOW() - INTERVAL '24 hours' THEN 'idle'
         WHEN MAX(ra.last_activity) > NOW() - INTERVAL '7 days' THEN 'inactive'

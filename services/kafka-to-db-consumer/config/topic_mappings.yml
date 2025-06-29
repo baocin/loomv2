@@ -671,12 +671,12 @@ transformations:
     description: "Decode base64 string to bytes"
     input_type: "string"
     output_type: "bytes"
-  
+
   timestamp_parse:
     description: "Parse ISO timestamp string to PostgreSQL timestamp"
     input_type: "string"
     output_type: "timestamp"
-  
+
   json_stringify:
     description: "Convert object to JSON string"
     input_type: "object"

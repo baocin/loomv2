@@ -14,7 +14,7 @@ RUN curl -fsSL https://ollama.com/install.sh | sh
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies  
+# Copy requirements and install Python dependencies
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .[dev]
 

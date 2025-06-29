@@ -9,7 +9,7 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "aiokafka>=0.10.0",
     "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0", 
+    "pydantic-settings>=2.1.0",
     "structlog>=23.2.0",
     "prometheus-client>=0.19.0",
     "httpx>=0.25.0",
@@ -47,7 +47,7 @@ minversion = "7.0"
 addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"] 
+python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 

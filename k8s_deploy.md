@@ -394,27 +394,27 @@ data:
     # Connection settings
     listen_addresses = '*'
     max_connections = 200
-    
+
     # Memory settings
     shared_buffers = 8GB
     effective_cache_size = 24GB
     maintenance_work_mem = 2GB
     work_mem = 40MB
-    
+
     # WAL settings
     wal_level = replica
     max_wal_size = 4GB
     min_wal_size = 1GB
     checkpoint_completion_target = 0.9
-    
+
     # TimescaleDB settings
     shared_preload_libraries = 'timescaledb'
     timescaledb.max_background_workers = 8
-    
+
     # Performance settings
     random_page_cost = 1.1
     effective_io_concurrency = 200
-    
+
   init.sql: |
     CREATE EXTENSION IF NOT EXISTS timescaledb;
     CREATE DATABASE loom;
@@ -588,7 +588,7 @@ SELECT add_retention_policy('device_state_power_raw', INTERVAL '30 days');
 -- Create continuous aggregates for common queries
 CREATE MATERIALIZED VIEW device_gps_hourly
 WITH (timescaledb.continuous) AS
-SELECT 
+SELECT
   device_id,
   time_bucket('1 hour', timestamp) AS hour,
   avg(latitude) as avg_lat,
@@ -624,30 +624,30 @@ data:
     broker.id=0
     listeners=PLAINTEXT://:9092
     advertised.listeners=PLAINTEXT://kafka-0.kafka-headless.loom-prod.svc.cluster.local:9092
-    
+
     # Log settings
     log.dirs=/var/lib/kafka/data
     log.retention.hours=168
     log.segment.bytes=1073741824
     log.retention.check.interval.ms=300000
-    
+
     # Replication settings
     default.replication.factor=1
     min.insync.replicas=1
-    
+
     # Performance settings
     num.network.threads=8
     num.io.threads=8
     socket.send.buffer.bytes=102400
     socket.receive.buffer.bytes=102400
     socket.request.max.bytes=104857600
-    
+
     # Compression
     compression.type=lz4
-    
+
     # Topic creation
     auto.create.topics.enable=false
-    
+
   create-topics.sh: |
     #!/bin/bash
     # Wait for Kafka to be ready
@@ -655,231 +655,231 @@ data:
       echo "Waiting for Kafka to be ready..."
       sleep 5
     done
-    
+
     # Create all topics with proper configuration
-    
+
     # Device Audio/Video/Image Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.audio.raw --partitions 3 --replication-factor 1 \
       --config retention.ms=604800000 --config compression.type=lz4
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.video.screen.raw --partitions 3 --replication-factor 1 \
       --config retention.ms=604800000 --config compression.type=lz4
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.image.camera.raw --partitions 3 --replication-factor 1 \
       --config retention.ms=604800000 --config compression.type=lz4
-    
+
     # Device Sensor Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sensor.gps.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sensor.accelerometer.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sensor.barometer.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sensor.temperature.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sensor.generic.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     # Device Health Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.health.heartrate.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=5184000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.health.steps.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=5184000000
-    
+
     # Device State Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.state.power.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     # System and Network Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.system.apps.macos.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.system.apps.android.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.metadata.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.network.wifi.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.network.bluetooth.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     # OS Events Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic os.events.app_lifecycle.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic os.events.notifications.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     # Digital Data Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic digital.clipboard.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=604800000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic digital.web_analytics.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     # External Sources Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic external.twitter.liked.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic external.calendar.events.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic external.email.events.raw --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     # Task Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic task.url.ingest --partitions 3 --replication-factor 1 \
       --config retention.ms=604800000
-    
+
     # Processing Result Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic media.audio.vad_filtered --partitions 3 --replication-factor 1 \
       --config retention.ms=604800000 --config compression.type=lz4
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic media.text.transcribed.words --partitions 3 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic media.image.analysis.moondream_results --partitions 3 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic media.image.analysis.minicpm_results --partitions 3 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic media.video.analysis.yolo_results --partitions 3 --replication-factor 1 \
       --config retention.ms=2592000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic analysis.3d_reconstruction.dustr_results --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic analysis.inferred_context.mistral_results --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic analysis.text.embeddings --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     # Processed Task Results
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic task.url.processed.twitter_archived --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic task.url.processed.hackernews_archived --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic task.url.processed.pdf_extracted --partitions 2 --replication-factor 1 \
       --config retention.ms=7776000000
-    
+
     # Remote Control Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.keystroke.send --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.mouse.send --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.clipboard.send --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.file.transfer --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.screen.capture --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.audio.send --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.shell.execute --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.app.launch --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.command.app.close --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     # Response Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.response.command.status --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.response.file.transfer --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.response.screen.capture --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.response.shell.output --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.response.error --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     # Cross-Device Sync Topics
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sync.clipboard.broadcast --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sync.files.broadcast --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     kafka-topics.sh --create --if-not-exists --bootstrap-server localhost:9092 \
       --topic device.sync.state.broadcast --partitions 2 --replication-factor 1 \
       --config retention.ms=86400000
-    
+
     echo "All Kafka topics created successfully!"
 EOF
 
@@ -1316,7 +1316,7 @@ spec:
           python -c "
           from huggingface_hub import snapshot_download
           import os
-          
+
           models = [
               'snakers4/silero-vad',
               'nvidia/parakeet-tdt_ctc-1.1b',
@@ -1326,7 +1326,7 @@ spec:
               'mistralai/Mistral-Small-3.2',
               'geneing/Kokoro'
           ]
-          
+
           for model in models:
               print(f'Downloading {model}...')
               snapshot_download(
@@ -1884,26 +1884,26 @@ spec:
               # Run compression job
               psql -h postgres-timescale -U postgres -d loom -c "
                 SELECT run_job((
-                  SELECT job_id FROM timescaledb_information.jobs 
+                  SELECT job_id FROM timescaledb_information.jobs
                   WHERE proc_name = 'policy_compression'
                 ));
               "
-              
+
               # Run retention policy
               psql -h postgres-timescale -U postgres -d loom -c "
                 SELECT run_job((
-                  SELECT job_id FROM timescaledb_information.jobs 
+                  SELECT job_id FROM timescaledb_information.jobs
                   WHERE proc_name = 'policy_retention'
                 ));
               "
-              
+
               # Vacuum and analyze
               psql -h postgres-timescale -U postgres -d loom -c "VACUUM ANALYZE;"
-              
+
               # Update table statistics
               psql -h postgres-timescale -U postgres -d loom -c "
-                SELECT schemaname, tablename 
-                FROM pg_tables 
+                SELECT schemaname, tablename
+                FROM pg_tables
                 WHERE schemaname = 'public'
               " | while read schema table; do
                 psql -h postgres-timescale -U postgres -d loom -c "ANALYZE \$schema.\$table;"
@@ -2659,7 +2659,7 @@ spec:
             - |
               # Export consumer group offsets
               kafka-consumer-groups.sh --bootstrap-server kafka:9092 --all-groups --describe > /backup/consumer-offsets-$(date +%Y%m%d_%H%M%S).txt
-              
+
               # Export topic configurations
               for topic in $(kafka-topics.sh --bootstrap-server kafka:9092 --list); do
                 kafka-configs.sh --bootstrap-server kafka:9092 --entity-type topics --entity-name \$topic --describe > /backup/topic-config-\$topic-$(date +%Y%m%d_%H%M%S).txt
@@ -3181,11 +3181,11 @@ For a successful deployment, follow this order:
    # 1. Create namespace
    kubectl create namespace loom-prod
    kubectl config set-context --current --namespace=loom-prod
-   
+
    # 2. Storage configuration
    kubectl apply -f local-storage.yaml
    kubectl apply -f persistent-volumes.yaml
-   
+
    # 3. Certificate management
    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
    kubectl apply -f letsencrypt-issuer.yaml
@@ -3197,19 +3197,19 @@ For a successful deployment, follow this order:
    # 4. Secrets
    kubectl apply -f postgres-secrets.yaml
    kubectl apply -f twitter-secrets.yaml  # If using Twitter scraper
-   
+
    # 5. Database
    kubectl apply -f timescaledb.yaml
    kubectl wait --for=condition=ready pod -l app=postgres-timescale --timeout=300s
-   
+
    # 6. Run database migrations
    kubectl cp services/ingestion-api/migrations postgres-timescale-0:/tmp/migrations
    kubectl exec -it postgres-timescale-0 -- bash -c "for file in /tmp/migrations/*.sql; do psql -U postgres -d loom -f \$file; done"
-   
+
    # 7. Kafka
    kubectl apply -f kafka.yaml
    kubectl wait --for=condition=ready pod -l app=kafka --timeout=300s
-   
+
    # 8. Redis (for device registry)
    kubectl apply -f device-registry.yaml
    ```
@@ -3220,11 +3220,11 @@ For a successful deployment, follow this order:
    kubectl apply -f ingestion-api.yaml
    kubectl apply -f kafka-to-db-consumer.yaml
    kubectl apply -f kafka-ui.yaml
-   
+
    # 10. AI model storage
    kubectl apply -f model-storage.yaml
    kubectl wait --for=condition=complete job/download-models --timeout=3600s
-   
+
    # 11. AI services
    kubectl apply -f silero-vad.yaml
    kubectl apply -f parakeet-stt.yaml
@@ -3232,11 +3232,11 @@ For a successful deployment, follow this order:
    kubectl apply -f moondream-ocr.yaml
    kubectl apply -f mistral-reasoning.yaml
    kubectl apply -f text-embedder.yaml
-   
+
    # 12. Processing services
    kubectl apply -f twitter-ocr-processor.yaml
    kubectl apply -f command-router.yaml
-   
+
    # 13. Web UI
    kubectl apply -f pipeline-monitor.yaml
    ```
@@ -3249,12 +3249,12 @@ For a successful deployment, follow this order:
    kubectl apply -f db-maintenance-cronjob.yaml
    kubectl apply -f backup-cronjob.yaml
    kubectl apply -f kafka-backup-cronjob.yaml
-   
+
    # 15. Ingress
    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
    kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
    kubectl apply -f ingress.yaml
-   
+
    # 16. Monitoring
    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
    helm repo add grafana https://grafana.github.io/helm-charts
@@ -3262,12 +3262,12 @@ For a successful deployment, follow this order:
    helm install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace -f prometheus-values.yaml
    helm install loki grafana/loki-stack --namespace monitoring -f loki-values.yaml
    kubectl apply -f servicemonitor.yaml
-   
+
    # 17. Resource management
    kubectl apply -f resource-quotas.yaml
    kubectl apply -f limit-ranges.yaml
    kubectl apply -f priority-classes.yaml
-   
+
    # 18. Security policies
    kubectl apply -f network-policies.yaml
    kubectl apply -f pod-security.yaml
@@ -3349,11 +3349,11 @@ models = [
 for model_name in models:
     model_path = f'/models/{model_name.replace("/", "_")}'
     print(f'Optimizing {model_name}...')
-    
+
     # Load and optimize model
     model = AutoModel.from_pretrained(model_path)
     model.eval()
-    
+
     # Convert to TorchScript if possible
     try:
         traced = torch.jit.trace(model, example_inputs)

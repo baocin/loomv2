@@ -26,39 +26,39 @@ failed_services=()
 run_service_tests() {
     local service_name=$1
     local service_path="$SERVICES_DIR/$service_name"
-    
+
     if [ ! -d "$service_path" ]; then
         echo -e "${YELLOW}⚠ Skipping $service_name (directory not found)${NC}"
         return
     fi
-    
+
     if [ ! -d "$service_path/tests" ]; then
         echo -e "${YELLOW}⚠ Skipping $service_name (no tests directory)${NC}"
         test_results[$service_name]="NO_TESTS"
         return
     fi
-    
+
     echo -e "\n${GREEN}Testing $service_name...${NC}"
     echo "----------------------------------------"
-    
+
     cd "$service_path"
-    
+
     # Check if there are any test files
     if ! find tests -name "test_*.py" -type f | grep -q .; then
         echo -e "${YELLOW}No test files found${NC}"
         test_results[$service_name]="NO_TEST_FILES"
         return
     fi
-    
+
     # Install test dependencies if requirements.txt exists
     if [ -f "requirements.txt" ]; then
         echo "Installing dependencies..."
         pip install -q -r requirements.txt 2>/dev/null || true
     fi
-    
+
     # Install pytest if not already installed
     pip install -q pytest pytest-asyncio pytest-cov 2>/dev/null || true
-    
+
     # Run tests
     if python -m pytest tests/ -v --tb=short; then
         echo -e "${GREEN}✓ Tests passed${NC}"

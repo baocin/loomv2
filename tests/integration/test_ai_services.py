@@ -61,8 +61,8 @@ SERVICES = {
         "type": "kafka_consumer",
         "kafka_topics": {
             "input": "device.audio.raw",
-            "output": "media.audio.vad_filtered"
-        }
+            "output": "media.audio.vad_filtered",
+        },
     },
     "kyutai-stt": {
         "url": "http://localhost:8002",
@@ -72,8 +72,8 @@ SERVICES = {
         "type": "kafka_consumer",
         "kafka_topics": {
             "input": "media.audio.vad_filtered",
-            "output": "media.text.transcribed.words"
-        }
+            "output": "media.text.transcribed.words",
+        },
     },
     "minicpm-vision": {
         "url": "http://localhost:8003",
@@ -83,8 +83,8 @@ SERVICES = {
         "type": "kafka_consumer",
         "kafka_topics": {
             "input": ["device.image.camera.raw", "device.video.screen.raw"],
-            "output": "media.image.analysis.minicpm_results"
-        }
+            "output": "media.image.analysis.minicpm_results",
+        },
     },
     "moondream-ocr": {
         "url": "http://localhost:8007",
@@ -94,8 +94,8 @@ SERVICES = {
         "type": "hybrid",  # Both REST API and Kafka consumer
         "kafka_topics": {
             "input": "external.twitter.images.raw",
-            "output": "media.text.extracted.twitter"
-        }
+            "output": "media.text.extracted.twitter",
+        },
     },
 }
 
@@ -190,7 +190,9 @@ class AIServiceTester:
             async with self.session.get(url) as response:
                 if response.status == 200:
                     health_data = await response.json()
-                    logger.info(f"✅ {service_name} health check passed", health=health_data)
+                    logger.info(
+                        f"✅ {service_name} health check passed", health=health_data
+                    )
                     return True
                 else:
                     logger.error(
@@ -202,14 +204,18 @@ class AIServiceTester:
             return False
 
     async def test_service_readiness(
-        self, service_name: str, config: Dict[str, Any], max_retries: int = 30, retry_delay: float = 2.0
+        self,
+        service_name: str,
+        config: Dict[str, Any],
+        max_retries: int = 30,
+        retry_delay: float = 2.0,
     ) -> bool:
         """Test service readiness endpoint with retries."""
         if "ready_endpoint" not in config:
             return True  # Skip if no readiness endpoint
-            
+
         url = f"{config['url']}{config['ready_endpoint']}"
-        
+
         for attempt in range(max_retries):
             try:
                 async with self.session.get(url) as response:
@@ -221,17 +227,17 @@ class AIServiceTester:
                         ready_text = await response.text()
                         if attempt == 0:
                             logger.info(
-                                f"⏳ {service_name} not ready yet, waiting for model to load...", 
+                                f"⏳ {service_name} not ready yet, waiting for model to load...",
                                 status=response.status,
-                                response=ready_text
+                                response=ready_text,
                             )
                         elif attempt % 5 == 0:  # Log every 5 attempts
                             logger.info(
-                                f"⏳ Still waiting for {service_name} to be ready...", 
+                                f"⏳ Still waiting for {service_name} to be ready...",
                                 attempt=attempt + 1,
-                                max_retries=max_retries
+                                max_retries=max_retries,
                             )
-                        
+
                         # If it's a model loading issue, continue retrying
                         if response.status == 503 and "model" in ready_text.lower():
                             await asyncio.sleep(retry_delay)
@@ -239,17 +245,21 @@ class AIServiceTester:
                         # For other errors, fail fast after a few retries
                         elif attempt > 3:
                             logger.error(
-                                f"❌ {service_name} readiness check failed: {response.status}", 
-                                response=ready_text
+                                f"❌ {service_name} readiness check failed: {response.status}",
+                                response=ready_text,
                             )
                             return False
             except Exception as e:
                 if attempt == 0:
-                    logger.warning(f"⏳ {service_name} connection error, retrying...", error=str(e))
+                    logger.warning(
+                        f"⏳ {service_name} connection error, retrying...", error=str(e)
+                    )
                 await asyncio.sleep(retry_delay)
                 continue
-                
-        logger.error(f"❌ {service_name} readiness check timed out after {max_retries * retry_delay}s")
+
+        logger.error(
+            f"❌ {service_name} readiness check timed out after {max_retries * retry_delay}s"
+        )
         return False
 
     async def test_ingestion_api(self) -> Dict[str, Any]:
@@ -351,34 +361,28 @@ class AIServiceTester:
 
         return results
 
-    async def test_kafka_consumer_service(self, service_name: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def test_kafka_consumer_service(
+        self, service_name: str, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Test Kafka consumer services (VAD, TDT, Vision)."""
         logger.info(f"Testing {service_name} (Kafka Consumer)")
         results = {}
 
         # Test warmup endpoint if available
-        warmup_result = await self._test_endpoint(
-            "POST", f"{config['url']}/warmup"
-        )
+        warmup_result = await self._test_endpoint("POST", f"{config['url']}/warmup")
         results["warmup"] = warmup_result
 
         # Test metrics endpoint
-        metrics_result = await self._test_endpoint(
-            "GET", f"{config['url']}/metrics"
-        )
+        metrics_result = await self._test_endpoint("GET", f"{config['url']}/metrics")
         results["metrics"] = metrics_result
 
         # Test root endpoint for service info
-        info_result = await self._test_endpoint(
-            "GET", f"{config['url']}/"
-        )
+        info_result = await self._test_endpoint("GET", f"{config['url']}/")
         results["service_info"] = info_result
 
         # For MiniCPM Vision, test the status endpoint
         if service_name == "minicpm-vision":
-            status_result = await self._test_endpoint(
-                "GET", f"{config['url']}/status"
-            )
+            status_result = await self._test_endpoint("GET", f"{config['url']}/status")
             results["status"] = status_result
 
         return results
@@ -391,7 +395,7 @@ class AIServiceTester:
         # Test OCR endpoint
         ocr_data = {
             "image_data": self.data_generator.generate_test_image(),
-            "prompt": "Extract all text from this image"
+            "prompt": "Extract all text from this image",
         }
 
         results["ocr"] = await self._test_endpoint(
@@ -404,9 +408,6 @@ class AIServiceTester:
         )
 
         return results
-
-
-
 
     async def _test_endpoint(
         self,
@@ -482,7 +483,7 @@ class AIServiceTester:
 
             # Test health first
             health_ok = await self.test_service_health(service_name, service_config)
-            
+
             # Test readiness
             ready_ok = await self.test_service_readiness(service_name, service_config)
 
@@ -504,8 +505,10 @@ class AIServiceTester:
                 if service_name == "ingestion-api":
                     service_results["endpoints"] = await self.test_ingestion_api()
                 elif service_config.get("type") == "kafka_consumer":
-                    service_results["endpoints"] = await self.test_kafka_consumer_service(
-                        service_name, service_config
+                    service_results["endpoints"] = (
+                        await self.test_kafka_consumer_service(
+                            service_name, service_config
+                        )
                     )
                 elif service_name == "moondream-ocr":
                     service_results["endpoints"] = await self.test_moondream_ocr()
@@ -525,7 +528,9 @@ class AIServiceTester:
             1 for s in self.results["services"].values() if s["health_check"]
         )
         ready_services = sum(
-            1 for s in self.results["services"].values() if s.get("readiness_check", True)
+            1
+            for s in self.results["services"].values()
+            if s.get("readiness_check", True)
         )
 
         total_endpoints = 0
@@ -580,7 +585,7 @@ class AIServiceTester:
             f"🎯 Endpoints Tested: {summary['successful_endpoints']}/{summary['total_endpoints']} ({summary['success_rate']:.1f}%)"
         )
         print(f"🆔 Test Device ID: {TEST_DEVICE_ID}")
-        
+
         # Service types breakdown
         print("\n📦 Service Types:")
         for stype, count in summary["service_types"].items():
@@ -590,9 +595,11 @@ class AIServiceTester:
         print("\n📋 Service Details:")
         for service_name, service_results in self.results["services"].items():
             health_status = "✅" if service_results["health_check"] else "❌"
-            ready_status = "✅" if service_results.get("readiness_check", True) else "❌"
+            ready_status = (
+                "✅" if service_results.get("readiness_check", True) else "❌"
+            )
             service_type = service_results.get("service_type", "unknown")
-            
+
             print(f"\n{health_status} {service_name.upper()} ({service_type})")
             print(f"  Health: {health_status} | Ready: {ready_status}")
 
@@ -602,7 +609,9 @@ class AIServiceTester:
 
             if service_results["endpoints"]:
                 print("  Endpoints:")
-                for endpoint_name, endpoint_result in service_results["endpoints"].items():
+                for endpoint_name, endpoint_result in service_results[
+                    "endpoints"
+                ].items():
                     status = "✅" if endpoint_result.get("success", False) else "❌"
                     time_ms = endpoint_result.get("processing_time_ms", 0)
                     print(f"    {status} {endpoint_name} ({time_ms:.1f}ms)")

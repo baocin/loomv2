@@ -12,7 +12,7 @@ Updated the `PipelineBuilder` with complete mappings for **21 services** across 
 
 #### Audio Processing Pipeline
 - **Silero VAD** → Voice Activity Detection
-- **Parakeet TDT** → Speech-to-Text with timestamps  
+- **Parakeet TDT** → Speech-to-Text with timestamps
 - **BUD-E Emotion** → Audio emotion analysis
 
 #### Vision Processing Pipeline
@@ -54,7 +54,7 @@ The system now automatically detects these key workflows:
 device.audio.raw → [VAD] → media.audio.vad_filtered → [STT] → media.text.transcribed.words
                                      ↓ [Emotion] → analysis.audio.emotion_scores
 
-📷 VISION PIPELINE  
+📷 VISION PIPELINE
 device.image.camera.raw → [Vision] → media.image.vision_annotations → [Face] → analysis.image.face_emotions
 device.image.camera.raw → [OCR] → media.image.analysis.moondream_results
 
@@ -78,7 +78,7 @@ The pipeline monitor now shows:
 - **Service health status** with color-coded indicators
 - **Consumer lag** monitoring for performance
 - **Real-time flow detection** based on actual subscriptions
-- **Service dependency mapping** 
+- **Service dependency mapping**
 - **Complete data lineage** from source to storage
 
 ### 5. Frontend Integration

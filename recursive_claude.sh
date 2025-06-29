@@ -15,12 +15,12 @@ echo "-------------------------------------------------"
 
 # This is the infinite loop that makes the command "recursive"
 while true; do
-    echo "[$(date)] Waiting for one hour (3600 seconds)..."
-    sleep 3600
+    echo "[$(date)] Waiting for 1/3 hour (1200 seconds)..."
+    sleep 1200
 
     echo "[$(date)] Hour is up. Sending 'continue' to Claude..."
     # Your original command
-    echo "continue" | claude --dangerously-skip-permissions
+    echo "remember your last tasks and continue. If you run out of tasks think of new ones that would improve the maintainability, usefulness, and reliability of this system" | yolo
 
     echo "[$(date)] Command finished. The loop will now restart."
     echo "-------------------------------------------------"

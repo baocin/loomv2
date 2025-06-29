@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     try:
         # Start consumer (this will initialize the VAD model)
         await consumer.start()
-        
+
         # Mark model as loaded since consumer.start() initializes it
         global model_loaded
         model_loaded = True

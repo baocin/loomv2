@@ -104,7 +104,7 @@ class ASRProcessor:
                 },
                 return_timestamps="word",
             )
-            
+
             # Extract words with timestamps if available
             words = []
             if "chunks" in result:
@@ -119,15 +119,17 @@ class ASRProcessor:
                     words.append(word)
             elif "text" in result:
                 # No word timestamps, create estimated ones
-                words = self._create_word_timestamps(result["text"], audio_array, sample_rate)
-            
+                words = self._create_word_timestamps(
+                    result["text"], audio_array, sample_rate
+                )
+
             return words
 
         except Exception as e:
             logger.error("Failed to extract word timestamps", error=str(e))
             # Fallback to simple transcription
             return self._simple_transcribe(audio_array, sample_rate)
-    
+
     def _create_word_timestamps(
         self, text: str, audio_array: np.ndarray, sample_rate: int
     ) -> list[TranscribedWord]:
@@ -135,24 +137,30 @@ class ASRProcessor:
         words = []
         if not text:
             return words
-            
+
         # Split text into words
         word_list = text.split()
         if not word_list:
             return words
-            
+
         # Calculate total duration
         total_duration = len(audio_array) / sample_rate
-        
+
         # Estimate word durations based on character count
         total_chars = sum(len(word) for word in word_list)
-        
+
         current_time = 0.0
         for word_text in word_list:
             # Estimate duration proportional to word length
-            word_proportion = len(word_text) / total_chars if total_chars > 0 else 1.0 / len(word_list)
-            word_duration = total_duration * word_proportion * 0.9  # 90% for words, 10% for gaps
-            
+            word_proportion = (
+                len(word_text) / total_chars
+                if total_chars > 0
+                else 1.0 / len(word_list)
+            )
+            word_duration = (
+                total_duration * word_proportion * 0.9
+            )  # 90% for words, 10% for gaps
+
             word = TranscribedWord(
                 word=word_text,
                 start_time=current_time,
@@ -160,10 +168,10 @@ class ASRProcessor:
                 confidence=0.85,  # Default confidence estimate
             )
             words.append(word)
-            
+
             # Add small gap between words
             current_time += word_duration + (total_duration * 0.1 / len(word_list))
-        
+
         return words
 
     def _simple_transcribe(
@@ -179,9 +187,11 @@ class ASRProcessor:
                     "language": "en",
                 },
             )
-            
+
             if result and "text" in result:
-                return self._create_word_timestamps(result["text"], audio_array, sample_rate)
+                return self._create_word_timestamps(
+                    result["text"], audio_array, sample_rate
+                )
             else:
                 return []
 

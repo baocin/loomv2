@@ -16,7 +16,7 @@ from .models import (
     AudioMessage,
     MultimodalAnalysisResult,
     AnalysisResult,
-    MultimodalRequest
+    MultimodalRequest,
 )
 from .ollama_client import OllamaClient
 
@@ -98,51 +98,52 @@ class KafkaConsumerManager:
         """Check if Kafka consumer/producer are healthy."""
         return self.running and self.consumer is not None and self.producer is not None
 
-    async def process_text_message(self, message: Dict) -> Optional[MultimodalAnalysisResult]:
+    async def process_text_message(
+        self, message: Dict
+    ) -> Optional[MultimodalAnalysisResult]:
         """Process a text message."""
         try:
             text_msg = TextMessage(**message)
-            
+
             prompt = f"Analyze this text for sentiment, topics, and key insights: {text_msg.text}"
             if text_msg.context:
                 prompt += f"\n\nContext: {text_msg.context}"
-            
+
             start_time = time.time()
             result = await self.ollama_client.generate_text(prompt)
             processing_time = (time.time() - start_time) * 1000
-            
+
             return MultimodalAnalysisResult(
                 device_id=text_msg.device_id,
                 recorded_at=text_msg.recorded_at,
                 analysis_type="text_analysis",
                 primary_result=result,
                 text_analysis=AnalysisResult(
-                    type="text",
-                    content=result,
-                    metadata=text_msg.metadata
+                    type="text", content=result, metadata=text_msg.metadata
                 ),
                 processing_time_ms=processing_time,
-                model_version=settings.ollama_model
+                model_version=settings.ollama_model,
             )
-            
+
         except Exception as e:
             logger.error("Failed to process text message", error=str(e))
             return None
 
-    async def process_image_message(self, message: Dict) -> Optional[MultimodalAnalysisResult]:
+    async def process_image_message(
+        self, message: Dict
+    ) -> Optional[MultimodalAnalysisResult]:
         """Process an image message."""
         try:
             image_msg = ImageMessage(**message)
-            
+
             prompt = "Analyze this image. Describe what you see, identify objects, read any text, and provide insights."
-            
+
             start_time = time.time()
             result = await self.ollama_client.analyze_image(
-                image_data=image_msg.data,
-                prompt=prompt
+                image_data=image_msg.data, prompt=prompt
             )
             processing_time = (time.time() - start_time) * 1000
-            
+
             return MultimodalAnalysisResult(
                 device_id=image_msg.device_id,
                 recorded_at=image_msg.recorded_at,
@@ -151,29 +152,31 @@ class KafkaConsumerManager:
                 image_analysis=AnalysisResult(
                     type="image",
                     content=result,
-                    metadata={"format": image_msg.format, **image_msg.metadata or {}}
+                    metadata={"format": image_msg.format, **(image_msg.metadata or {})},
                 ),
                 processing_time_ms=processing_time,
-                model_version=settings.ollama_model
+                model_version=settings.ollama_model,
             )
-            
+
         except Exception as e:
             logger.error("Failed to process image message", error=str(e))
             return None
 
-    async def process_audio_message(self, message: Dict) -> Optional[MultimodalAnalysisResult]:
+    async def process_audio_message(
+        self, message: Dict
+    ) -> Optional[MultimodalAnalysisResult]:
         """Process an audio message."""
         try:
             audio_msg = AudioMessage(**message)
-            
+
             # Note: Gemma 3N may not directly support audio processing
             # This is a placeholder for future enhancement
             prompt = f"Analyze audio content. Duration: {audio_msg.duration}s, Format: {audio_msg.format}"
-            
+
             start_time = time.time()
             result = await self.ollama_client.generate_text(prompt)
             processing_time = (time.time() - start_time) * 1000
-            
+
             return MultimodalAnalysisResult(
                 device_id=audio_msg.device_id,
                 recorded_at=audio_msg.recorded_at,
@@ -185,18 +188,20 @@ class KafkaConsumerManager:
                     metadata={
                         "duration": audio_msg.duration,
                         "format": audio_msg.format,
-                        **audio_msg.metadata or {}
-                    }
+                        **(audio_msg.metadata or {}),
+                    },
                 ),
                 processing_time_ms=processing_time,
-                model_version=settings.ollama_model
+                model_version=settings.ollama_model,
             )
-            
+
         except Exception as e:
             logger.error("Failed to process audio message", error=str(e))
             return None
 
-    async def process_multimodal_message(self, message: Dict, topic: str) -> Optional[MultimodalAnalysisResult]:
+    async def process_multimodal_message(
+        self, message: Dict, topic: str
+    ) -> Optional[MultimodalAnalysisResult]:
         """Process a message based on its topic."""
         try:
             if "text" in topic:
@@ -208,9 +213,11 @@ class KafkaConsumerManager:
             else:
                 logger.warning("Unknown topic type", topic=topic)
                 return None
-                
+
         except Exception as e:
-            logger.error("Failed to process multimodal message", error=str(e), topic=topic)
+            logger.error(
+                "Failed to process multimodal message", error=str(e), topic=topic
+            )
             return None
 
     async def consume_messages(self) -> None:
@@ -275,7 +282,7 @@ class KafkaConsumerManager:
     async def start_consuming(self) -> None:
         """Start consuming messages."""
         await self.start()
-        
+
         try:
             await self.consume_messages()
         finally:

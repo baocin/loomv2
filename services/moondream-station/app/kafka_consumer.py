@@ -3,7 +3,7 @@
 import json
 import time
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -11,11 +11,10 @@ from aiokafka.errors import KafkaError
 
 from .config import settings
 from .models import (
+    DetectedObject,
     ImageMessage,
     MoondreamAnalysisResult,
-    DetectedObject,
     OCRBlock,
-    ImageFeatures,
 )
 from .moondream_client import MoondreamClient
 
@@ -97,19 +96,21 @@ class KafkaConsumerManager:
         """Check if Kafka consumer/producer are healthy."""
         return self.running and self.consumer is not None and self.producer is not None
 
-    async def process_image_message(self, message: Dict, topic: str) -> Optional[MoondreamAnalysisResult]:
+    async def process_image_message(
+        self, message: Dict, topic: str
+    ) -> Optional[MoondreamAnalysisResult]:
         """Process an image message."""
         try:
             image_msg = ImageMessage(**message)
-            
+
             # Determine query based on topic
             query = None
             if "task.image.analyze" in topic:
                 # Extract query from metadata if available
                 query = image_msg.metadata.get("query") if image_msg.metadata else None
-            
+
             start_time = time.time()
-            
+
             # Perform full analysis
             response = await self.moondream_client.full_analysis(
                 image_data=image_msg.data,
@@ -117,20 +118,22 @@ class KafkaConsumerManager:
                 enable_objects=settings.enable_object_detection,
                 enable_ocr=settings.enable_ocr,
             )
-            
+
             processing_time = (time.time() - start_time) * 1000
-            
+
             # Convert response to analysis result
             detected_objects = []
             if response.objects:
                 for obj in response.objects:
-                    detected_objects.append(DetectedObject(
-                        label=obj.get("label", "unknown"),
-                        confidence=obj.get("confidence", 0.5),
-                        bbox=obj.get("bbox", [0, 0, 100, 100]),
-                        attributes=obj.get("attributes")
-                    ))
-            
+                    detected_objects.append(
+                        DetectedObject(
+                            label=obj.get("label", "unknown"),
+                            confidence=obj.get("confidence", 0.5),
+                            bbox=obj.get("bbox", [0, 0, 100, 100]),
+                            attributes=obj.get("attributes"),
+                        )
+                    )
+
             ocr_blocks = []
             full_text = ""
             if response.text_blocks:
@@ -140,15 +143,17 @@ class KafkaConsumerManager:
                         text=block.get("text", ""),
                         confidence=block.get("confidence", 0.5),
                         bbox=block.get("bbox", [0, 0, 100, 100]),
-                        language=block.get("language")
+                        language=block.get("language"),
                     )
                     ocr_blocks.append(ocr_block)
                     text_parts.append(ocr_block.text)
                 full_text = " ".join(text_parts)
-            
+
             # Extract visual features
-            visual_features = await self.moondream_client.analyze_visual_features(image_msg.data)
-            
+            visual_features = await self.moondream_client.analyze_visual_features(
+                image_msg.data
+            )
+
             # Determine scene type from caption
             scene_type = None
             scene_attributes = []
@@ -162,18 +167,25 @@ class KafkaConsumerManager:
                     scene_type = "portrait"
                 elif "landscape" in caption_lower:
                     scene_type = "landscape"
-                
+
                 # Extract attributes
-                for attr in ["nature", "urban", "people", "animals", "food", "technology"]:
+                for attr in [
+                    "nature",
+                    "urban",
+                    "people",
+                    "animals",
+                    "food",
+                    "technology",
+                ]:
                     if attr in caption_lower:
                         scene_attributes.append(attr)
-            
+
             # Create object count
             object_count = {}
             for obj in detected_objects:
                 label = obj.label
                 object_count[label] = object_count.get(label, 0) + 1
-            
+
             return MoondreamAnalysisResult(
                 device_id=image_msg.device_id,
                 recorded_at=image_msg.recorded_at,
@@ -188,9 +200,9 @@ class KafkaConsumerManager:
                 scene_attributes=scene_attributes if scene_attributes else None,
                 image_quality_score=0.8,  # Mock quality score
                 processing_time_ms=processing_time,
-                model_version="moondream-latest"
+                model_version="moondream-latest",
             )
-            
+
         except Exception as e:
             logger.error("Failed to process image message", error=str(e), topic=topic)
             # Return result with error
@@ -203,7 +215,7 @@ class KafkaConsumerManager:
                 ocr_blocks=[],
                 processing_time_ms=0,
                 error=str(e),
-                warnings=["Processing failed"]
+                warnings=["Processing failed"],
             )
 
     async def consume_messages(self) -> None:
@@ -251,9 +263,9 @@ class KafkaConsumerManager:
                         topic=msg.topic,
                         partition=msg.partition,
                         offset=msg.offset,
-                        error=result.error if result else "Unknown error"
+                        error=result.error if result else "Unknown error",
                     )
-                    
+
                     # Still send error result to output topic for tracking
                     if result:
                         await self.producer.send_and_wait(
@@ -261,7 +273,7 @@ class KafkaConsumerManager:
                             value=result.model_dump(mode="json"),
                             key=result.device_id.encode("utf-8"),
                         )
-                    
+
                     # Commit offset to avoid reprocessing
                     await self.consumer.commit()
 
@@ -282,7 +294,7 @@ class KafkaConsumerManager:
     async def start_consuming(self) -> None:
         """Start consuming messages."""
         await self.start()
-        
+
         try:
             await self.consume_messages()
         finally:

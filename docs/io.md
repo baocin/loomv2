@@ -155,7 +155,7 @@ The Loom v2 system follows an event-driven microservices architecture with the f
 
 **Service**: `minicpm-vision`
 
-**Input Topics**: 
+**Input Topics**:
 - `device.image.camera.raw`
 - `device.video.screen.raw`
 
@@ -540,7 +540,7 @@ The Loom v2 system follows an event-driven microservices architecture with the f
 - `device.image.camera.raw`
 - `device.video.screen.raw`
 
-**Output Topics**: 
+**Output Topics**:
 - `embeddings.text.nomic` (for text embeddings)
 - `embeddings.image.nomic` (for image embeddings)
 
@@ -793,12 +793,12 @@ CREATE TABLE embeddings (
     embedding_model VARCHAR(100) NOT NULL,
     metadata JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Indexes for similarity search
-    INDEX idx_embedding_vector ON embeddings 
+    INDEX idx_embedding_vector ON embeddings
         USING ivfflat (embedding vector_cosine_ops)
         WITH (lists = 100),
-    
+
     -- Indexes for filtering
     INDEX idx_device_recorded ON embeddings (device_id, recorded_at DESC),
     INDEX idx_source ON embeddings (source_topic, source_id),
@@ -835,7 +835,7 @@ CREATE TABLE media_audio_vad_filtered (
     model_version VARCHAR(100),
     processing_time_ms INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Indexes
     INDEX idx_vad_device_time ON media_audio_vad_filtered (device_id, timestamp DESC),
     INDEX idx_vad_trace ON media_audio_vad_filtered (trace_id)
@@ -863,7 +863,7 @@ topic_mappings:
       segment_end_ms: segment_end_ms
       confidence: confidence
       energy_level: energy_level
-      
+
   media.text.transcribed.words:
     table: transcriptions
     columns:
@@ -872,7 +872,7 @@ topic_mappings:
       words: words
       full_text: full_text
       language: language
-      
+
   # SMS/MMS tables (NEW)
   device.sms.received:
     table: sms_messages
@@ -886,7 +886,7 @@ topic_mappings:
       direction: direction
       carrier: carrier
       metadata: metadata
-      
+
   device.mms.received:
     table: mms_messages
     columns:
@@ -900,7 +900,7 @@ topic_mappings:
       direction: direction
       carrier: carrier
       metadata: metadata
-      
+
   # Embeddings
   analysis.text.embedded.*:
     table: embeddings
