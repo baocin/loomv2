@@ -67,7 +67,10 @@ class DataCollectionService {
     
     for (final sourceId in enabledSources) {
       final dataSource = _dataSources[sourceId];
-      if (dataSource != null) {
+      final config = _config?.getConfig(sourceId);
+      
+      // Only start if explicitly enabled in config
+      if (dataSource != null && config != null && config.enabled) {
         // Check permissions first
         final permissionStatus = await PermissionManager.checkAllPermissions();
         final status = permissionStatus[sourceId];
@@ -382,6 +385,15 @@ class DataCollectionService {
   
   /// Get queue size for a specific source
   int getQueueSizeForSource(String sourceId) => _uploadQueues[sourceId]?.length ?? 0;
+
+  /// Get last data point for a specific source
+  dynamic getLastDataPointForSource(String sourceId) {
+    final dataSource = _dataSources[sourceId];
+    if (dataSource is BaseDataSource) {
+      return dataSource.lastDataPoint;
+    }
+    return null;
+  }
 
   /// Manually trigger data upload for all sources
   Future<void> uploadNow() async {

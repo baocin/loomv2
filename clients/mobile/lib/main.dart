@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -526,6 +527,23 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
+            // Show last response button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showLastResponse(sourceId),
+                  icon: const Icon(Icons.code, size: 18),
+                  label: const Text('Show Last Response'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue.shade700,
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -799,5 +817,86 @@ class _HomePageState extends State<HomePage> {
       'totalSize': totalSize,
       'queueSize': queueSize,
     };
+  }
+
+  void _showLastResponse(String sourceId) {
+    final lastDataPoint = widget.dataService.getLastDataPointForSource(sourceId);
+    
+    if (lastDataPoint == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No data collected yet for $sourceId'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    String jsonString;
+    try {
+      // Convert to JSON if it has a toJson method
+      if (lastDataPoint is Map<String, dynamic>) {
+        jsonString = const JsonEncoder.withIndent('  ').convert(lastDataPoint);
+      } else if (lastDataPoint.toString().contains('toJson')) {
+        // Try to call toJson method
+        final json = lastDataPoint.toJson();
+        jsonString = const JsonEncoder.withIndent('  ').convert(json);
+      } else {
+        // Fallback to string representation
+        jsonString = lastDataPoint.toString();
+      }
+    } catch (e) {
+      jsonString = 'Error formatting data: $e\n\nRaw data: ${lastDataPoint.toString()}';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(_getDataSourceIcon(sourceId), size: 20),
+            const SizedBox(width: 8),
+            Text('$sourceId Last Response'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SelectableText(
+                jsonString,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Copy to clipboard functionality could be added here
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('JSON copied to clipboard')),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('Copy'),
+          ),
+        ],
+      ),
+    );
   }
 }
