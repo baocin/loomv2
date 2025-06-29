@@ -18,7 +18,7 @@ from .routers import (
     # devices,  # TODO: Requires database implementation
     # documents,  # TODO: Check if this requires database
     # github,  # TODO: Check if this requires database
-    # images,  # TODO: Check if this requires database
+    images,  # Images router doesn't require database
     # notes,  # TODO: Check if this requires database
     sensors,
     # system,  # TODO: Check if this requires database
@@ -135,7 +135,7 @@ app.include_router(audio.router)
 # app.include_router(devices.router)  # TODO: Requires database implementation
 # app.include_router(documents.router)  # TODO: Check if this requires database
 # app.include_router(github.router)  # TODO: Check if this requires database
-# app.include_router(images.router)  # TODO: Check if this requires database
+app.include_router(images.router)  # Images router doesn't require database
 # app.include_router(notes.router)  # TODO: Check if this requires database
 app.include_router(sensors.router)
 # app.include_router(system.router)  # TODO: Check if this requires database

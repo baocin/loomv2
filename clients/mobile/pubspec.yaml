@@ -61,6 +61,13 @@ dependencies:
   uuid: ^4.3.3
   crypto: ^3.0.3
   shared_preferences: ^2.2.2
+  
+  # Screenshot support
+  screenshot: ^3.0.0
+  image_gallery_saver: ^2.0.3
+  
+  # Camera support
+  camera: ^0.11.0
 
 dev_dependencies:
   flutter_test:

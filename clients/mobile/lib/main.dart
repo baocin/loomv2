@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart' as permission_handler;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import 'services/background_service.dart';
 import 'services/permission_handler.dart';
 import 'core/services/permission_manager.dart';
@@ -9,6 +11,10 @@ import 'core/api/loom_api_client.dart';
 import 'core/services/device_manager.dart';
 import 'services/data_collection_service.dart';
 import 'screens/settings_screen.dart';
+import 'data_sources/screenshot_data_source.dart';
+import 'data_sources/camera_data_source.dart';
+import 'widgets/screenshot_widget.dart';
+import 'widgets/camera_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +79,10 @@ class _HomePageState extends State<HomePage> {
   DateTime? _lastUpdate;
   final Map<String, bool> _dataSourceStates = {};
   BatteryProfile _currentProfile = BatteryProfile.balanced;
+  ScreenshotDataSource? _screenshotDataSource;
+  CameraDataSource? _cameraDataSource;
+  bool _isCapturingScreenshot = false;
+  bool _isCapturingPhoto = false;
 
   @override
   void initState() {
@@ -81,6 +91,8 @@ class _HomePageState extends State<HomePage> {
     _checkPermissions();
     _listenToServiceUpdates();
     _initializeDataSources();
+    _initializeScreenshotDataSource();
+    _initializeCameraDataSource();
   }
 
   Future<void> _checkServiceStatus() async {
@@ -119,6 +131,78 @@ class _HomePageState extends State<HomePage> {
       _dataSourceStates[sourceId] = config?.getConfig(sourceId).enabled ?? false;
     }
     setState(() {});
+  }
+
+  Future<void> _initializeScreenshotDataSource() async {
+    // Get device ID from shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    String? deviceId = prefs.getString('loom_device_id');
+    
+    if (deviceId == null) {
+      deviceId = const Uuid().v4();
+      await prefs.setString('loom_device_id', deviceId);
+    }
+    
+    _screenshotDataSource = ScreenshotDataSource(deviceId);
+  }
+
+  Future<void> _initializeCameraDataSource() async {
+    // Get device ID from shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    String? deviceId = prefs.getString('loom_device_id');
+    
+    if (deviceId == null) {
+      deviceId = const Uuid().v4();
+      await prefs.setString('loom_device_id', deviceId);
+    }
+    
+    _cameraDataSource = CameraDataSource(deviceId);
+  }
+
+  Future<void> _captureScreenshot() async {
+    if (_isCapturingScreenshot || _screenshotDataSource == null) return;
+    
+    setState(() {
+      _isCapturingScreenshot = true;
+    });
+    
+    try {
+      await _screenshotDataSource!.captureScreenshot('Manual screenshot from app');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Screenshot captured and uploaded!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to capture screenshot: $e')),
+      );
+    } finally {
+      setState(() {
+        _isCapturingScreenshot = false;
+      });
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    if (_isCapturingPhoto || _cameraDataSource == null) return;
+    
+    setState(() {
+      _isCapturingPhoto = true;
+    });
+    
+    try {
+      await _cameraDataSource!.capturePhoto(description: 'Manual photo from app');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo captured and uploaded!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to capture photo: $e')),
+      );
+    } finally {
+      setState(() {
+        _isCapturingPhoto = false;
+      });
+    }
   }
 
   Future<void> _toggleDataCollection() async {
@@ -181,6 +265,21 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Loom'),
         actions: [
+          IconButton(
+            icon: _isCapturingPhoto 
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.camera_alt),
+            onPressed: _isCapturingPhoto ? null : _capturePhoto,
+            tooltip: 'Take Photo',
+          ),
+          ScreenshotButton(
+            onPressed: _captureScreenshot,
+            isCapturing: _isCapturingScreenshot,
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -471,6 +570,10 @@ class _HomePageState extends State<HomePage> {
         return Icons.wifi;
       case 'audio':
         return Icons.mic;
+      case 'screenshot':
+        return Icons.screenshot;
+      case 'camera':
+        return Icons.camera_alt;
       default:
         return Icons.sensors;
     }

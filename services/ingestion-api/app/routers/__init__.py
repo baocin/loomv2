@@ -1,5 +1,5 @@
 """Router package for API endpoints."""
 
-from . import audio, sensors
+from . import audio, images, sensors
 
-__all__ = ["audio", "sensors"]
+__all__ = ["audio", "images", "sensors"]

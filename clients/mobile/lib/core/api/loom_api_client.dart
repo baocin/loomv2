@@ -1,21 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../models/device_info.dart';
 import '../models/sensor_data.dart';
 import '../models/audio_data.dart';
 
 class LoomApiClient {
   static const String defaultBaseUrl = 'http://10.0.2.2:8000'; // Android emulator host IP
-  static const String apiKey = 'apikeyhere';
+  static const String defaultApiKey = 'apikeyhere';
   
   late final Dio _dio;
   final String baseUrl;
+  final String apiKey;
 
-  LoomApiClient({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl {
+  LoomApiClient({String? baseUrl, String? apiKey}) 
+    : baseUrl = baseUrl ?? defaultBaseUrl,
+      apiKey = apiKey ?? defaultApiKey {
     _dio = Dio(BaseOptions(
       baseUrl: this.baseUrl,
       headers: {
-        'X-API-Key': apiKey,
+        'X-API-Key': this.apiKey,
         'Content-Type': 'application/json',
       },
       connectTimeout: const Duration(seconds: 5),
@@ -126,6 +130,57 @@ class LoomApiClient {
     return BatchApiResponse.fromJson(response.data);
   }
 
+  // Screenshot Upload
+  Future<ApiResponse> uploadScreenshot({
+    required String deviceId,
+    required String base64Image,
+    required DateTime timestamp,
+    required int width,
+    required int height,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await _dio.post('/images/screenshot', data: {
+      'device_id': deviceId,
+      'image_data': base64Image,  // API expects this field name
+      'timestamp': timestamp.toIso8601String(),
+      'format': 'png',
+      'width': width,
+      'height': height,
+      'camera_type': 'screen',
+      'file_size': (base64Image.length * 3 ~/ 4), // Approximate file size from base64
+      'metadata': metadata ?? {},
+      'message_id': const Uuid().v4(),
+    });
+    return ApiResponse.fromJson(response.data);
+  }
+
+  // Photo Upload
+  Future<ApiResponse> uploadPhoto({
+    required String deviceId,
+    required String base64Image,
+    required DateTime timestamp,
+    required int width,
+    required int height,
+    required String cameraType,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await _dio.post('/images/upload', data: {
+      'device_id': deviceId,
+      'image_data': base64Image,
+      'timestamp': timestamp.toIso8601String(),
+      'format': 'jpeg',
+      'width': width,
+      'height': height,
+      'camera_type': cameraType,
+      'file_size': (base64Image.length * 3 ~/ 4),
+      'metadata': metadata ?? {},
+      'message_id': const Uuid().v4(),
+    });
+    return ApiResponse.fromJson(response.data);
+  }
+
   // Settings Management
   Future<void> saveApiSettings({
     required String baseUrl,
@@ -149,7 +204,8 @@ class LoomApiClient {
   static Future<LoomApiClient> createFromSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final baseUrl = prefs.getString('loom_api_base_url') ?? defaultBaseUrl;
-    return LoomApiClient(baseUrl: baseUrl);
+    final apiKey = prefs.getString('loom_api_key') ?? defaultApiKey;
+    return LoomApiClient(baseUrl: baseUrl, apiKey: apiKey);
   }
 }
 
