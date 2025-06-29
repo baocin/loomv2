@@ -2,18 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'services/background_service.dart';
 import 'services/permission_handler.dart';
+import 'core/api/loom_api_client.dart';
+import 'core/services/device_manager.dart';
+import 'services/data_collection_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize API client and device manager
+  final apiClient = await LoomApiClient.createFromSettings();
+  final deviceManager = DeviceManager(apiClient);
+  
+  // Initialize data collection service
+  final dataService = DataCollectionService(deviceManager, apiClient);
+  await dataService.initialize();
+
   // Initialize background service
   await BackgroundServiceManager.initialize();
 
-  runApp(const MyApp());
+  runApp(MyApp(dataService: dataService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final DataCollectionService dataService;
+  
+  const MyApp({super.key, required this.dataService});
 
   // This widget is the root of your application.
   @override
@@ -24,13 +37,15 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: HomePage(dataService: dataService),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final DataCollectionService dataService;
+  
+  const HomePage({super.key, required this.dataService});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -38,9 +53,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isServiceRunning = false;
+  bool _isDataCollectionRunning = false;
   Map<String, bool> _permissions = {};
   String _serviceStatus = 'Initializing...';
   DateTime? _lastUpdate;
+  Map<String, bool> _dataSourceStates = {};
 
   @override
   void initState() {
@@ -48,6 +65,7 @@ class _HomePageState extends State<HomePage> {
     _checkServiceStatus();
     _checkPermissions();
     _listenToServiceUpdates();
+    _initializeDataSources();
   }
 
   Future<void> _checkServiceStatus() async {
@@ -55,6 +73,7 @@ class _HomePageState extends State<HomePage> {
     final isRunning = await service.isRunning();
     setState(() {
       _isServiceRunning = isRunning;
+      _isDataCollectionRunning = widget.dataService.isRunning;
       _serviceStatus = isRunning ? 'Service is running' : 'Service is stopped';
     });
   }
@@ -75,6 +94,37 @@ class _HomePageState extends State<HomePage> {
         });
       }
     });
+  }
+
+  Future<void> _initializeDataSources() async {
+    final dataSources = widget.dataService.availableDataSources;
+    for (final sourceId in dataSources.keys) {
+      _dataSourceStates[sourceId] = true; // Default enabled
+    }
+    setState(() {});
+  }
+
+  Future<void> _toggleDataCollection() async {
+    if (!_isDataCollectionRunning) {
+      // Request permissions first
+      final granted = await PermissionService.requestAllPermissions();
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please grant all permissions to start data collection')),
+        );
+        return;
+      }
+
+      await widget.dataService.startDataCollection();
+      setState(() {
+        _isDataCollectionRunning = true;
+      });
+    } else {
+      await widget.dataService.stopDataCollection();
+      setState(() {
+        _isDataCollectionRunning = false;
+      });
+    }
   }
 
   Future<void> _toggleService() async {
@@ -118,6 +168,22 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Collection Control
+            Card(
+              child: ListTile(
+                title: const Text('Data Collection'),
+                subtitle: Text(_isDataCollectionRunning 
+                    ? 'Collecting sensor data (Queue: ${widget.dataService.queueSize})' 
+                    : 'Data collection stopped'),
+                trailing: Switch(
+                  value: _isDataCollectionRunning,
+                  onChanged: (_) => _toggleDataCollection(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Background Service Control
             Card(
               child: ListTile(
                 title: const Text('Background Service'),
@@ -128,6 +194,44 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            
+            // Data Sources
+            const Text(
+              'Data Sources',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Card(
+                child: ListView(
+                  children: widget.dataService.availableDataSources.entries.map((entry) {
+                    final sourceId = entry.key;
+                    final dataSource = entry.value;
+                    final isEnabled = _dataSourceStates[sourceId] ?? false;
+                    
+                    return ListTile(
+                      title: Text(dataSource.displayName),
+                      subtitle: Text('Source: $sourceId'),
+                      trailing: Switch(
+                        value: isEnabled,
+                        onChanged: (value) async {
+                          await widget.dataService.setDataSourceEnabled(sourceId, value);
+                          setState(() {
+                            _dataSourceStates[sourceId] = value;
+                          });
+                        },
+                      ),
+                      leading: Icon(
+                        _getDataSourceIcon(sourceId),
+                        color: isEnabled ? Colors.green : Colors.grey,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            
             const SizedBox(height: 16),
             const Text(
               'Permissions',
@@ -155,38 +259,46 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            
             if (_lastUpdate != null) ...[
-              const Text(
-                'Last Update',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Card(
                 child: ListTile(
                   title: const Text('Service Last Active'),
                   subtitle: Text(_lastUpdate!.toLocal().toString()),
+                  leading: const Icon(Icons.update),
                 ),
               ),
             ],
-            const Spacer(),
-            Center(
-              child: Column(
-                children: [
-                  const Text(
-                    'Loom will continue running in the background',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const Text(
-                    'even when the app is closed.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await widget.dataService.uploadNow();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Manual upload triggered')),
+          );
+        },
+        child: const Icon(Icons.upload),
+      ),
     );
+  }
+
+  IconData _getDataSourceIcon(String sourceId) {
+    switch (sourceId) {
+      case 'gps':
+        return Icons.location_on;
+      case 'accelerometer':
+        return Icons.vibration;
+      case 'battery':
+        return Icons.battery_full;
+      case 'network':
+        return Icons.wifi;
+      case 'audio':
+        return Icons.mic;
+      default:
+        return Icons.sensors;
+    }
   }
 }
