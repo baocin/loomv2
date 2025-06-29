@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart' as permission_handler;
@@ -382,6 +383,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       children: [
                         if (config != null) ..._buildConfigTiles(sourceId, config),
+                        if (sourceId == 'screenshot') ..._buildScreenshotSettings(),
                       ],
                     );
                   }).toList(),
@@ -474,6 +476,72 @@ class _HomePageState extends State<HomePage> {
               subtitle: Text(config.priority.name.toUpperCase()),
               dense: true,
             ),
+          ],
+        ),
+      ),
+    ];
+  }
+  
+  List<Widget> _buildScreenshotSettings() {
+    final screenshotSource = _screenshotDataSource;
+    if (screenshotSource == null) return [];
+    
+    final settings = screenshotSource.getAutomaticCaptureSettings();
+    
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('Automatic Capture'),
+              subtitle: Text(settings['enabled'] 
+                ? 'Every ${settings['interval_seconds']} seconds' 
+                : 'Manual only'),
+              value: settings['enabled'],
+              onChanged: (value) {
+                setState(() {
+                  screenshotSource.setAutomaticCapture(value);
+                });
+              },
+              dense: true,
+            ),
+            if (settings['enabled'])
+              ListTile(
+                title: const Text('Capture Interval'),
+                subtitle: Slider(
+                  value: (settings['interval_seconds'] as int).toDouble(),
+                  min: 60,
+                  max: 1800,
+                  divisions: 29,
+                  label: '${settings['interval_seconds']} seconds',
+                  onChanged: (value) {
+                    setState(() {
+                      screenshotSource.setCaptureInterval(
+                        Duration(seconds: value.toInt()),
+                      );
+                    });
+                  },
+                ),
+                dense: true,
+              ),
+            SwitchListTile(
+              title: const Text('Save to Gallery'),
+              value: settings['save_to_gallery'],
+              onChanged: (value) {
+                setState(() {
+                  screenshotSource.setSaveToGallery(value);
+                });
+              },
+              dense: true,
+            ),
+            if (Platform.isAndroid && settings['enabled'])
+              ListTile(
+                title: const Text('⚠️ Requires Special Permission'),
+                subtitle: const Text('Automatic screenshots need screen recording permission'),
+                leading: const Icon(Icons.warning, color: Colors.orange),
+                dense: true,
+              ),
           ],
         ),
       ),
