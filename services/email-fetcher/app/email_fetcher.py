@@ -38,6 +38,7 @@ class EmailFetcher:
                 "port": int(os.getenv(port_env, "993")),
                 "disabled": os.getenv(disabled_env, "false").lower() == "true",
                 "name": os.getenv(name_env, f"Email {i}"),
+                "index": i,  # Add index for device_id generation
             }
 
             if (
@@ -160,6 +161,7 @@ class EmailFetcher:
                     "seen": seen,
                     "source_account": account["email"],
                     "account_name": account["name"],
+                    "account_index": account.get("index", 1),
                 }
 
         return None

@@ -89,7 +89,7 @@ async def fetch_liked_tweets():
             # Send complete tweet data to raw topic
             raw_message = {
                 "schema_version": "v1",
-                "device_id": None,
+                "device_id": "x-likes-fetcher-default",
                 "timestamp": tweet_data.get("time"),
                 "trace_id": trace_id,
                 "data": {

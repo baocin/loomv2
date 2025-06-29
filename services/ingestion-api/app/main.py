@@ -13,7 +13,7 @@ from .config import settings
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
-from .routers import audio, documents, github, images, notes, sensors, system, urls
+from .routers import audio, devices, documents, github, images, notes, sensors, system, urls
 from .tracing import TracingMiddleware, get_trace_context
 
 
@@ -122,6 +122,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(audio.router)
+app.include_router(devices.router)
 app.include_router(documents.router)
 app.include_router(github.router)
 app.include_router(images.router)

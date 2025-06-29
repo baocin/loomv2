@@ -31,9 +31,14 @@ def fetch_emails():
 
         # Send each email to Kafka
         for email_data in emails:
+            # Generate device_id based on account
+            account_email = email_data.get("account_email", "unknown")
+            account_index = email_data.get("account_index", 1)
+            device_id = f"email-fetcher-account-{account_index}"
+            
             message = {
                 "schema_version": "v1",
-                "device_id": None,
+                "device_id": device_id,
                 "timestamp": email_data["date_received"].isoformat(),
                 "data": email_data,
             }

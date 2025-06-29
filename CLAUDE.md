@@ -130,6 +130,14 @@ make docker-run              # Run container locally
 - `GET /readyz` - Readiness probe
 - `GET /metrics` - Prometheus metrics
 
+#### Device Management
+- `GET /devices` - List all registered devices
+- `GET /devices/activity` - Get device activity summary
+- `GET /devices/{device_id}` - Get specific device details
+- `POST /devices` - Register a new device
+- `PATCH /devices/{device_id}` - Update device information
+- `DELETE /devices/{device_id}` - Soft delete a device
+
 #### Audio Ingestion
 - `POST /audio/upload` - Upload audio chunks
 - `WebSocket /audio/stream/{device_id}` - Real-time audio streaming

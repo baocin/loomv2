@@ -33,9 +33,14 @@ def fetch_calendar_events():
 
         # Send each event to Kafka
         for event_data in events:
+            # Generate device_id based on calendar
+            calendar_name = event_data.get("calendar_name", "default")
+            calendar_index = event_data.get("calendar_index", 1)
+            device_id = f"calendar-fetcher-{calendar_name.lower().replace(' ', '-')}"
+            
             message = {
                 "schema_version": "v1",
-                "device_id": None,
+                "device_id": device_id,
                 "timestamp": (
                     event_data["start_time"].isoformat()
                     if event_data["start_time"]
