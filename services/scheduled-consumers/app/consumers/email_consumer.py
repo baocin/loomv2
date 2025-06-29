@@ -34,16 +34,15 @@ class EmailConsumer(BaseConsumer):
         messages = []
 
         try:
-            # For now, return mock data
             # TODO: Implement actual Gmail API integration
             if not settings.gmail_credentials_path or not os.path.exists(
                 settings.gmail_credentials_path
             ):
                 logger.warning(
-                    "Gmail credentials not configured, returning mock data",
+                    "Gmail credentials not configured, returning empty list",
                     credentials_path=settings.gmail_credentials_path,
                 )
-                return await self._get_mock_email_data()
+                return []
 
             # TODO: Implement Gmail API client
             # from google.oauth2.credentials import Credentials

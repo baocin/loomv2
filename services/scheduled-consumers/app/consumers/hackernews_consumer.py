@@ -37,9 +37,9 @@ class HackerNewsConsumer(BaseConsumer):
         try:
             if not settings.hackernews_user_id:
                 logger.warning(
-                    "Hacker News user ID not configured, returning mock data"
+                    "Hacker News user ID not configured, returning empty list"
                 )
-                return await self._get_mock_hackernews_data()
+                return []
 
             # Get user's submitted and upvoted items
             async with aiohttp.ClientSession() as session:
@@ -50,7 +50,7 @@ class HackerNewsConsumer(BaseConsumer):
                         logger.warning(
                             f"Failed to fetch HN user data: {response.status}"
                         )
-                        return await self._get_mock_hackernews_data()
+                        return []
 
                     user_data = await response.json()
                     submitted_items = user_data.get("submitted", [])

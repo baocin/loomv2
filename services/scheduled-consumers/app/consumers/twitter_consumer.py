@@ -30,12 +30,10 @@ class TwitterConsumer(BaseConsumer):
         -------
             List of TwitterLike messages
         """
-        messages = []
-
         try:
             if not settings.twitter_bearer_token:
-                logger.warning("Twitter API token not configured, returning mock data")
-                return await self._get_mock_twitter_data()
+                logger.warning("Twitter API token not configured, returning empty list")
+                return []
 
             # TODO: Implement actual Twitter API v2 integration
             # import tweepy
@@ -43,8 +41,8 @@ class TwitterConsumer(BaseConsumer):
 
             logger.info("Collecting liked tweets from Twitter API")
 
-            # For now, return mock data until Twitter API is implemented
-            return await self._get_mock_twitter_data()
+            # TODO: Twitter API implementation needed
+            return []
 
         except Exception as e:
             logger.error("Failed to collect Twitter data", error=str(e))

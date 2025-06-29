@@ -43,17 +43,17 @@ class WebConsumer(BaseConsumer):
             messages.extend(chrome_visits)
             messages.extend(firefox_visits)
 
-            # If no real data, return mock data
+            # If no real data, return empty list
             if not messages:
-                logger.warning("No browser history found, returning mock data")
-                return await self._get_mock_web_data()
+                logger.warning("No browser history found, returning empty list")
+                return []
 
             logger.info(f"Collected {len(messages)} web visits")
             return messages
 
         except Exception as e:
             logger.error("Failed to collect web browsing data", error=str(e))
-            return await self._get_mock_web_data()
+            return []
 
     def get_kafka_topic(self) -> str:
         """Get Kafka topic for web visits."""
