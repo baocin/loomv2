@@ -147,7 +147,7 @@ docker-labels: ## Show git labels for Docker images (use SERVICE=<name> for spec
 # Kafka management
 topics-create: ## Create Kafka topics
 	@echo "Creating Kafka topics..."
-	@python scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed
+	@python3 scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed
 
 topics-list: ## List Kafka topics
 	@echo "Listing Kafka topics..."
@@ -211,7 +211,7 @@ clean-kafka: ## Clean all Kafka topics and consumer groups (keeps database)
 	@sleep 5
 	@echo ""
 	@echo "Recreating topics..."
-	@python scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed || true
+	@python3 scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed || true
 	@echo ""
 	@echo "✅ Kafka cleanup complete. Topics recreated."
 

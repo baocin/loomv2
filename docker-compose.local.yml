@@ -18,7 +18,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ~/.loom/timescaledb:/var/lib/postgresql/data
+      - ~/loom-data/timescaledb:/var/lib/postgresql/data
       - ./services/ingestion-api/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U loom -d loom"]
@@ -52,7 +52,7 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/kafka/data:/var/lib/kafka/data
+      - ~/loom-data/kafka/data:/var/lib/kafka/data
     ports:
       - "9092:9092"
     depends_on:
@@ -72,8 +72,8 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/zookeeper/data:/var/lib/zookeeper/data
-      - ~/.loom/zookeeper/logs:/var/lib/zookeeper/log
+      - ~/loom-data/zookeeper/data:/var/lib/zookeeper/data
+      - ~/loom-data/zookeeper/logs:/var/lib/zookeeper/log
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -221,7 +221,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ~/.loom/models:/home/loom/.cache  # Model cache directory
+      - ~/loom-data/models:/home/loom/.cache  # Model cache directory
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
       interval: 30s
@@ -310,7 +310,7 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/logs/hackernews:/app/logs
+      - ~/loom-data/logs/hackernews:/app/logs
     depends_on:
       kafka:
         condition: service_healthy
@@ -441,8 +441,8 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/x-likes-sessions:/app/sessions
-      - ~/.loom/logs/x-likes:/app/logs
+      - ~/loom-data/x-likes-sessions:/app/sessions
+      - ~/loom-data/logs/x-likes:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -471,7 +471,7 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/logs/hackernews-processor:/app/logs
+      - ~/loom-data/logs/hackernews-processor:/app/logs
     depends_on:
       kafka:
         condition: service_healthy
@@ -497,8 +497,8 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/twitter_images:/app/screenshots
-      - ~/.loom/logs/x-url-processor:/app/logs
+      - ~/loom-data/twitter_images:/app/screenshots
+      - ~/loom-data/logs/x-url-processor:/app/logs
     depends_on:
       kafka:
         condition: service_healthy
@@ -523,7 +523,7 @@ services:
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/.loom/logs/kafka-to-db:/app/logs
+      - ~/loom-data/logs/kafka-to-db:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -553,7 +553,7 @@ services:
     ports:
       - "8009:8001"  # Different port to avoid conflict
     volumes:
-      - ~/.loom/logs/generic-kafka-to-db:/app/logs
+      - ~/loom-data/logs/generic-kafka-to-db:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -594,7 +594,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ~/.loom/models:/models  # Model cache directory
+      - ~/loom-data/models:/models  # Model cache directory
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8006/healthz'); r.raise_for_status()"]
       interval: 30s
@@ -625,7 +625,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ~/.loom/models:/home/loom/.cache  # Model cache directory
+      - ~/loom-data/models:/home/loom/.cache  # Model cache directory
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
       interval: 30s
@@ -655,7 +655,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ~/.loom/models:/home/loom/.cache  # Model cache directory
+      - ~/loom-data/models:/home/loom/.cache  # Model cache directory
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/healthz"]
       interval: 30s
@@ -783,4 +783,4 @@ services:
   #         memory: 2G
 
 # volumes:
-#   postgres_data: # Now using host directory ~/.loom/timescaledb
+#   postgres_data: # Now using host directory ~/loom-data/timescaledb
