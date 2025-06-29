@@ -45,13 +45,20 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
 
   @override
   Future<void> collectDataPoint() async {
-    if (_deviceId == null) return;
+    print('ACCELEROMETER: collectDataPoint() called - deviceId: $_deviceId, enabled: ${configuration['enabled']}');
+    
+    if (_deviceId == null) {
+      print('ACCELEROMETER: Device ID is null, returning');
+      return;
+    }
     
     // Additional safety check to prevent disabled sensors from collecting
     if (!configuration['enabled']) {
-      print('Debug: Accelerometer collectDataPoint called but sensor is disabled');
+      print('ACCELEROMETER: collectDataPoint called but sensor is disabled, returning');
       return;
     }
+    
+    print('ACCELEROMETER: Starting data collection...');
 
     try {
       // Get a single accelerometer reading
@@ -104,7 +111,9 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
         ),
       );
 
+      print('ACCELEROMETER: Emitting accelerometer reading - x: ${event.x}, y: ${event.y}, z: ${event.z}');
       emitData(reading);
+      print('ACCELEROMETER: Data emitted successfully');
     } catch (e) {
       print('Error collecting accelerometer data: $e');
       _updateStatus(errorMessage: e.toString());

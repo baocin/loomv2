@@ -207,7 +207,7 @@ class BatteryProfileManager {
       ),
       'accelerometer': DataSourceConfigParams(
         enabled: true,
-        collectionIntervalMs: 50,
+        collectionIntervalMs: 1000, // 1 second interval (was 50ms = too aggressive)
         uploadBatchSize: 1,  // Performance mode = immediate upload
         uploadIntervalMs: 30000,
       ),

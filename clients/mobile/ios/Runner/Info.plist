@@ -45,5 +45,30 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Permission usage descriptions -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to record audio for data collection and analysis.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture photos for data collection and context awareness.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to save captured images and audio recordings.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs permission to save photos and recordings to your photo library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to track GPS coordinates for context and movement analysis.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs background location access for continuous GPS tracking and context awareness.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs background location access for continuous GPS tracking and context awareness.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>This app needs motion sensor access to track movement and activity patterns.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+		<string>location</string>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

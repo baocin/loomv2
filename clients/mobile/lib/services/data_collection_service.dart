@@ -411,12 +411,22 @@ class DataCollectionService {
   Future<void> updateDataSourceConfig(String sourceId, DataSourceConfigParams config) async {
     if (_config == null) return;
     
+    // Check if the source was previously enabled before updating config
+    final wasEnabled = _config!.getConfig(sourceId).enabled;
+    
     await _config!.updateConfig(sourceId, config);
     
-    // Restart the source if it's currently running
-    if (_isRunning && _dataSources.containsKey(sourceId) && config.enabled) {
+    // Only restart the source if it was previously enabled AND still enabled
+    // This prevents accidentally starting sources when switching profiles
+    if (_isRunning && _dataSources.containsKey(sourceId) && wasEnabled && config.enabled) {
+      print('DEBUG: Restarting $sourceId due to config change (was enabled, still enabled)');
       await setDataSourceEnabled(sourceId, false);
       await setDataSourceEnabled(sourceId, true);
+    } else if (_isRunning && _dataSources.containsKey(sourceId) && wasEnabled && !config.enabled) {
+      print('DEBUG: Disabling $sourceId due to config change (was enabled, now disabled)');
+      await setDataSourceEnabled(sourceId, false);
+    } else if (_isRunning && _dataSources.containsKey(sourceId) && !wasEnabled && config.enabled) {
+      print('DEBUG: NOT auto-starting $sourceId - was disabled before profile change');
     }
   }
   
