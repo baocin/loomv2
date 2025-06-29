@@ -5,13 +5,16 @@ import os
 from datetime import datetime
 import logging
 from typing import List, Dict, Any
+from app.shared.deduplication import content_hasher
 
 
 class EmailFetcher:
     def __init__(self):
         """Initialize email fetcher with account configurations"""
         self.accounts = self._load_accounts()
-        self.processed_emails = set()  # Keep track of processed emails in memory
+        self.processed_hashes = (
+            set()
+        )  # Keep track of processed content hashes in memory
 
     def _load_accounts(self) -> List[Dict[str, Any]]:
         """Load email accounts from environment variables"""
@@ -93,16 +96,20 @@ class EmailFetcher:
                 for email_id in email_ids:
                     email_id_str = email_id.decode()
 
-                    # Skip if already processed in this session
-                    unique_id = f"{account['email']}:{email_id_str}"
-                    if unique_id in self.processed_emails:
-                        continue
-
                     try:
                         email_data = self._parse_email(mail, email_id, account)
                         if email_data:
+                            # Check if content hash already processed
+                            content_hash = email_data.get("content_hash")
+                            if content_hash and content_hash in self.processed_hashes:
+                                logging.debug(
+                                    f"Skipping duplicate email with hash: {content_hash}"
+                                )
+                                continue
+
                             emails.append(email_data)
-                            self.processed_emails.add(unique_id)
+                            if content_hash:
+                                self.processed_hashes.add(content_hash)
                     except Exception as e:
                         logging.error(f"Error parsing email {email_id_str}: {e}")
 
@@ -151,8 +158,29 @@ class EmailFetcher:
                 # Get read status
                 seen = self._is_email_seen(mail, email_id)
 
+                # Get Message-ID for content hashing (primary strategy)
+                message_id = msg.get("Message-ID")
+
+                # Generate content hash using the deduplication strategy
+                try:
+                    content_hash = content_hasher.generate_email_hash(
+                        message_id=message_id,
+                        from_address=sender,
+                        to_address=account["email"],
+                        date=date_received,
+                        subject=subject,
+                    )
+                except ValueError as e:
+                    logging.warning(f"Failed to generate content hash: {e}")
+                    # Fallback: generate a unique hash based on account and email ID
+                    content_hash = content_hasher._sha256(
+                        f"{account['email']}:{email_id.decode()}"
+                    )
+
                 return {
                     "email_id": f"{account['email']}:{email_id.decode()}",
+                    "content_hash": content_hash,
+                    "message_id": message_id,
                     "subject": subject,
                     "sender": sender,
                     "receiver": account["email"],

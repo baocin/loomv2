@@ -4,6 +4,7 @@ import schedule
 import time
 from hackernews_fetcher import HackerNewsFetcher
 from kafka_producer import KafkaProducer
+from hackernews_hasher import hackernews_hasher
 
 # Configure logging
 log_level = os.getenv("LOOM_LOG_LEVEL", "INFO")
@@ -37,13 +38,34 @@ def fetch_hackernews():
 
         # Send each item URL to Kafka for processing
         sent_count = 0
+        duplicate_count = 0
+        processed_hashes = set()
+
         for story_data in items:
             # Only process stories with URLs (not just text posts)
             if story_data.get("url"):
+                # Generate content hash for deduplication
+                content_hash = hackernews_hasher.generate_hackernews_hash(
+                    story_id=story_data["id"],
+                    url=story_data.get("url"),
+                    timestamp=story_data.get("time"),
+                )
+
+                # Skip duplicates within this batch
+                if content_hash in processed_hashes:
+                    duplicate_count += 1
+                    logging.debug(
+                        f"Skipping duplicate story {story_data['id']} within batch"
+                    )
+                    continue
+
+                processed_hashes.add(content_hash)
+
                 message = {
                     "schema_version": "v1",
                     "device_id": None,
                     "timestamp": story_data.get("time"),
+                    "content_hash": content_hash,  # Add content hash for downstream deduplication
                     "data": {
                         "url": story_data["url"],
                         "source": "hackernews",
@@ -69,7 +91,8 @@ def fetch_hackernews():
         kafka_producer.close()
 
         logging.info(
-            f"Successfully processed {sent_count} Hacker News {fetch_type} with URLs (out of {len(items)} total) to topic {output_topic}"
+            f"Successfully processed {sent_count} Hacker News {fetch_type} with URLs "
+            f"(out of {len(items)} total, {duplicate_count} duplicates skipped) to topic {output_topic}"
         )
 
     except Exception as e:

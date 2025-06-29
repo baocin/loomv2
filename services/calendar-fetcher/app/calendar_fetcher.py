@@ -4,6 +4,7 @@ import os
 import logging
 import requests
 from typing import List, Dict, Any
+from shared.deduplication import content_hasher
 
 
 class CalendarFetcher:
@@ -97,12 +98,17 @@ class CalendarFetcher:
                         try:
                             event_data = self._parse_event(event, account, calendar)
                             if event_data:
-                                unique_id = (
-                                    f"{account['username']}:{event_data['event_id']}"
-                                )
-                                if unique_id not in self.processed_events:
+                                # Use content hash for deduplication
+                                content_hash = event_data.get("content_hash")
+                                if (
+                                    content_hash
+                                    and content_hash not in self.processed_events
+                                ):
                                     events.append(event_data)
-                                    self.processed_events.add(unique_id)
+                                    self.processed_events.add(content_hash)
+                                    logging.debug(
+                                        f"Added event with hash: {content_hash[:16]}..."
+                                    )
                         except Exception as e:
                             logging.error(f"Error parsing event: {e}")
 
@@ -155,6 +161,38 @@ class CalendarFetcher:
             if location and self.enable_gps_lookup:
                 gps_point = self._get_location_coordinates(location)
 
+            # Extract organizer if available
+            organizer = getattr(vevent, "organizer", None)
+            organizer_email = None
+            if organizer:
+                # Organizer can be in format "MAILTO:email@example.com"
+                organizer_value = (
+                    organizer.value if hasattr(organizer, "value") else str(organizer)
+                )
+                if organizer_value.startswith("MAILTO:"):
+                    organizer_email = organizer_value[7:]  # Remove "MAILTO:" prefix
+                else:
+                    organizer_email = organizer_value
+
+            # Generate content hash for deduplication
+            try:
+                # Try to use the iCalendar UID first
+                uid = getattr(vevent, "uid", None)
+                uid_value = uid.value if uid and hasattr(uid, "value") else None
+
+                content_hash = content_hasher.generate_calendar_hash(
+                    uid=uid_value,
+                    start_time=start_time,
+                    end_time=end_time,
+                    title=summary,
+                    location=location,
+                    organizer=organizer_email,
+                )
+            except Exception as e:
+                logging.warning(f"Failed to generate content hash for event: {e}")
+                # Use event_id as fallback hash
+                content_hash = content_hasher._sha256(event_id)
+
             return {
                 "event_id": event_id,
                 "source_calendar": f"{account['name']} - {calendar.name}",
@@ -166,6 +204,9 @@ class CalendarFetcher:
                 "gps_point": gps_point,
                 "source_account": account["username"],
                 "account_name": account["name"],
+                "organizer": organizer_email,
+                "uid": uid_value,
+                "content_hash": content_hash,
             }
 
         except Exception as e:

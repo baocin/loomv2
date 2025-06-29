@@ -37,7 +37,7 @@ def fetch_calendar_events():
             calendar_name = event_data.get("calendar_name", "default")
             calendar_index = event_data.get("calendar_index", 1)
             device_id = f"calendar-fetcher-{calendar_name.lower().replace(' ', '-')}"
-            
+
             message = {
                 "schema_version": "v1",
                 "device_id": device_id,

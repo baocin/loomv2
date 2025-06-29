@@ -7,6 +7,7 @@ import uuid
 from x_likes_fetcher import XLikesFetcher
 from kafka_producer import KafkaProducer
 from db_checker import DatabaseChecker
+from shared.deduplication import content_hasher
 
 # Configure logging
 log_level = os.getenv("LOOM_LOG_LEVEL", "INFO")
@@ -86,6 +87,20 @@ async def fetch_liked_tweets():
             new_tweets += 1
             logging.info(f"Processing new tweet {new_tweets}: {tweet_id}")
 
+            # Generate content hash for this tweet
+            try:
+                content_hash = content_hasher.generate_twitter_hash(
+                    tweet_id=tweet_id, url=tweet_data.get("tweetLink")
+                )
+                logging.debug(
+                    f"Generated content hash for tweet {tweet_id}: {content_hash}"
+                )
+            except Exception as e:
+                logging.warning(
+                    f"Failed to generate content hash for tweet {tweet_id}: {e}"
+                )
+                content_hash = None
+
             # Send complete tweet data to raw topic
             raw_message = {
                 "schema_version": "v1",
@@ -101,6 +116,7 @@ async def fetch_liked_tweets():
                     "author": tweet_data.get("author", ""),
                     "tweet_id": tweet_id,
                     "trace_id": trace_id,
+                    "content_hash": content_hash,
                     "metrics": {
                         "likes": tweet_data.get("likes", 0),
                         "retweets": tweet_data.get("retweets", 0),
@@ -126,6 +142,7 @@ async def fetch_liked_tweets():
                         "type": "liked_tweet",
                         "tweet_id": tweet_id,
                         "trace_id": trace_id,
+                        "content_hash": content_hash,
                         "metadata": {
                             "author": tweet_data.get("author", ""),
                             "preview_text": tweet_data.get("text", "")[:200],

@@ -2,8 +2,8 @@ import os
 import logging
 import schedule
 import time
-from email_fetcher import EmailFetcher
-from kafka_producer import KafkaProducer
+from app.email_fetcher import EmailFetcher
+from app.kafka_producer import KafkaProducer
 
 # Configure logging
 log_level = os.getenv("LOOM_LOG_LEVEL", "INFO")
@@ -35,22 +35,28 @@ def fetch_emails():
             account_email = email_data.get("account_email", "unknown")
             account_index = email_data.get("account_index", 1)
             device_id = f"email-fetcher-account-{account_index}"
-            
+
             message = {
                 "schema_version": "v1",
                 "device_id": device_id,
                 "timestamp": email_data["date_received"].isoformat(),
+                "content_hash": email_data.get(
+                    "content_hash"
+                ),  # Include content hash for deduplication
                 "data": email_data,
             }
 
-            kafka_producer.send_message(
-                topic=output_topic, key=email_data["email_id"], value=message
-            )
+            # Use content_hash as key if available, otherwise fall back to email_id
+            key = email_data.get("content_hash") or email_data["email_id"]
+            kafka_producer.send_message(topic=output_topic, key=key, value=message)
 
         kafka_producer.close()
 
+        # Count emails with content hashes for logging
+        emails_with_hashes = sum(1 for e in emails if e.get("content_hash"))
         logging.info(
-            f"Successfully processed {len(emails)} emails to topic {output_topic}"
+            f"Successfully processed {len(emails)} emails to topic {output_topic} "
+            f"({emails_with_hashes} with content hashes for deduplication)"
         )
 
     except Exception as e:
