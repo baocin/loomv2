@@ -11,20 +11,20 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
   const [messageCount, setMessageCount] = useState(1)
   const [customPayload, setCustomPayload] = useState('')
   const [useCustom, setUseCustom] = useState(false)
-  
+
   const { data: topics, isLoading: topicsLoading } = useAvailableTopics()
   const { data: example, isLoading: exampleLoading } = useTopicExample(selectedTopic || '')
   const { data: health } = useTestProducerHealth()
   const sendMessage = useSendTestMessage()
-  
+
   const isHealthy = health?.status === 'healthy'
-  
+
   const handleSendMessage = async () => {
     if (!selectedTopic) return
-    
+
     try {
       let message = undefined
-      
+
       if (useCustom && customPayload.trim()) {
         try {
           message = JSON.parse(customPayload)
@@ -33,7 +33,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           return
         }
       }
-      
+
       await sendMessage.mutateAsync({
         topic: selectedTopic,
         count: messageCount,
@@ -43,14 +43,14 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
       console.error('Failed to send test message:', error)
     }
   }
-  
+
   const loadExamplePayload = () => {
     if (example?.example_payload) {
       setCustomPayload(JSON.stringify(example.example_payload, null, 2))
       setUseCustom(true)
     }
   }
-  
+
   if (topicsLoading) {
     return (
       <div className="p-4 border rounded-lg bg-gray-50">
@@ -61,7 +61,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
       </div>
     )
   }
-  
+
   return (
     <div className="p-4 border rounded-lg bg-white shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -80,7 +80,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           )}
         </div>
       </div>
-      
+
       {/* Topic Selection */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-2">Topic</label>
@@ -100,7 +100,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           ))}
         </select>
       </div>
-      
+
       {/* Message Count */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-2">Number of Messages</label>
@@ -114,7 +114,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           disabled={!isHealthy}
         />
       </div>
-      
+
       {/* Payload Options */}
       {selectedTopic && (
         <div className="mb-4">
@@ -138,7 +138,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
               <span className="text-sm">Custom payload</span>
             </label>
           </div>
-          
+
           {!useCustom && example && (
             <div className="bg-gray-50 p-3 rounded-md">
               <div className="text-xs text-gray-600 mb-2">
@@ -156,7 +156,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
               </button>
             </div>
           )}
-          
+
           {useCustom && (
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -180,7 +180,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
               />
             </div>
           )}
-          
+
           {exampleLoading && (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -189,7 +189,7 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           )}
         </div>
       )}
-      
+
       {/* Send Button */}
       <div className="flex items-center gap-4">
         <button
@@ -204,14 +204,14 @@ export const TestMessagePanel: React.FC<TestMessagePanelProps> = ({ selectedTopi
           )}
           Send {messageCount > 1 ? `${messageCount} Messages` : 'Message'}
         </button>
-        
+
         {sendMessage.isSuccess && (
           <div className="flex items-center gap-1 text-green-600 text-sm">
             <CheckCircle2 className="w-4 h-4" />
             <span>Sent successfully!</span>
           </div>
         )}
-        
+
         {sendMessage.isError && (
           <div className="flex items-center gap-1 text-red-600 text-sm">
             <AlertCircle className="w-4 h-4" />

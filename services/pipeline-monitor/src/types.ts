@@ -32,6 +32,7 @@ export interface PipelineNode {
     lastSampleData?: any
     status: 'active' | 'idle' | 'error' | 'unknown'
     description?: string
+    health?: any
   }
 }
 

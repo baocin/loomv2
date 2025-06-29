@@ -50,7 +50,7 @@ export class K8sDiscovery {
 
   constructor() {
     this.kc = new k8s.KubeConfig()
-    
+
     // Try in-cluster config first, fallback to default config
     try {
       this.kc.loadFromCluster()
@@ -61,7 +61,7 @@ export class K8sDiscovery {
         logger.warn('Could not load Kubernetes config, K8s discovery disabled', defaultError)
       }
     }
-    
+
     this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api)
     this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api)
   }
@@ -72,7 +72,7 @@ export class K8sDiscovery {
     try {
       // Get all services in namespace
       const servicesResponse = await this.k8sApi.listNamespacedService(namespace)
-      
+
       for (const service of servicesResponse.body.items) {
         const serviceInfo: ServiceInfo = {
           name: service.metadata?.name || '',
@@ -172,7 +172,7 @@ export class K8sDiscovery {
   async getServiceEndpoint(serviceName: string, namespace = 'loom-dev', port?: number): Promise<string | null> {
     try {
       const service = await this.k8sApi.readNamespacedService(serviceName, namespace)
-      
+
       // Build service URL
       const servicePort = port || service.body.spec?.ports?.[0]?.port
       if (!servicePort) {
@@ -194,16 +194,16 @@ export class K8sDiscovery {
 
     try {
       const deployments = await this.k8sAppsApi.listNamespacedDeployment(namespace)
-      
+
       // Find deployment with matching selector
       for (const deployment of deployments.body.items) {
         const deploymentSelector = deployment.spec?.selector?.matchLabels || {}
-        
+
         // Check if all selector labels match
         const matches = Object.entries(selector).every(
           ([key, value]) => deploymentSelector[key] === value
         )
-        
+
         if (matches) {
           return deployment
         }
@@ -225,7 +225,7 @@ export class K8sDiscovery {
     }
 
     const container = containers[0] // Use first container
-    
+
     // Extract liveness probe
     if (container.livenessProbe?.httpGet) {
       const probe = container.livenessProbe.httpGet
@@ -252,7 +252,7 @@ export class K8sDiscovery {
 
     try {
       const services = await this.discoverServices(namespace)
-      
+
       for (const service of services) {
         for (const [key, value] of Object.entries(service.labels)) {
           if (!labelMap.has(key)) {

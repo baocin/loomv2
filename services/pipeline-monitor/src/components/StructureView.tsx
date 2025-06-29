@@ -59,7 +59,7 @@ export const StructureView: React.FC = () => {
           {Object.entries(structure.categories || {}).map(([category, count]) => (
             <div key={category} className="bg-gray-100 p-2 rounded text-center">
               <div className="text-xs text-gray-600">{category}</div>
-              <div className="font-bold">{count}</div>
+              <div className="font-bold">{String(count)}</div>
             </div>
           ))}
         </div>

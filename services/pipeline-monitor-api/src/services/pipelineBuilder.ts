@@ -230,7 +230,7 @@ export class PipelineBuilder {
         try {
           const lag = await this.kafkaClient.getConsumerLag(flow.processor, [flow.source])
           if (lag && lag.length > 0) {
-            const totalLag = lag.reduce((sum, l) => sum + l.lag, 0)
+            const totalLag = lag.reduce((sum: number, l: any) => sum + l.lag, 0)
             flow.lag = totalLag
             flow.health = totalLag > 1000 ? 'warning' : totalLag > 10000 ? 'error' : 'healthy'
           }

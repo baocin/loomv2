@@ -40,14 +40,14 @@ export class ServiceRegistry extends EventEmitter {
 
   constructor() {
     super()
-    
+
     // Cleanup stale services periodically
     setInterval(() => this.cleanupStaleServices(), 30000)
   }
 
   register(service: ServiceRegistration): void {
     const existingService = this.services.get(service.id)
-    
+
     // Update service
     this.services.set(service.id, {
       ...service,
@@ -139,7 +139,7 @@ export class ServiceRegistry extends EventEmitter {
 
   private resetHeartbeatTimeout(serviceId: string): void {
     this.clearHeartbeatTimeout(serviceId)
-    
+
     const timeout = setTimeout(() => {
       const service = this.services.get(serviceId)
       if (service) {
@@ -179,11 +179,11 @@ export class ServiceRegistry extends EventEmitter {
 
     for (const service of this.services.values()) {
       const outputs = service.capabilities.outputTopics || []
-      
+
       for (const outputTopic of outputs) {
         // Find services that consume this topic
         const consumers = this.getServicesByInputTopic(outputTopic)
-        
+
         for (const consumer of consumers) {
           if (!topology.has(service.id)) {
             topology.set(service.id, new Set())
@@ -204,7 +204,7 @@ export class ServiceRegistry extends EventEmitter {
     }
 
     const dependencies: ServiceRegistration[] = []
-    
+
     for (const inputTopic of service.capabilities.inputTopics) {
       const producers = this.getServicesByOutputTopic(inputTopic)
       dependencies.push(...producers)
@@ -221,7 +221,7 @@ export class ServiceRegistry extends EventEmitter {
     }
 
     const dependents: ServiceRegistration[] = []
-    
+
     for (const outputTopic of service.capabilities.outputTopics) {
       const consumers = this.getServicesByInputTopic(outputTopic)
       dependents.push(...consumers)
@@ -233,7 +233,7 @@ export class ServiceRegistry extends EventEmitter {
   // Export registry state
   toJSON(): Record<string, ServiceRegistration> {
     const result: Record<string, ServiceRegistration> = {}
-    
+
     for (const [id, service] of this.services) {
       result[id] = { ...service }
     }

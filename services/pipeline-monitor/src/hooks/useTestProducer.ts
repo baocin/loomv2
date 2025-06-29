@@ -57,7 +57,7 @@ export const useTopicExample = (topic: string) => {
 
 export const useSendTestMessage = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (request: TestMessageRequest): Promise<TestMessageResponse> => {
       const response = await fetch(`${TEST_PRODUCER_URL}/send`, {
@@ -67,12 +67,12 @@ export const useSendTestMessage = () => {
         },
         body: JSON.stringify(request),
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || 'Failed to send test message')
       }
-      
+
       return response.json()
     },
     onSuccess: (data) => {
@@ -86,7 +86,7 @@ export const useSendTestMessage = () => {
 
 export const useSendBulkTestMessages = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async ({ topics, countPerTopic = 1 }: { topics: string[]; countPerTopic?: number }) => {
       const response = await fetch(`${TEST_PRODUCER_URL}/send/bulk`, {
@@ -99,12 +99,12 @@ export const useSendBulkTestMessages = () => {
           count_per_topic: countPerTopic,
         }),
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || 'Failed to send bulk test messages')
       }
-      
+
       return response.json()
     },
     onSuccess: () => {

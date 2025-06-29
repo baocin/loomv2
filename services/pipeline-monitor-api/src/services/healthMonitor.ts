@@ -42,7 +42,7 @@ export class HealthMonitor extends EventEmitter {
     private kafkaClient: KafkaClient
   ) {
     super()
-    
+
     this.httpClient = axios.create({
       timeout: this.HTTP_TIMEOUT,
       validateStatus: () => true // Don't throw on any status code
@@ -103,10 +103,11 @@ export class HealthMonitor extends EventEmitter {
       // Get service endpoint from K8s if not provided
       let baseUrl = service.endpoints.api
       if (!baseUrl && service.metadata.namespace) {
-        baseUrl = await this.k8sDiscovery.getServiceEndpoint(
+        const endpoint = await this.k8sDiscovery.getServiceEndpoint(
           service.name,
           service.metadata.namespace
         )
+        baseUrl = endpoint || undefined
       }
 
       if (!baseUrl) {
@@ -170,7 +171,9 @@ export class HealthMonitor extends EventEmitter {
 
     // Store and emit status
     this.healthStatuses.set(service.id, status)
-    this.serviceRegistry.updateServiceStatus(service.id, status.status)
+    // Map degraded to unhealthy for service registry
+    const registryStatus = status.status === 'degraded' ? 'unhealthy' : status.status
+    this.serviceRegistry.updateServiceStatus(service.id, registryStatus as ServiceRegistration['status'])
     this.emit('health:updated', status)
 
     return status
@@ -190,8 +193,8 @@ export class HealthMonitor extends EventEmitter {
       )
 
       if (lag && lag.length > 0) {
-        const totalLag = lag.reduce((sum, l) => sum + l.lag, 0)
-        
+        const totalLag = lag.reduce((sum: number, l: any) => sum + l.lag, 0)
+
         // Consider unhealthy if lag is too high
         if (totalLag > 10000) {
           logger.warn(`High lag detected for ${service.name}: ${totalLag}`)
@@ -226,16 +229,16 @@ export class HealthMonitor extends EventEmitter {
         )
 
         if (lag && lag.length > 0) {
-          metrics.consumerLag = lag.reduce((sum, l) => sum + l.lag, 0)
+          metrics.consumerLag = lag.reduce((sum: number, l: any) => sum + l.lag, 0)
         }
       }
 
       // Get other metrics from service endpoint if available
       if (service.endpoints.metrics) {
         try {
-          const baseUrl = service.endpoints.api || 
+          const baseUrl = service.endpoints.api ||
             await this.k8sDiscovery.getServiceEndpoint(service.name, service.metadata.namespace!)
-          
+
           if (baseUrl) {
             const response = await this.httpClient.get(`${baseUrl}${service.endpoints.metrics}`)
             if (response.status === 200 && response.data) {
@@ -280,7 +283,7 @@ export class HealthMonitor extends EventEmitter {
     score: number
   }> {
     const dependencies = this.serviceRegistry.getDependencies(serviceId)
-    
+
     let healthy = 0
     let unhealthy = 0
     let unknown = 0
@@ -312,7 +315,7 @@ export class HealthMonitor extends EventEmitter {
     overallHealth: 'healthy' | 'degraded' | 'critical'
   } {
     const statuses = this.getAllHealthStatuses()
-    
+
     const summary = {
       totalServices: statuses.length,
       healthy: statuses.filter(s => s.status === 'healthy').length,
