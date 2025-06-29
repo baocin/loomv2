@@ -175,3 +175,20 @@ export const useServiceRegistry = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   })
 }
+
+export const usePipelineStructure = () => {
+  return useQuery({
+    queryKey: ['pipelineStructure'],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/kafka/structure`)
+        if (!response.ok) throw new Error('Failed to fetch pipeline structure')
+        return response.json()
+      } catch (error) {
+        console.error('Failed to fetch pipeline structure:', error)
+        throw error
+      }
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds
+  })
+}

@@ -623,7 +623,7 @@ export class PipelineBuilder {
     return topics.filter(t => t.includes(groupId.split('-')[0]))
   }
 
-  private determineOutputTopics(groupId: string, topics: string[]): string[] {
+  determineOutputTopics(groupId: string, topics: string[]): string[] {
     // Map consumer groups to their output topics
     const outputMappings: Record<string, string[]> = {
       'silero-vad-consumer': ['media.audio.vad_filtered'],
@@ -650,7 +650,7 @@ export class PipelineBuilder {
     return [] // Many consumers just store to database
   }
 
-  private getConsumerLabel(groupId: string): string {
+  getConsumerLabel(groupId: string): string {
     const labelMappings: Record<string, string> = {
       // Audio Pipeline
       'silero-vad-consumer': 'VAD Processor',
@@ -696,7 +696,7 @@ export class PipelineBuilder {
       .replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  private getConsumerDescription(groupId: string): string {
+  getConsumerDescription(groupId: string): string {
     const descriptionMappings: Record<string, string> = {
       // Audio Pipeline
       'silero-vad-consumer': 'Voice Activity Detection',
@@ -780,7 +780,7 @@ export class PipelineBuilder {
     })
   }
 
-  private identifyProducers(topics: string[]): {
+  identifyProducers(topics: string[]): {
     id: string,
     type: string,
     label: string,
@@ -979,7 +979,7 @@ export class PipelineBuilder {
     return false
   }
 
-  private getTopicLabel(topic: string): string {
+  getTopicLabel(topic: string): string {
     const parts = topic.split('.')
     if (parts.length < 3) return topic
 

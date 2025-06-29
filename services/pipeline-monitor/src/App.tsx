@@ -14,6 +14,7 @@ import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
 import { LogViewer } from './components/LogViewer'
 import { TestMessagePanel } from './components/TestMessagePanel'
+import { StructureView } from './components/StructureView'
 import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
 
 const STORAGE_KEY = 'loom-pipeline-node-positions'
@@ -76,6 +77,7 @@ function App() {
   const [logViewerTopic, setLogViewerTopic] = useState<string | null>(null)
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [testPanelTopic, setTestPanelTopic] = useState<string>('')
+  const [showStructureView, setShowStructureView] = useState(false)
 
   const { data: pipelineData, isLoading: isPipelineLoading } = usePipelineData()
   const { data: topicMetrics, isLoading: isTopicMetricsLoading } = useTopicMetrics()
@@ -322,8 +324,17 @@ function App() {
             Click on nodes to view raw data
           </div>
           <button
+            onClick={() => setShowStructureView(!showStructureView)}
+            className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {showStructureView ? 'Hide' : 'Show'} Structure View
+          </button>
+          <button
             onClick={() => setShowTestPanel(!showTestPanel)}
-            className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+            className="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -459,6 +470,26 @@ function App() {
         topic={logViewerTopic}
         onClose={() => setLogViewerTopic(null)}
       />
+
+      {/* Structure View Modal */}
+      {showStructureView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-semibold">Pipeline Structure</h2>
+              <button
+                onClick={() => setShowStructureView(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <StructureView />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

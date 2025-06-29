@@ -357,5 +357,73 @@ export function createKafkaRoutes(
     }
   })
 
+  // Comprehensive pipeline structure endpoint
+  router.get('/structure', async (req, res) => {
+    try {
+      // Get all topics
+      const topics = await kafkaClient.getTopics()
+      const userTopics = topics.filter(topic =>
+        !topic.startsWith('__') && !topic.startsWith('_')
+      )
+
+      // Get consumer groups
+      const consumerGroups = await kafkaClient.getConsumerGroups()
+      const userGroups = consumerGroups.filter(group =>
+        !group.groupId.startsWith('__') && !group.groupId.startsWith('_')
+      )
+
+      // Get consumer group subscriptions
+      const subscriptions = await kafkaClient.getConsumerGroupSubscriptions()
+
+      // Build comprehensive structure
+      const structure = {
+        producers: pipelineBuilder.identifyProducers(userTopics),
+        topics: userTopics.map(topic => ({
+          name: topic,
+          category: topic.split('.')[0],
+          dataType: topic.split('.')[1],
+          stage: topic.endsWith('.raw') ? 'raw' :
+                 topic.includes('.processed') || topic.includes('.filtered') ? 'processed' :
+                 topic.includes('analysis') ? 'analysis' : 'unknown',
+          description: pipelineBuilder.getTopicLabel(topic)
+        })),
+        consumers: userGroups.map(group => {
+          const groupId = group.groupId
+          const subscribedTopics = subscriptions.get(groupId) || []
+
+          return {
+            groupId,
+            label: pipelineBuilder.getConsumerLabel(groupId),
+            description: pipelineBuilder.getConsumerDescription(groupId),
+            subscribedTopics,
+            producesTopics: pipelineBuilder.determineOutputTopics(groupId, userTopics),
+            status: group.state || 'unknown',
+            memberCount: group.members?.length || 0
+          }
+        }),
+        flows: await pipelineBuilder.detectFlows(),
+        categories: {
+          device: userTopics.filter(t => t.startsWith('device.')).length,
+          media: userTopics.filter(t => t.startsWith('media.')).length,
+          analysis: userTopics.filter(t => t.startsWith('analysis.')).length,
+          external: userTopics.filter(t => t.startsWith('external.')).length,
+          task: userTopics.filter(t => t.startsWith('task.')).length,
+          digital: userTopics.filter(t => t.startsWith('digital.')).length
+        },
+        stats: {
+          totalTopics: userTopics.length,
+          totalConsumers: userGroups.length,
+          totalProducers: pipelineBuilder.identifyProducers(userTopics).length,
+          activeFlows: (await pipelineBuilder.detectFlows()).filter(f => f.health === 'healthy').length
+        }
+      }
+
+      res.json(structure)
+    } catch (error) {
+      logger.error('Failed to get pipeline structure', error)
+      res.status(500).json({ error: 'Failed to get pipeline structure' })
+    }
+  })
+
   return router
 }
