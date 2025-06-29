@@ -12,18 +12,28 @@ import 'services/data_collection_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize API client and device manager
-  final apiClient = await LoomApiClient.createFromSettings();
-  final deviceManager = DeviceManager(apiClient);
+  try {
+    // Initialize API client and device manager
+    final apiClient = await LoomApiClient.createFromSettings();
+    final deviceManager = DeviceManager(apiClient);
 
-  // Initialize data collection service
-  final dataService = DataCollectionService(deviceManager, apiClient);
-  await dataService.initialize();
+    // Initialize data collection service
+    final dataService = DataCollectionService(deviceManager, apiClient);
+    await dataService.initialize();
 
-  // Initialize background service
-  await BackgroundServiceManager.initialize();
+    // Initialize background service
+    try {
+      await BackgroundServiceManager.initialize();
+    } catch (e) {
+      print('Warning: Background service initialization failed: $e');
+    }
 
-  runApp(MyApp(dataService: dataService));
+    runApp(MyApp(dataService: dataService));
+  } catch (e) {
+    print('Critical initialization error: $e');
+    // Show error dialog and exit gracefully
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {
