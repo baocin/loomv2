@@ -18,7 +18,7 @@ void main() {
     await tester.pumpWidget(MyApp(dataService: dataService));
 
     // Verify that the app title is present
-    expect(find.text('Loom Mobile'), findsOneWidget);
+    expect(find.text('Loom'), findsOneWidget);
     
     // Verify that main sections are present
     expect(find.text('Data Collection'), findsOneWidget);
