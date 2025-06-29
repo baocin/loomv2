@@ -139,11 +139,26 @@ export const useAutoDiscovery = () => {
         return response.json()
       } catch (error) {
         console.error('Failed to fetch auto-discovery data:', error)
-        throw error
+        // Return empty discovery data as fallback
+        return {
+          topics: [],
+          consumers: [],
+          flows: [],
+          services: { kubernetes: [], registered: [] },
+          health: [],
+          summary: {
+            topicCount: 0,
+            consumerCount: 0,
+            flowCount: 0,
+            serviceCount: 0
+          }
+        }
       }
     },
     refetchInterval: 30000, // Reduced from 5s to 30s - discovery data rarely changes
     staleTime: 25000, // Consider data fresh for 25s
+    retry: 1, // Only retry once
+    retryDelay: 5000, // Wait 5s before retry
   })
 }
 
