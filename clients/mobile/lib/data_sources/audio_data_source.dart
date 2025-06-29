@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart' as permission_handler;
 import '../core/services/data_source_interface.dart';
 import '../core/services/permission_manager.dart';
 import '../core/models/audio_data.dart';
@@ -153,7 +154,8 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
       final permissionStatus = await PermissionManager.checkAllPermissions();
       final audioStatus = permissionStatus['audio'];
       
-      if (audioStatus != null && audioStatus.isGranted) {
+      // Check if permission is granted using the correct enum comparison
+      if (audioStatus != null && audioStatus == permission_handler.PermissionStatus.granted) {
         return true;
       }
       
