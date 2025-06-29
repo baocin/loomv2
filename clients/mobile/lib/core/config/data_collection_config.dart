@@ -12,10 +12,6 @@ class DataCollectionConfig {
       collectionIntervalMs: 30000, // 30 seconds
       uploadBatchSize: 10,
       uploadIntervalMs: 300000, // 5 minutes
-      dutyCycle: DutyCycleConfig(
-        activeMs: 5000,   // 5 seconds active
-        sleepMs: 25000,   // 25 seconds sleep
-      ),
       priority: DataPriority.high,
     ),
     'accelerometer': DataSourceConfigParams(
@@ -23,10 +19,6 @@ class DataCollectionConfig {
       collectionIntervalMs: 100, // 10Hz when enabled
       uploadBatchSize: 50,
       uploadIntervalMs: 60000, // 1 minute
-      dutyCycle: DutyCycleConfig(
-        activeMs: 10000,  // 10 seconds active
-        sleepMs: 50000,   // 50 seconds sleep
-      ),
       priority: DataPriority.medium,
     ),
     'battery': DataSourceConfigParams(
@@ -34,7 +26,6 @@ class DataCollectionConfig {
       collectionIntervalMs: 60000, // 1 minute
       uploadBatchSize: 5,
       uploadIntervalMs: 600000, // 10 minutes
-      dutyCycle: null, // Always on (low power)
       priority: DataPriority.low,
     ),
     'network': DataSourceConfigParams(
@@ -42,7 +33,6 @@ class DataCollectionConfig {
       collectionIntervalMs: 120000, // 2 minutes
       uploadBatchSize: 5,
       uploadIntervalMs: 600000, // 10 minutes
-      dutyCycle: null, // Event-driven
       priority: DataPriority.low,
     ),
     'audio': DataSourceConfigParams(
@@ -50,10 +40,6 @@ class DataCollectionConfig {
       collectionIntervalMs: 30000, // 30 second chunks
       uploadBatchSize: 2,
       uploadIntervalMs: 120000, // 2 minutes
-      dutyCycle: DutyCycleConfig(
-        activeMs: 30000,  // 30 seconds active
-        sleepMs: 270000,  // 4.5 minutes sleep
-      ),
       priority: DataPriority.high,
     ),
   };
@@ -137,7 +123,6 @@ class DataSourceConfigParams {
   final int collectionIntervalMs;
   final int uploadBatchSize;
   final int uploadIntervalMs;
-  final DutyCycleConfig? dutyCycle;
   final DataPriority priority;
   final Map<String, dynamic> customParams;
 
@@ -146,7 +131,6 @@ class DataSourceConfigParams {
     this.collectionIntervalMs = 60000,
     this.uploadBatchSize = 10,
     this.uploadIntervalMs = 300000,
-    this.dutyCycle,
     this.priority = DataPriority.medium,
     this.customParams = const {},
   });
@@ -156,7 +140,6 @@ class DataSourceConfigParams {
     int? collectionIntervalMs,
     int? uploadBatchSize,
     int? uploadIntervalMs,
-    DutyCycleConfig? dutyCycle,
     DataPriority? priority,
     Map<String, dynamic>? customParams,
   }) {
@@ -165,7 +148,6 @@ class DataSourceConfigParams {
       collectionIntervalMs: collectionIntervalMs ?? this.collectionIntervalMs,
       uploadBatchSize: uploadBatchSize ?? this.uploadBatchSize,
       uploadIntervalMs: uploadIntervalMs ?? this.uploadIntervalMs,
-      dutyCycle: dutyCycle ?? this.dutyCycle,
       priority: priority ?? this.priority,
       customParams: customParams ?? this.customParams,
     );
@@ -177,7 +159,6 @@ class DataSourceConfigParams {
       'collectionIntervalMs': collectionIntervalMs,
       'uploadBatchSize': uploadBatchSize,
       'uploadIntervalMs': uploadIntervalMs,
-      'dutyCycle': dutyCycle?.toJson(),
       'priority': priority.name,
       'customParams': customParams,
     };
@@ -189,45 +170,11 @@ class DataSourceConfigParams {
       collectionIntervalMs: json['collectionIntervalMs'] ?? 60000,
       uploadBatchSize: json['uploadBatchSize'] ?? 10,
       uploadIntervalMs: json['uploadIntervalMs'] ?? 300000,
-      dutyCycle: json['dutyCycle'] != null 
-          ? DutyCycleConfig.fromJson(json['dutyCycle'])
-          : null,
       priority: DataPriority.values.firstWhere(
         (p) => p.name == json['priority'],
         orElse: () => DataPriority.medium,
       ),
       customParams: Map<String, dynamic>.from(json['customParams'] ?? {}),
-    );
-  }
-}
-
-/// Duty cycle configuration for power management
-class DutyCycleConfig {
-  final int activeMs;
-  final int sleepMs;
-
-  const DutyCycleConfig({
-    required this.activeMs,
-    required this.sleepMs,
-  });
-
-  Duration get activeDuration => Duration(milliseconds: activeMs);
-  Duration get sleepDuration => Duration(milliseconds: sleepMs);
-  Duration get totalCycleDuration => Duration(milliseconds: activeMs + sleepMs);
-  
-  double get dutyCyclePercentage => activeMs / (activeMs + sleepMs);
-
-  Map<String, dynamic> toJson() {
-    return {
-      'activeMs': activeMs,
-      'sleepMs': sleepMs,
-    };
-  }
-
-  factory DutyCycleConfig.fromJson(Map<String, dynamic> json) {
-    return DutyCycleConfig(
-      activeMs: json['activeMs'],
-      sleepMs: json['sleepMs'],
     );
   }
 }
@@ -257,14 +204,12 @@ class BatteryProfileManager {
         collectionIntervalMs: 10000,
         uploadBatchSize: 1,  // Performance mode = immediate upload
         uploadIntervalMs: 60000,
-        dutyCycle: null,
       ),
       'accelerometer': DataSourceConfigParams(
         enabled: true,
         collectionIntervalMs: 50,
         uploadBatchSize: 1,  // Performance mode = immediate upload
         uploadIntervalMs: 30000,
-        dutyCycle: null,
       ),
       'battery': DataSourceConfigParams(
         enabled: true,
@@ -283,7 +228,6 @@ class BatteryProfileManager {
         collectionIntervalMs: 15000,
         uploadBatchSize: 1,  // Performance mode = immediate upload
         uploadIntervalMs: 60000,
-        dutyCycle: DutyCycleConfig(activeMs: 15000, sleepMs: 45000),
       ),
     },
     BatteryProfile.powersaver: {
@@ -291,7 +235,6 @@ class BatteryProfileManager {
         enabled: true,
         collectionIntervalMs: 120000,
         uploadIntervalMs: 1800000,
-        dutyCycle: DutyCycleConfig(activeMs: 5000, sleepMs: 115000),
       ),
       'accelerometer': DataSourceConfigParams(
         enabled: false,

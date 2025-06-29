@@ -23,8 +23,6 @@ class DataCollectionService {
   final Map<String, StreamSubscription> _subscriptions = {};
   final Map<String, List<dynamic>> _uploadQueues = {};
   final Map<String, Timer> _uploadTimers = {};
-  final Map<String, Timer> _dutyCycleTimers = {};
-  final Map<String, bool> _activeSources = {};
   
   DataCollectionConfig? _config;
   bool _isRunning = false;
@@ -74,7 +72,8 @@ class DataCollectionService {
         final permissionStatus = await PermissionManager.checkAllPermissions();
         final status = permissionStatus[sourceId];
         if (status != null && status.isGranted) {
-          await _startDataSourceWithDutyCycle(sourceId, dataSource);
+          await _startDataSource(sourceId, dataSource);
+          _uploadQueues[sourceId] = [];
         } else {
           print('Skipping $sourceId: permissions not granted');
         }
@@ -104,11 +103,6 @@ class DataCollectionService {
       timer.cancel();
     }
     _uploadTimers.clear();
-    
-    for (final timer in _dutyCycleTimers.values) {
-      timer.cancel();
-    }
-    _dutyCycleTimers.clear();
 
     // Upload any remaining data
     await _uploadAllQueuedData();
@@ -163,72 +157,6 @@ class DataCollectionService {
     print('Initialized ${_dataSources.length} data sources: ${_dataSources.keys.join(', ')}');
   }
 
-  /// Start a data source with duty cycle management
-  Future<void> _startDataSourceWithDutyCycle(String sourceId, DataSource dataSource) async {
-    final config = _config?.getConfig(sourceId);
-    if (config == null) return;
-    
-    _uploadQueues[sourceId] = [];
-    _activeSources[sourceId] = false;
-    
-    if (config.dutyCycle != null) {
-      // Use duty cycle
-      _startDutyCycle(sourceId, dataSource, config);
-    } else {
-      // Always on
-      await _startDataSource(sourceId, dataSource);
-    }
-  }
-  
-  /// Start duty cycle for a data source
-  void _startDutyCycle(String sourceId, DataSource dataSource, DataSourceConfigParams config) {
-    final dutyCycle = config.dutyCycle!;
-    
-    // Start with active period
-    _startActivePhase(sourceId, dataSource);
-    
-    // Set up duty cycle timer
-    _dutyCycleTimers[sourceId] = Timer.periodic(
-      dutyCycle.totalCycleDuration,
-      (_) => _cycleDutyPhase(sourceId, dataSource),
-    );
-  }
-  
-  /// Start active phase of duty cycle
-  Future<void> _startActivePhase(String sourceId, DataSource dataSource) async {
-    if (_activeSources[sourceId] == true) return;
-    
-    _activeSources[sourceId] = true;
-    await _startDataSource(sourceId, dataSource);
-    
-    // Schedule sleep phase
-    final config = _config?.getConfig(sourceId);
-    if (config?.dutyCycle != null) {
-      Timer(config!.dutyCycle!.activeDuration, () {
-        _startSleepPhase(sourceId, dataSource);
-      });
-    }
-  }
-  
-  /// Start sleep phase of duty cycle
-  Future<void> _startSleepPhase(String sourceId, DataSource dataSource) async {
-    if (_activeSources[sourceId] == false) return;
-    
-    _activeSources[sourceId] = false;
-    await _subscriptions[sourceId]?.cancel();
-    _subscriptions.remove(sourceId);
-    await dataSource.stop();
-  }
-  
-  /// Cycle between active and sleep phases
-  void _cycleDutyPhase(String sourceId, DataSource dataSource) {
-    if (_activeSources[sourceId] == true) {
-      _startSleepPhase(sourceId, dataSource);
-    } else {
-      _startActivePhase(sourceId, dataSource);
-    }
-  }
-  
   /// Start a specific data source
   Future<void> _startDataSource(String sourceId, DataSource dataSource) async {
     try {
@@ -286,7 +214,6 @@ class DataCollectionService {
 
     try {
       await _uploadDataByType(sourceId, dataToUpload);
-      print('Successfully uploaded ${dataToUpload.length} $sourceId data points');
       // Update background service after successful upload
       _updateBackgroundServiceQueues();
     } catch (e) {
@@ -308,52 +235,81 @@ class DataCollectionService {
 
   /// Upload data based on its type
   Future<void> _uploadDataByType(String sourceId, List<dynamic> data) async {
+    if (data.isEmpty) return;
+    
+    int totalBytes = 0;
+    String endpoint = '';
+    
     try {
       switch (sourceId) {
         case 'gps':
-          for (final item in data.cast<GPSReading>()) {
+          endpoint = '/sensor/gps';
+          final items = data.cast<GPSReading>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
             await _apiClient.uploadGPSReading(item);
           }
           break;
           
         case 'accelerometer':
-          for (final item in data.cast<AccelerometerReading>()) {
+          endpoint = '/sensor/accelerometer';
+          final items = data.cast<AccelerometerReading>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
             await _apiClient.uploadAccelerometerReading(item);
           }
           break;
           
         case 'battery':
-          for (final item in data.cast<PowerState>()) {
+          endpoint = '/sensor/power';
+          final items = data.cast<PowerState>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
             await _apiClient.uploadPowerState(item);
           }
           break;
           
         case 'network':
-          for (final item in data.cast<NetworkWiFiReading>()) {
+          endpoint = '/sensor/wifi';
+          final items = data.cast<NetworkWiFiReading>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
             await _apiClient.uploadWiFiReading(item);
           }
           break;
           
         case 'audio':
-          for (final item in data.cast<AudioChunk>()) {
+          endpoint = '/audio/upload';
+          final items = data.cast<AudioChunk>();
+          for (final item in items) {
+            // Audio data is in bytes
+            totalBytes += item.chunkData.length;
             await _apiClient.uploadAudioChunk(item);
           }
           break;
           
         case 'screenshot':
           // Screenshots are uploaded immediately by the data source itself
-          // This is just a placeholder in case we want to batch them later
           print('Screenshot data handled by data source directly');
-          break;
+          return;
           
         case 'camera':
           // Camera photos are uploaded immediately by the data source itself
           print('Camera data handled by data source directly');
-          break;
+          return;
           
         default:
           print('Unknown data source: $sourceId');
+          return;
       }
+      
+      // Log the upload
+      print('UPLOAD: $endpoint | batch_size: ${data.length} | payload_size: $totalBytes bytes | source: $sourceId');
+      
     } catch (e) {
       print('Error uploading $sourceId data: $e');
       rethrow;
@@ -375,16 +331,14 @@ class DataCollectionService {
           // Check permissions first
           final permissionStatus = await PermissionManager.checkAllPermissions();
           final status = permissionStatus[sourceId];
-        if (status != null && status.isGranted) {
-            await _startDataSourceWithDutyCycle(sourceId, dataSource);
+          if (status != null && status.isGranted) {
+            await _startDataSource(sourceId, dataSource);
+            _uploadQueues[sourceId] = [];
           }
         } else {
           await _subscriptions[sourceId]?.cancel();
           _subscriptions.remove(sourceId);
           await dataSource.stop();
-          _dutyCycleTimers[sourceId]?.cancel();
-          _dutyCycleTimers.remove(sourceId);
-          _activeSources.remove(sourceId);
         }
       }
     }

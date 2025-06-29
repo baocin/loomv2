@@ -265,7 +265,8 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         },
       );
       
-      print('Screenshot uploaded successfully: ${imageBytes.length} bytes');
+      // Log the upload
+      print('UPLOAD: /image/screenshot | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: screenshot');
       _lastCaptureTime = timestamp;
       
       // Emit to stream for tracking

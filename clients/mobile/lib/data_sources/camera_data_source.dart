@@ -240,7 +240,8 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         },
       );
       
-      print('Photo uploaded successfully: ${imageBytes.length} bytes');
+      // Log the upload
+      print('UPLOAD: /image/camera | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: camera');
       _lastCaptureTime = timestamp;
       
       // Emit to stream for tracking

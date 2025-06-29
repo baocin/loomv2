@@ -461,12 +461,23 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           children: [
-            ListTile(
-              title: const Text('Collection Interval'),
-              subtitle: Text('${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s'),
-              dense: true,
-            ),
             if (isCustomMode) ...[  
+              ListTile(
+                title: const Text('Collection Interval'),
+                subtitle: Slider(
+                  value: (config.collectionIntervalMs / 1000).clamp(0.1, 300),
+                  min: 0.1,
+                  max: 300,
+                  divisions: 100,
+                  label: '${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s',
+                  onChanged: (value) async {
+                    final newConfig = config.copyWith(collectionIntervalMs: (value * 1000).toInt());
+                    await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
+                    setState(() {});
+                  },
+                ),
+                dense: true,
+              ),
               ListTile(
                 title: const Text('Upload Batch Size'),
                 subtitle: Slider(
@@ -483,53 +494,37 @@ class _HomePageState extends State<HomePage> {
                 ),
                 dense: true,
               ),
-              if (config.dutyCycle != null)
-                ListTile(
-                  title: const Text('Duty Cycle'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}% active'),
-                      Slider(
-                        value: config.dutyCycle!.dutyCyclePercentage,
-                        min: 0.1,
-                        max: 1.0,
-                        divisions: 9,
-                        label: '${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}%',
-                        onChanged: (value) async {
-                          final totalMs = config.dutyCycle!.totalCycleDuration.inMilliseconds;
-                          final activeMs = (totalMs * value).round();
-                          final sleepMs = totalMs - activeMs;
-                          final newDutyCycle = DutyCycleConfig(
-                            activeMs: activeMs,
-                            sleepMs: sleepMs,
-                          );
-                          final newConfig = config.copyWith(dutyCycle: newDutyCycle);
-                          await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
-                          setState(() {});
-                        },
-                      ),
-                    ],
-                  ),
-                  dense: true,
-                ),
             ] else ...[
+              ListTile(
+                title: const Text('Collection Interval'),
+                subtitle: Text('${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s'),
+                dense: true,
+              ),
               ListTile(
                 title: const Text('Upload Batch Size'),
                 subtitle: Text('${config.uploadBatchSize} items'),
                 dense: true,
               ),
-              if (config.dutyCycle != null)
-                ListTile(
-                  title: const Text('Duty Cycle'),
-                  subtitle: Text('${(config.dutyCycle!.dutyCyclePercentage * 100).toStringAsFixed(0)}% active'),
-                  dense: true,
-                ),
             ],
             ListTile(
               title: const Text('Priority'),
               subtitle: Text(config.priority.name.toUpperCase()),
               dense: true,
+            ),
+            // Show average data size info
+            FutureBuilder<Map<String, dynamic>>(
+              future: _getDataSourceStats(sourceId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox.shrink();
+                final stats = snapshot.data!;
+                return ListTile(
+                  title: const Text('Average Data Size'),
+                  subtitle: Text('${stats['avgSize']} bytes per item'),
+                  trailing: Text('Total: ${stats['totalSize']} bytes'),
+                  dense: true,
+                  leading: const Icon(Icons.storage, size: 20),
+                );
+              },
             ),
           ],
         ),
@@ -780,5 +775,29 @@ class _HomePageState extends State<HomePage> {
       default:
         return Icons.sensors;
     }
+  }
+  
+  Future<Map<String, dynamic>> _getDataSourceStats(String sourceId) async {
+    // Get average size based on data type
+    // These are estimated average sizes in bytes
+    final avgSizes = {
+      'gps': 150,  // lat, long, accuracy, timestamp
+      'accelerometer': 80,  // x, y, z, timestamp
+      'battery': 60,  // level, charging, timestamp
+      'network': 200,  // SSID, BSSID, signal, timestamp
+      'audio': 30000,  // ~30KB for 1 second of audio
+      'screenshot': 500000,  // ~500KB per screenshot
+      'camera': 800000,  // ~800KB per photo
+    };
+    
+    final queueSize = widget.dataService.getQueueSizeForSource(sourceId);
+    final avgSize = avgSizes[sourceId] ?? 100;
+    final totalSize = queueSize * avgSize;
+    
+    return {
+      'avgSize': avgSize,
+      'totalSize': totalSize,
+      'queueSize': queueSize,
+    };
   }
 }
