@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Foom</string>
+	<string>Mobile</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>foom</string>
+	<string>mobile</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -45,61 +45,5 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	
-	<!-- Camera permissions -->
-	<key>NSCameraUsageDescription</key>
-	<string>This app requires camera access to capture images and video for data collection</string>
-	
-	<!-- Microphone permissions -->
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app requires microphone access to record audio for data collection and when using the camera</string>
-	
-	<!-- Photo library permissions -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app requires photo library access to save and retrieve images</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app requires photo library access to save captured images</string>
-	
-	<!-- Location permissions -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app requires location access to provide location-based data collection</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app requires background location access to collect location data even when the app is in the background</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app requires background location access for continuous data collection</string>
-	
-	<!-- Bluetooth permissions -->
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>This app requires Bluetooth access to connect to nearby devices</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>This app requires Bluetooth access to connect to nearby devices</string>
-	
-	<!-- Motion and sensor permissions -->
-	<key>NSMotionUsageDescription</key>
-	<string>This app requires motion and fitness sensor access to collect accelerometer, gyroscope, and pedometer data</string>
-	
-	<!-- Speech recognition permissions -->
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>This app requires speech recognition to convert speech to text</string>
-	
-	<!-- Face ID permissions -->
-	<key>NSFaceIDUsageDescription</key>
-	<string>This app requires Face ID permission to securely authenticate the user</string>
-	
-	<!-- Media library permissions -->
-	<key>NSAppleMusicUsageDescription</key>
-	<string>This app requires access to your media library to provide audio playback capabilities</string>
-	
-	<!-- Calendar permissions -->
-	<key>NSCalendarsUsageDescription</key>
-	<string>This app requires calendar access to schedule events</string>
-	
-	<!-- Contacts permissions -->
-	<key>NSContactsUsageDescription</key>
-	<string>This app requires contacts access to connect with people you know</string>
-	
-	<!-- Notifications permissions -->
-	<key>NSRemindersUsageDescription</key>
-	<string>This app requires reminders access to set reminders for important events</string>
 </dict>
 </plist>
