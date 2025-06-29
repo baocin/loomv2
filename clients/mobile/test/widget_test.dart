@@ -1,6 +1,5 @@
 // Basic Flutter widget test for Loom mobile app
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/loom_api_client.dart';
 import 'package:mobile/core/services/device_manager.dart';
