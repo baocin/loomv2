@@ -45,7 +45,19 @@ lint-check:
 # Build Docker image
 docker:
 	@echo "Building Docker image with BuildKit..."
-	DOCKER_BUILDKIT=1 docker build -t loom-ingestion-api:latest .
+	DOCKER_BUILDKIT=1 docker build \
+		--build-arg GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
+		--build-arg GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown") \
+		--build-arg BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+		--build-arg BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest") \
+		-t loom-ingestion-api:latest \
+		-t loom-ingestion-api:$$(git rev-parse --short HEAD 2>/dev/null || echo "latest") \
+		.
+
+# Inspect Docker image labels
+docker-inspect:
+	@echo "Docker image labels for loom-ingestion-api:latest"
+	@docker inspect loom-ingestion-api:latest --format '{{json .Config.Labels}}' | jq .
 
 # Lint Helm chart (when created)
 helm:

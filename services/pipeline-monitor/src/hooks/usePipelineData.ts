@@ -16,7 +16,8 @@ export const usePipelineData = () => {
         throw error
       }
     },
-    refetchInterval: 2000,
+    refetchInterval: 5000, // Reduced from 2s to 5s
+    staleTime: 4000, // Consider data fresh for 4s
   })
 }
 
@@ -33,7 +34,8 @@ export const useTopicMetrics = () => {
         throw error
       }
     },
-    refetchInterval: 2000,
+    refetchInterval: 10000, // Reduced from 2s to 10s - metrics don't change that fast
+    staleTime: 8000, // Consider data fresh for 8s
   })
 }
 
@@ -50,7 +52,8 @@ export const useConsumerMetrics = () => {
         throw error
       }
     },
-    refetchInterval: 2000,
+    refetchInterval: 10000, // Reduced from 2s to 10s
+    staleTime: 8000, // Consider data fresh for 8s
   })
 }
 
@@ -68,7 +71,8 @@ export const useLatestMessage = (topic: string) => {
       }
     },
     enabled: !!topic,
-    refetchInterval: 2000,
+    refetchInterval: 5000, // Reduced from 2s to 5s
+    staleTime: 4000, // Consider data fresh for 4s
   })
 }
 
@@ -138,7 +142,8 @@ export const useAutoDiscovery = () => {
         throw error
       }
     },
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: 30000, // Reduced from 5s to 30s - discovery data rarely changes
+    staleTime: 25000, // Consider data fresh for 25s
   })
 }
 
@@ -155,7 +160,8 @@ export const useServiceHealth = () => {
         throw error
       }
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 20000, // Increased from 10s to 20s
+    staleTime: 15000, // Consider data fresh for 15s
   })
 }
 
@@ -172,7 +178,8 @@ export const useServiceRegistry = () => {
         throw error
       }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // Increased from 30s to 60s - registry rarely changes
+    staleTime: 50000, // Consider data fresh for 50s
   })
 }
 
@@ -189,6 +196,7 @@ export const usePipelineStructure = () => {
         throw error
       }
     },
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: 30000, // Reduced from 5s to 30s - structure rarely changes
+    staleTime: 25000, // Consider data fresh for 25s
   })
 }

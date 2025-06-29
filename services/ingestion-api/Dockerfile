@@ -32,6 +32,22 @@ RUN uv venv .venv && \
 # Stage 2: Runtime environment
 FROM python:3.11-slim
 
+# Git commit information (passed as build args)
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_DATE=unknown
+ARG BUILD_VERSION=latest
+
+# Add labels for tracking
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.source="https://github.com/loomv2/loomv2" \
+      org.opencontainers.image.title="loom-ingestion-api" \
+      org.opencontainers.image.description="Loom v2 Ingestion API Service" \
+      com.loomv2.git.commit="${GIT_COMMIT}" \
+      com.loomv2.git.branch="${GIT_BRANCH}"
+
 # Set timezone to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC

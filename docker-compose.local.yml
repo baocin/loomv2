@@ -92,6 +92,11 @@ services:
     build:
       context: ./services/ingestion-api
       dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_BRANCH: ${GIT_BRANCH:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        BUILD_VERSION: ${BUILD_VERSION:-latest}
     environment:
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092

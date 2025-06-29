@@ -31,7 +31,8 @@ dev-compose-up: ## Start local development environment with Docker Compose
 
 dev-compose-up-rebuild: ## Start local development environment with Docker Compose (force rebuild)
 	@echo "Rebuilding and starting Loom v2 services with Docker Compose..."
-	docker compose -f docker-compose.local.yml up -d --build
+	./scripts/docker-build-with-labels.sh
+	docker compose -f docker-compose.local.yml up -d
 	@echo "✅ Services rebuilt and started:"
 	@echo "  Core Services:"
 	@echo "    - Pipeline Monitor: http://localhost:3000"
@@ -59,10 +60,14 @@ dev-compose-up-rebuild: ## Start local development environment with Docker Compo
 
 dev-compose-build: ## Build specific service(s) with Docker Compose (use SERVICE=<name>)
 	@if [ -z "$(SERVICE)" ]; then \
-		echo "Building all services..."; \
-		docker compose -f docker-compose.local.yml build; \
+		echo "Building all services with git labels..."; \
+		./scripts/docker-build-with-labels.sh; \
 	else \
-		echo "Building service: $(SERVICE)..."; \
+		echo "Building service: $(SERVICE) with git labels..."; \
+		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
+		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
 		docker compose -f docker-compose.local.yml build $(SERVICE); \
 	fi
 	@echo "✅ Build complete"
@@ -119,6 +124,20 @@ docker: ## Build all Docker images
 docker-push: ## Push Docker images to registry
 	@echo "Pushing Docker images..."
 	@cd services/ingestion-api && make docker-push
+
+docker-labels: ## Show git labels for Docker images (use SERVICE=<name> for specific service)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Showing labels for all loom images:"; \
+		for image in $$(docker images --format "{{.Repository}}" | grep -E "^loom-|loomv2" | sort -u); do \
+			echo ""; \
+			echo "=== $$image ==="; \
+			docker inspect "$$image:latest" --format '{{json .Config.Labels}}' 2>/dev/null | jq . || echo "Image not found"; \
+		done; \
+	else \
+		echo "Showing labels for $(SERVICE):"; \
+		docker inspect "loomv2-$(SERVICE):latest" --format '{{json .Config.Labels}}' | jq . || \
+		docker inspect "$(SERVICE):latest" --format '{{json .Config.Labels}}' | jq .; \
+	fi
 
 # Kafka management
 topics-create: ## Create Kafka topics
