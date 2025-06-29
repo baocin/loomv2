@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import '../core/services/data_source_interface.dart';
@@ -13,6 +14,11 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   bool _isInitialized = false;
   bool _saveToGallery = false;
   DateTime? _lastCaptureTime;
+  Timer? _captureTimer;
+  Duration _captureInterval = const Duration(minutes: 10);
+  bool _automaticCaptureEnabled = false;
+  bool _captureBothCameras = true;
+  CameraLensDirection _currentAutoDirection = CameraLensDirection.back;
   
   CameraDataSource(String? deviceId) : super(deviceId);
 
@@ -35,13 +41,16 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
 
   @override
   Future<void> startCollection() async {
-    // Camera is used for manual capture only
     isActive = true;
+    if (_automaticCaptureEnabled) {
+      _startAutomaticCapture();
+    }
   }
 
   @override
   Future<void> stopCollection() async {
     isActive = false;
+    _stopAutomaticCapture();
     await _disposeController();
   }
 
@@ -84,6 +93,90 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Enable/disable saving photos to device gallery
   void setSaveToGallery(bool save) {
     _saveToGallery = save;
+  }
+
+  /// Enable/disable automatic camera capture
+  void setAutomaticCapture(bool enabled) {
+    _automaticCaptureEnabled = enabled;
+    if (isActive) {
+      if (enabled) {
+        _startAutomaticCapture();
+      } else {
+        _stopAutomaticCapture();
+      }
+    }
+  }
+
+  /// Set whether to capture from both cameras
+  void setCaptureBothCameras(bool both) {
+    _captureBothCameras = both;
+  }
+
+  /// Set capture interval
+  void setCaptureInterval(Duration interval) {
+    _captureInterval = interval;
+    if (_captureTimer != null) {
+      _stopAutomaticCapture();
+      _startAutomaticCapture();
+    }
+  }
+
+  /// Start automatic camera capture
+  void _startAutomaticCapture() {
+    _stopAutomaticCapture(); // Cancel any existing timer
+    
+    if (!_automaticCaptureEnabled) return;
+    
+    _captureTimer = Timer.periodic(_captureInterval, (timer) async {
+      try {
+        if (_captureBothCameras && _cameras != null && _cameras!.length > 1) {
+          // Capture from back camera first
+          await _captureAutomaticPhoto(CameraLensDirection.back);
+          
+          // Wait a bit before switching cameras
+          await Future.delayed(const Duration(seconds: 2));
+          
+          // Capture from front camera
+          await _captureAutomaticPhoto(CameraLensDirection.front);
+        } else {
+          // Capture from current/default camera
+          await _captureAutomaticPhoto(_currentAutoDirection);
+        }
+      } catch (e) {
+        print('Automatic camera capture failed: $e');
+      }
+    });
+    
+    print('Automatic camera capture started with interval: ${_captureInterval.inSeconds}s');
+  }
+
+  /// Stop automatic camera capture
+  void _stopAutomaticCapture() {
+    _captureTimer?.cancel();
+    _captureTimer = null;
+  }
+
+  /// Capture automatic photo from specified camera
+  Future<void> _captureAutomaticPhoto(CameraLensDirection direction) async {
+    try {
+      await capturePhoto(
+        description: 'Automatic capture - ${direction == CameraLensDirection.front ? 'Front' : 'Back'} camera',
+        direction: direction,
+      );
+      
+      final data = {
+        'device_id': deviceId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'description': 'Automatic camera capture',
+        'camera_type': direction == CameraLensDirection.front ? 'front' : 'rear',
+        'capture_method': 'automatic',
+        'interval_seconds': _captureInterval.inSeconds,
+      };
+      
+      dataController.add(data);
+    } catch (e) {
+      print('Failed to capture automatic photo from ${direction.name}: $e');
+    }
   }
 
   /// Take a photo and upload it
@@ -179,9 +272,19 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Get last capture time
   DateTime? get lastCaptureTime => _lastCaptureTime;
 
+  /// Get automatic capture settings
+  Map<String, dynamic> getAutomaticCaptureSettings() {
+    return {
+      'enabled': _automaticCaptureEnabled,
+      'interval_seconds': _captureInterval.inSeconds,
+      'capture_both_cameras': _captureBothCameras,
+      'save_to_gallery': _saveToGallery,
+    };
+  }
+
   @override
   void dispose() {
-    _disposeController();
-    super.dispose();
+    _stopAutomaticCapture();
+    _disposeController().then((_) => super.dispose());
   }
 }

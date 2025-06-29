@@ -384,6 +384,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         if (config != null) ..._buildConfigTiles(sourceId, config),
                         if (sourceId == 'screenshot') ..._buildScreenshotSettings(),
+                        if (sourceId == 'camera') ..._buildCameraSettings(),
                       ],
                     );
                   }).toList(),
@@ -540,6 +541,86 @@ class _HomePageState extends State<HomePage> {
                 title: const Text('⚠️ Requires Special Permission'),
                 subtitle: const Text('Automatic screenshots need screen recording permission'),
                 leading: const Icon(Icons.warning, color: Colors.orange),
+                dense: true,
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+  
+  List<Widget> _buildCameraSettings() {
+    final cameraSource = _cameraDataSource;
+    if (cameraSource == null) return [];
+    
+    final settings = cameraSource.getAutomaticCaptureSettings();
+    
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('Automatic Capture'),
+              subtitle: Text(settings['enabled'] 
+                ? 'Every ${settings['interval_seconds']} seconds' 
+                : 'Manual only'),
+              value: settings['enabled'],
+              onChanged: (value) {
+                setState(() {
+                  cameraSource.setAutomaticCapture(value);
+                });
+              },
+              dense: true,
+            ),
+            if (settings['enabled'])
+              ListTile(
+                title: const Text('Capture Interval'),
+                subtitle: Slider(
+                  value: (settings['interval_seconds'] as int).toDouble(),
+                  min: 300,  // 5 minutes minimum
+                  max: 3600, // 60 minutes maximum
+                  divisions: 11,
+                  label: '${settings['interval_seconds'] seconds',
+                  onChanged: (value) {
+                    setState(() {
+                      cameraSource.setCaptureInterval(
+                        Duration(seconds: value.toInt()),
+                      );
+                    });
+                  },
+                ),
+                dense: true,
+              ),
+            if (settings['enabled'])
+              SwitchListTile(
+                title: const Text('Capture Both Cameras'),
+                subtitle: const Text('Take photos from front and back cameras'),
+                value: settings['capture_both_cameras'],
+                onChanged: (value) {
+                  setState(() {
+                    cameraSource.setCaptureBothCameras(value);
+                  });
+                },
+                dense: true,
+              ),
+            SwitchListTile(
+              title: const Text('Save to Gallery'),
+              value: settings['save_to_gallery'],
+              onChanged: (value) {
+                setState(() {
+                  cameraSource.setSaveToGallery(value);
+                });
+              },
+              dense: true,
+            ),
+            if (settings['enabled'])
+              ListTile(
+                title: const Text('ℹ️ Camera Usage'),
+                subtitle: Text(settings['capture_both_cameras'] 
+                  ? 'Will capture from both cameras at each interval'
+                  : 'Will capture from back camera only'),
+                leading: const Icon(Icons.info_outline, color: Colors.blue),
                 dense: true,
               ),
           ],
