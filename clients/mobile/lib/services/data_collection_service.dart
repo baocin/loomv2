@@ -75,11 +75,14 @@ class DataCollectionService {
         final permissionStatus = await PermissionManager.checkAllPermissions();
         final status = permissionStatus[sourceId];
         if (status != null && status.isGranted) {
+          print('DEBUG: Starting data source $sourceId (enabled: ${config.enabled})');
           await _startDataSource(sourceId, dataSource);
           _uploadQueues[sourceId] = [];
         } else {
           print('Skipping $sourceId: permissions not granted');
         }
+      } else {
+        print('DEBUG: Skipping data source $sourceId (available: ${dataSource != null}, config exists: ${config != null}, enabled: ${config?.enabled ?? false})');
       }
     }
   }
@@ -344,10 +347,12 @@ class DataCollectionService {
           final permissionStatus = await PermissionManager.checkAllPermissions();
           final status = permissionStatus[sourceId];
           if (status != null && status.isGranted) {
+            print('DEBUG: Enabling data source $sourceId via toggle');
             await _startDataSource(sourceId, dataSource);
             _uploadQueues[sourceId] = [];
           }
         } else {
+          print('DEBUG: Disabling data source $sourceId via toggle');
           await _subscriptions[sourceId]?.cancel();
           _subscriptions.remove(sourceId);
           await dataSource.stop();

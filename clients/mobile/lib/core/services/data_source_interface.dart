@@ -130,6 +130,12 @@ abstract class BaseDataSource<T> implements DataSource<T> {
   @override
   Future<void> start() async {
     if (_status.isRunning) return;
+    
+    // Additional safety check: Don't start if not enabled
+    if (!_config.enabled) {
+      print('Warning: Attempted to start disabled data source: $sourceId');
+      return;
+    }
 
     try {
       await onStart();
@@ -183,8 +189,11 @@ abstract class BaseDataSource<T> implements DataSource<T> {
   void _startPeriodicCollection() {
     _collectionTimer?.cancel();
     _collectionTimer = Timer.periodic(_config.frequency, (_) async {
-      // Only collect data if enabled
-      if (!_config.enabled || !_status.isRunning) return;
+      // Only collect data if enabled and running
+      if (!_config.enabled || !_status.isRunning) {
+        print('Debug: Skipping data collection for $sourceId - enabled: ${_config.enabled}, running: ${_status.isRunning}');
+        return;
+      }
       
       try {
         await collectDataPoint();

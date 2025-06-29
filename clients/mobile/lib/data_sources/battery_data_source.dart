@@ -56,6 +56,11 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     );
 
     _batteryLevelTimer = Timer.periodic(pollInterval, (_) async {
+      // Only collect if enabled
+      if (!configuration['enabled']) {
+        print('Debug: Battery timer triggered but sensor is disabled');
+        return;
+      }
       await _collectBatteryInfo();
     });
 
@@ -79,6 +84,11 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
 
   @override
   Future<void> collectDataPoint() async {
+    // Safety check to prevent disabled sensors from collecting
+    if (!configuration['enabled']) {
+      print('Debug: Battery collectDataPoint called but sensor is disabled');
+      return;
+    }
     await _collectBatteryInfo();
   }
 

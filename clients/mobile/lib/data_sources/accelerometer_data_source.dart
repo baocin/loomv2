@@ -28,36 +28,9 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
       return false;
     }
 
-    try {
-      // Test if accelerometer is available by trying to get a reading
-      final completer = Completer<bool>();
-      late StreamSubscription<AccelerometerEvent> subscription;
-      
-      subscription = accelerometerEventStream(
-        samplingPeriod: const Duration(milliseconds: 100),
-      ).listen(
-        (event) {
-          subscription.cancel();
-          completer.complete(true);
-        },
-        onError: (error) {
-          subscription.cancel();
-          completer.complete(false);
-        },
-      );
-
-      // Timeout after 2 seconds
-      Timer(const Duration(seconds: 2), () {
-        if (!completer.isCompleted) {
-          subscription.cancel();
-          completer.complete(false);
-        }
-      });
-
-      return await completer.future;
-    } catch (e) {
-      return false;
-    }
+    // Simply return true for mobile platforms - accelerometer is standard
+    // Don't create any streams during availability check to prevent unwanted data collection
+    return true;
   }
 
   @override
@@ -73,6 +46,12 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
   @override
   Future<void> collectDataPoint() async {
     if (_deviceId == null) return;
+    
+    // Additional safety check to prevent disabled sensors from collecting
+    if (!configuration['enabled']) {
+      print('Debug: Accelerometer collectDataPoint called but sensor is disabled');
+      return;
+    }
 
     try {
       // Get a single accelerometer reading
