@@ -1,0 +1,102 @@
+---
+description: Dart Style Guide
+globs: *.dart
+alwaysApply: false
+---
+# Dart Style Guide
+Project Structure
+Organize code into libraries, packages, and modules by functionality
+Use a layered architecture (presentation, domain, data) for larger applications
+Place generated code (JSON serialization, code gen) in dedicated directories
+Keep UI logic separate from business logic using patterns like BLoC, Provider, or Riverpod
+Structure Flutter apps with feature-based organization for better scalability
+Naming Conventions
+Use lowerCamelCase for variables, functions, methods, and named parameters
+Use UpperCamelCase for classes, enums, typedefs, and extensions
+Use lowercase_with_underscores for libraries, packages, directories, and files
+Prefix private members with underscore (_privateVariable)
+Use descriptive, intention-revealing names that explain purpose
+Formatting
+Follow the official Dart Style Guide
+Use 2 space indentation (not tabs)
+Limit lines to 80 characters when possible
+Use trailing commas for multi-line parameter lists and collections
+Run dart format or flutter format to automatically format code
+Classes and Types
+Make fields final whenever possible
+Prefer using factory constructors for complex initialization
+Implement toString(), ==, and hashCode for data classes
+Use constructor initializer lists for assigning values to instance variables
+Consider using generated code (e.g., freezed) for data classes
+Asynchronous Programming
+Use async/await instead of raw Future methods
+Properly handle errors in asynchronous code
+Use Stream for sequences of asynchronous events
+Consider using FutureBuilder and StreamBuilder for UI dependent on async data
+Avoid unnecessary asynchronous code (don't use async if not returning a Future)
+Error Handling
+Use typed exceptions with meaningful names
+Catch specific exceptions rather than using catch-all handlers
+Handle errors close to their source when possible
+Always consider error states in UI (loading, error, success)
+Use meaningful error messages that aid in debugging
+Testing
+Write unit tests for business logic and utility functions
+Create widget tests for UI components
+Implement integration tests for critical user journeys
+Use mocks and fakes for external dependencies
+Aim for high test coverage on core business logic
+State Management
+Choose a consistent state management approach (BLoC, Provider, Riverpod, Redux)
+Keep state classes immutable when possible
+Separate UI from business logic
+Document state transitions and side effects
+Consider local vs. global state needs for each feature
+Documentation
+Document all public APIs with dartdoc comments (///)
+Include examples in documentation for complex functionality
+Add code comments for complex algorithms or non-obvious implementations
+Document parameters, return values, and thrown exceptions
+Create README files with setup instructions for packages
+Dependencies
+Keep dependencies minimal and justified
+Pin dependency versions for stability
+Use dev dependencies for development-only tools
+Consider dependency injection for testability
+Regularly update dependencies for security and features
+Performance
+Minimize expensive computations in build methods
+Use const constructors when possible
+Implement pagination for large data sets
+Optimize images and assets
+Profile and measure performance before and after optimizations
+Widget Structure (Flutter)
+Break complex widgets into smaller, focused components
+Extract reusable widgets into separate files
+Keep build methods clean and readable
+Use parameters to make widgets configurable
+Consider using extension methods for widget customization
+Internationalization
+Use the intl package for localization
+Extract all user-facing strings into localization files
+Format dates, numbers, and currencies according to locale
+Support right-to-left layouts where appropriate
+Test with multiple languages and locales
+Accessibility
+Add semantic labels to UI elements
+Ensure sufficient color contrast
+Support screen readers with appropriate text
+Implement keyboard navigation
+Test with accessibility tools
+Platform Integration
+Handle platform differences gracefully
+Use conditional imports for platform-specific code
+Consider using platform channels for native functionality
+Test on multiple platforms
+Support responsive layouts for different screen sizes
+Security
+Never store sensitive data in plain text
+Use secure storage for credentials
+Validate all user inputs
+Implement proper authentication flows
+Consider using code obfuscation for production builds

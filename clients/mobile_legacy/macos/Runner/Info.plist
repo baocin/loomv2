@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>foom sensor app</string>
+	<key>CFBundleDisplayName</key>
+	<string>foom sensor app</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(PRODUCT_COPYRIGHT)</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>foom sensor app needs camera access to capture images and video for sensor data collection</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>foom sensor app requires microphone access for audio recording and when using the camera</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>foom sensor app requires access to the desktop folder to save screenshots</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>foom sensor app requires access to the documents folder to save data files</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>foom sensor app requires access to the downloads folder to save exported data</string>
+	<key>NSSystemAdministrationUsageDescription</key>
+	<string>foom sensor app requires administration privileges for system-wide screen recording</string>
+	<key>NSLocationUsageDescription</key>
+	<string>foom sensor app requires location access for location-based data collection</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>foom sensor app requires location access while in use for location-based data collection</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>foom sensor app requires background location access for continuous data collection</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>foom sensor app requires calendar access to schedule events</string>
+	<key>NSContactsUsageDescription</key>
+	<string>foom sensor app requires contacts access to connect with people you know</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>foom sensor app requires reminders access to set reminders for important events</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>foom sensor app requires access to your photos to save and retrieve images</string>
+</dict>
+</plist>

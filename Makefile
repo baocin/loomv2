@@ -58,19 +58,26 @@ dev-compose-up-rebuild: ## Start local development environment with Docker Compo
 	@echo "    - Kafka-to-DB Consumer"
 	@echo "    - Scheduled Consumers Coordinator"
 
-dev-compose-build: ## Build specific service(s) with Docker Compose (use SERVICE=<name>)
+dev-compose-build: ## Build specific service(s) with Docker Compose - force recreate (use SERVICE=<name>)
 	@if [ -z "$(SERVICE)" ]; then \
-		echo "Building all services with git labels..."; \
-		./scripts/docker-build-with-labels.sh; \
+		echo "Building all services with git labels (no cache)..."; \
+		./scripts/docker-build-with-labels.sh --no-cache; \
+		echo "Force recreating all containers..."; \
+		docker compose -f docker-compose.local.yml down; \
+		docker compose -f docker-compose.local.yml up -d --force-recreate; \
 	else \
-		echo "Building service: $(SERVICE) with git labels..."; \
+		echo "Building service: $(SERVICE) with git labels (no cache)..."; \
 		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
 		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
-		docker compose -f docker-compose.local.yml build $(SERVICE); \
+		docker compose -f docker-compose.local.yml build --no-cache $(SERVICE); \
+		echo "Force recreating $(SERVICE) container..."; \
+		docker compose -f docker-compose.local.yml stop $(SERVICE); \
+		docker compose -f docker-compose.local.yml rm -f $(SERVICE); \
+		docker compose -f docker-compose.local.yml up -d $(SERVICE); \
 	fi
-	@echo "✅ Build complete"
+	@echo "✅ Build and recreate complete"
 
 dev-compose-down: ## Stop Docker Compose environment
 	@echo "Stopping Loom v2 services..."

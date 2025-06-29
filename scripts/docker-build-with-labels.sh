@@ -16,8 +16,8 @@ echo "  BUILD_DATE: $BUILD_DATE"
 echo "  BUILD_VERSION: $BUILD_VERSION"
 
 # Build services using docker-compose
-if [ "$1" = "--rebuild" ]; then
-    echo "Forcing rebuild of all images..."
+if [ "$1" = "--rebuild" ] || [ "$1" = "--no-cache" ]; then
+    echo "Forcing rebuild of all images (no cache)..."
     docker compose -f docker-compose.local.yml build --no-cache
 else
     docker compose -f docker-compose.local.yml build

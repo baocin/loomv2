@@ -54,11 +54,16 @@ export const useLogStream = (options: UseLogStreamOptions = {}) => {
 
           switch (data.type) {
             case 'log_message':
-              setMessages(prev => {
-                const newMessages = [...prev, data.message]
-                // Keep only the last maxMessages
-                return newMessages.slice(-maxMessages)
-              })
+              // Only process messages for the current topic
+              if (data.topic === currentTopicRef.current) {
+                setMessages(prev => {
+                  const newMessages = [...prev, data.message]
+                  // Keep only the last maxMessages
+                  return newMessages.slice(-maxMessages)
+                })
+              } else {
+                console.debug(`Ignoring message for topic ${data.topic}, current topic is ${currentTopicRef.current}`)
+              }
               break
 
             case 'stream_started':
