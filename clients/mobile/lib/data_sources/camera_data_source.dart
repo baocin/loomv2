@@ -9,6 +9,7 @@ import '../core/services/data_source_interface.dart';
 import '../core/api/loom_api_client.dart';
 
 class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
+  final String? deviceId;
   List<CameraDescription>? _cameras;
   CameraController? _controller;
   bool _isInitialized = false;
@@ -20,13 +21,16 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   bool _captureBothCameras = true;
   CameraLensDirection _currentAutoDirection = CameraLensDirection.back;
   
-  CameraDataSource(String? deviceId) : super(deviceId);
+  CameraDataSource(this.deviceId);
 
   @override
   String get sourceId => 'camera';
 
   @override
   String get displayName => 'Camera Photos';
+
+  @override
+  List<String> get requiredPermissions => ['camera'];
 
   @override
   Future<bool> isAvailable() async {
@@ -40,16 +44,14 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   }
 
   @override
-  Future<void> startCollection() async {
-    isActive = true;
+  Future<void> onStart() async {
     if (_automaticCaptureEnabled) {
       _startAutomaticCapture();
     }
   }
 
   @override
-  Future<void> stopCollection() async {
-    isActive = false;
+  Future<void> onStop() async {
     _stopAutomaticCapture();
     await _disposeController();
   }
@@ -98,7 +100,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Enable/disable automatic camera capture
   void setAutomaticCapture(bool enabled) {
     _automaticCaptureEnabled = enabled;
-    if (isActive) {
+    if (isRunning) {
       if (enabled) {
         _startAutomaticCapture();
       } else {
@@ -173,7 +175,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'interval_seconds': _captureInterval.inSeconds,
       };
       
-      dataController.add(data);
+      emitData(data);
     } catch (e) {
       print('Failed to capture automatic photo from ${direction.name}: $e');
     }
@@ -181,7 +183,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
 
   /// Take a photo and upload it
   Future<void> capturePhoto({String? description, CameraLensDirection? direction}) async {
-    if (!isActive) return;
+    if (!isRunning) return;
     
     try {
       // Initialize camera if needed
@@ -252,7 +254,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
       
-      dataController.add(data);
+      emitData(data);
     } catch (e) {
       print('Failed to capture photo: $e');
       throw Exception('Photo capture failed: $e');

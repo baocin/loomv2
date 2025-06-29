@@ -12,6 +12,7 @@ import '../core/api/loom_api_client.dart';
 import '../services/platform_screenshot_service.dart';
 
 class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
+  final String? deviceId;
   final ScreenshotController _screenshotController = ScreenshotController();
   DateTime? _lastCaptureTime;
   bool _saveToGallery = false;
@@ -19,7 +20,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   Duration _captureInterval = const Duration(minutes: 5);
   bool _automaticCaptureEnabled = false;
   
-  ScreenshotDataSource(String? deviceId) : super(deviceId);
+  ScreenshotDataSource(this.deviceId);
 
   @override
   String get sourceId => 'screenshot';
@@ -28,22 +29,23 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   String get displayName => 'Screenshots';
 
   @override
+  List<String> get requiredPermissions => [];
+
+  @override
   Future<bool> isAvailable() async {
     // Screenshots are always available
     return true;
   }
 
   @override
-  Future<void> startCollection() async {
-    isActive = true;
+  Future<void> onStart() async {
     if (_automaticCaptureEnabled) {
       _startAutomaticCapture();
     }
   }
 
   @override
-  Future<void> stopCollection() async {
-    isActive = false;
+  Future<void> onStop() async {
     _stopAutomaticCapture();
   }
 
@@ -55,7 +57,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Enable/disable automatic screenshot capture
   void setAutomaticCapture(bool enabled) {
     _automaticCaptureEnabled = enabled;
-    if (isActive) {
+    if (isRunning) {
       if (enabled) {
         _startAutomaticCapture();
       } else {
@@ -117,7 +119,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'interval_seconds': _captureInterval.inSeconds,
         };
         
-        dataController.add(data);
+        emitData(data);
       } catch (e) {
         print('Automatic screenshot failed: $e');
       }
@@ -190,7 +192,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
       
-      dataController.add(data);
+      emitData(data);
     } catch (e) {
       print('Failed to handle platform screenshot: $e');
     }
@@ -198,7 +200,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
 
   /// Capture a screenshot manually
   Future<void> captureScreenshot(String? description) async {
-    if (!isActive) return;
+    if (!isRunning) return;
     
     try {
       // Note: In a real implementation, you would capture the current screen
@@ -214,7 +216,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'capture_method': 'manual',
       };
       
-      dataController.add(data);
+      emitData(data);
       _lastCaptureTime = timestamp;
     } catch (e) {
       print('Error capturing screenshot: $e');
@@ -224,7 +226,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
 
   /// Capture and upload a screenshot with image data
   Future<void> captureAndUpload(Uint8List imageBytes, {String? description}) async {
-    if (!isActive) return;
+    if (!isRunning) return;
     
     try {
       final timestamp = DateTime.now();
@@ -276,7 +278,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
       
-      dataController.add(data);
+      emitData(data);
     } catch (e) {
       print('Failed to upload screenshot: $e');
       throw Exception('Screenshot upload failed: $e');

@@ -581,7 +581,7 @@ class _HomePageState extends State<HomePage> {
                   min: 300,  // 5 minutes minimum
                   max: 3600, // 60 minutes maximum
                   divisions: 11,
-                  label: '${settings['interval_seconds'] seconds',
+                  label: '${settings['interval_seconds']} seconds',
                   onChanged: (value) {
                     setState(() {
                       cameraSource.setCaptureInterval(
