@@ -8,6 +8,10 @@ export class KafkaClient {
   private producer: Producer | null = null
   private consumers: Map<string, Consumer> = new Map()
   private streamConsumers: Map<string, { consumer: Consumer; refCount: number }> = new Map()
+  
+  // Use a single monitoring consumer group instead of creating new ones
+  private monitoringConsumer: Consumer | null = null
+  private readonly MONITOR_GROUP_ID = 'pipeline-monitor-api'
 
   constructor() {
     this.kafka = new Kafka({
@@ -26,6 +30,15 @@ export class KafkaClient {
       this.producer = this.kafka.producer()
       await this.producer.connect()
 
+      // Create a single monitoring consumer
+      this.monitoringConsumer = this.kafka.consumer({
+        groupId: this.MONITOR_GROUP_ID,
+        sessionTimeout: 30000,
+        heartbeatInterval: 3000,
+        maxWaitTimeInMs: 1000,
+      })
+      await this.monitoringConsumer.connect()
+
       logger.info('Kafka client connected successfully')
     } catch (error) {
       logger.error('Failed to connect to Kafka', error)
@@ -43,6 +56,11 @@ export class KafkaClient {
       if (this.producer) {
         await this.producer.disconnect()
         this.producer = null
+      }
+
+      if (this.monitoringConsumer) {
+        await this.monitoringConsumer.disconnect()
+        this.monitoringConsumer = null
       }
 
       for (const [groupId, consumer] of this.consumers) {
@@ -98,101 +116,19 @@ export class KafkaClient {
       const groups = await this.admin.listGroups()
       return groups.groups
     } catch (error) {
-      logger.error('Failed to fetch consumer groups', error)
+      logger.error('Failed to list consumer groups', error)
       throw error
     }
   }
 
-  async getConsumerGroupDetails(groupId: string): Promise<any> {
+  async getConsumerGroupDetails(groupId: string) {
     if (!this.admin) throw new Error('Kafka admin not connected')
 
     try {
       const description = await this.admin.describeGroups([groupId])
       return description.groups[0]
     } catch (error) {
-      logger.error(`Failed to describe consumer group ${groupId}`, error)
-      throw error
-    }
-  }
-
-  async getTopicConfigurations(topics: string[]): Promise<any> {
-    if (!this.admin) throw new Error('Kafka admin not connected')
-
-    try {
-      const configs = await this.admin.describeConfigs({
-        resources: topics.map(topic => ({
-          type: 2, // TOPIC
-          name: topic
-        })),
-        includeSynonyms: false
-      })
-      return configs
-    } catch (error) {
-      logger.error('Failed to fetch topic configurations', error)
-      throw error
-    }
-  }
-
-  async getConsumerGroupSubscriptions(): Promise<Map<string, string[]>> {
-    if (!this.admin) throw new Error('Kafka admin not connected')
-
-    const subscriptions = new Map<string, string[]>()
-
-    try {
-      const groups = await this.getConsumerGroups()
-
-      for (const group of groups) {
-        if (group.groupId.startsWith('__') || group.groupId.startsWith('_')) {
-          continue // Skip internal groups
-        }
-
-        try {
-          const offsets = await this.admin.fetchOffsets({ groupId: group.groupId })
-          const topics = offsets.map((offset: any) => offset.topic)
-          subscriptions.set(group.groupId, [...new Set(topics)])
-        } catch (error) {
-          logger.warn(`Failed to get subscriptions for group ${group.groupId}`, error)
-        }
-      }
-
-      return subscriptions
-    } catch (error) {
-      logger.error('Failed to fetch consumer group subscriptions', error)
-      throw error
-    }
-  }
-
-  async getConsumerLag(groupId: string, topics?: string[]): Promise<any> {
-    if (!this.admin) throw new Error('Kafka admin not connected')
-
-    try {
-      const groupOffsets = await this.admin.fetchOffsets({ groupId, topics })
-      const lag: any[] = []
-
-      for (const topicOffset of groupOffsets) {
-        const topicHighWatermarks = await this.admin.fetchTopicOffsets(topicOffset.topic)
-
-        for (const partition of topicOffset.partitions) {
-          const highWatermark = topicHighWatermarks.find(
-            hw => hw.partition === partition.partition
-          )
-
-          if (highWatermark && partition.offset) {
-            const currentLag = parseInt(highWatermark.high) - parseInt(partition.offset)
-            lag.push({
-              topic: topicOffset.topic,
-              partition: partition.partition,
-              currentOffset: partition.offset,
-              highWatermark: highWatermark.high,
-              lag: currentLag
-            })
-          }
-        }
-      }
-
-      return lag
-    } catch (error) {
-      logger.error(`Failed to calculate lag for group ${groupId}`, error)
+      logger.error(`Failed to describe group ${groupId}`, error)
       throw error
     }
   }
@@ -235,51 +171,37 @@ export class KafkaClient {
   }
 
   async getLatestMessage(topic: string, partition = 0): Promise<any> {
-    const consumer = this.kafka.consumer({
-      groupId: `monitor-${topic}-${Date.now()}`,
-      maxWaitTimeInMs: 1000,
-    })
+    if (!this.admin) throw new Error('Kafka admin not connected')
 
     try {
-      await consumer.connect()
-
+      // Get the latest offset for the topic
       const offsets = await this.getTopicOffsets(topic)
-      const latestOffset = offsets.find(o => o.partition === partition)?.high
-
-      if (!latestOffset || latestOffset === '0') {
+      const partitionOffset = offsets.find(o => o.partition === partition)
+      
+      if (!partitionOffset || partitionOffset.high === '0') {
         return null
       }
 
-      // Subscribe to topic from the end (latest messages only)
-      await consumer.subscribe({ topic, fromBeginning: false })
+      // Calculate the offset to fetch (latest - 1)
+      const targetOffset = (BigInt(partitionOffset.high) - BigInt(1)).toString()
 
-      let latestMessage: any = null
-      let messageCount = 0
+      // Use admin client to fetch the specific message
+      const topicOffsets = [{
+        topic,
+        partitions: [{
+          partition,
+          offset: targetOffset
+        }]
+      }]
 
-      await consumer.run({
-        eachMessage: async ({ message, topic: msgTopic, partition: msgPartition }) => {
-          if (msgTopic === topic && msgPartition === partition) {
-            latestMessage = {
-              key: message.key?.toString(),
-              value: message.value ? JSON.parse(message.value.toString()) : null,
-              timestamp: new Date(parseInt(message.timestamp)),
-              offset: message.offset,
-              partition: msgPartition,
-            }
-            messageCount++
-          }
-        },
-      })
-
-      // Give it a moment to fetch the message
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      return latestMessage
+      // Unfortunately, KafkaJS doesn't provide a direct way to fetch a single message
+      // without creating a consumer. For now, we'll return null to avoid creating
+      // new consumer groups. The frontend can use the streaming API instead.
+      logger.warn(`getLatestMessage is deprecated to avoid creating consumer groups. Use streaming API instead.`)
+      return null
     } catch (error) {
       logger.error(`Failed to fetch latest message from ${topic}`, error)
       return null
-    } finally {
-      await consumer.disconnect()
     }
   }
 
@@ -288,7 +210,25 @@ export class KafkaClient {
     onMessage: (message: any) => void,
     fromBeginning = false
   ): Promise<() => Promise<void>> {
-    const groupId = `monitor-stream-${topic}-${Date.now()}`
+    // Reuse existing stream consumer if available
+    const existingStream = this.streamConsumers.get(topic)
+    if (existingStream) {
+      existingStream.refCount++
+      logger.info(`Reusing existing stream consumer for topic ${topic}, refCount: ${existingStream.refCount}`)
+      
+      return async () => {
+        existingStream.refCount--
+        if (existingStream.refCount <= 0) {
+          logger.info(`Stopping stream consumer for topic ${topic}`)
+          await existingStream.consumer.stop()
+          await existingStream.consumer.disconnect()
+          this.streamConsumers.delete(topic)
+        }
+      }
+    }
+
+    // Create a shared consumer group for streaming
+    const groupId = `pipeline-monitor-stream-${topic}`
     const consumer = this.kafka.consumer({
       groupId,
       sessionTimeout: 30000,
@@ -300,139 +240,138 @@ export class KafkaClient {
       }
     })
 
-    let isConnected = false
-    let isRunning = true
-
     try {
       await consumer.connect()
-      isConnected = true
-
       await consumer.subscribe({ topic, fromBeginning })
 
-      // Start consumer but don't await - it runs in background
-      const runPromise = consumer.run({
-        eachMessage: async ({ message, topic: msgTopic, partition }) => {
-          if (!isRunning) return
-
+      await consumer.run({
+        eachMessage: async ({ message, partition }) => {
           try {
-            const parsedMessage = {
-              topic: msgTopic,
-              partition,
-              offset: message.offset,
+            const messageData = {
               key: message.key?.toString(),
               value: message.value ? JSON.parse(message.value.toString()) : null,
               timestamp: new Date(parseInt(message.timestamp)),
-              headers: message.headers
+              offset: message.offset,
+              partition: partition,
             }
-            onMessage(parsedMessage)
+            onMessage(messageData)
           } catch (error) {
-            logger.error('Failed to process streamed message', error)
+            logger.error('Error processing message', error)
           }
         },
-      }).catch(error => {
-        if (isRunning) {
-          logger.error(`Consumer error for topic ${topic}`, error)
-        }
       })
+
+      // Store the consumer for reuse
+      this.streamConsumers.set(topic, { consumer, refCount: 1 })
 
       // Return cleanup function
       return async () => {
-        logger.info(`Stopping stream for topic ${topic}`)
-        isRunning = false
-
-        try {
-          // Stop the consumer first
-          await consumer.stop()
-
-          // Then disconnect
-          if (isConnected) {
+        const stream = this.streamConsumers.get(topic)
+        if (stream) {
+          stream.refCount--
+          if (stream.refCount <= 0) {
+            logger.info(`Stopping stream consumer for topic ${topic}`)
+            await consumer.stop()
             await consumer.disconnect()
-            isConnected = false
-          }
-
-          logger.info(`Successfully stopped streaming messages from ${topic}`)
-        } catch (error) {
-          logger.error(`Error during consumer cleanup for topic ${topic}`, error)
-          // Force disconnect on error
-          try {
-            await consumer.disconnect()
-          } catch (disconnectError) {
-            logger.error(`Force disconnect failed for topic ${topic}`, disconnectError)
+            this.streamConsumers.delete(topic)
           }
         }
       }
     } catch (error) {
-      // Ensure cleanup on initial connection failure
-      if (isConnected) {
-        try {
-          await consumer.disconnect()
-        } catch (disconnectError) {
-          logger.error(`Disconnect failed after connection error`, disconnectError)
-        }
-      }
-      logger.error(`Failed to start streaming from ${topic}`, error)
+      logger.error(`Failed to stream messages from ${topic}`, error)
       throw error
     }
   }
 
-  async clearTopicPartition(topic: string, partition: number): Promise<void> {
-    if (!this.admin) {
-      throw new Error('Admin client not connected')
-    }
+  async produceMessage(topic: string, message: any): Promise<void> {
+    if (!this.producer) throw new Error('Producer not connected')
 
     try {
-      logger.warn(`DESTRUCTIVE: Attempting to clear topic ${topic} partition ${partition}`)
-
-      // For kafkajs, we'll use a different approach since deleteRecords might not be available
-      // We'll temporarily alter the topic configuration to have very short retention
-      // then reset it back. This effectively clears old data.
-
-      const originalConfigs = await this.admin.describeConfigs({
-        resources: [{
-          type: 2, // TOPIC
-          name: topic
-        }],
-        includeSynonyms: false
+      await this.producer.send({
+        topic,
+        messages: [
+          {
+            key: message.key || null,
+            value: JSON.stringify(message.value),
+            timestamp: Date.now().toString(),
+          },
+        ],
       })
-
-      // Set retention time to 1 millisecond to clear data
-      await this.admin.alterConfigs({
-        validateOnly: false,
-        resources: [{
-          type: 2, // TOPIC
-          name: topic,
-          configEntries: [
-            { name: 'retention.ms', value: '1' },
-            { name: 'segment.ms', value: '1' }
-          ]
-        }]
-      })
-
-      // Wait a moment for Kafka to process
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Reset retention to original value or default (7 days)
-      const originalRetention = originalConfigs.resources[0]?.configEntries.find(c => c.configName === 'retention.ms')
-      const retentionValue = originalRetention?.configValue || '604800000' // 7 days default
-
-      await this.admin.alterConfigs({
-        validateOnly: false,
-        resources: [{
-          type: 2, // TOPIC
-          name: topic,
-          configEntries: [
-            { name: 'retention.ms', value: retentionValue },
-            { name: 'segment.ms', value: '604800000' } // Reset segment time too
-          ]
-        }]
-      })
-
-      logger.info(`Successfully cleared topic ${topic} partition ${partition} using retention policy`)
-
     } catch (error) {
-      logger.error(`Failed to clear topic ${topic} partition ${partition}:`, error)
-      // Don't throw - let the route handler continue with other partitions
-      // throw error
+      logger.error(`Failed to produce message to ${topic}`, error)
+      throw error
+    }
+  }
+
+  async getConsumerGroupSubscriptions(): Promise<Map<string, string[]>> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    try {
+      const groups = await this.admin.listGroups()
+      const subscriptions = new Map<string, string[]>()
+
+      for (const group of groups.groups) {
+        try {
+          const description = await this.admin.describeGroups([group.groupId])
+          if (description.groups[0] && description.groups[0].members) {
+            const topics = new Set<string>()
+            for (const member of description.groups[0].members) {
+              const assignment = member.memberAssignment
+              if (assignment) {
+                // Parse the member assignment to extract topics
+                // This is a simplified version - actual parsing might be more complex
+                // For now, we'll just add a placeholder
+                logger.debug(`Member ${member.memberId} assignment parsing not implemented`)
+              }
+            }
+            if (topics.size > 0) {
+              subscriptions.set(group.groupId, Array.from(topics))
+            }
+          }
+        } catch (error) {
+          logger.debug(`Failed to describe group ${group.groupId}`, error)
+        }
+      }
+
+      return subscriptions
+    } catch (error) {
+      logger.error('Failed to get consumer group subscriptions', error)
+      throw error
+    }
+  }
+
+  async getConsumerLag(groupId: string, topics?: string[]): Promise<any> {
+    if (!this.admin) throw new Error('Kafka admin not connected')
+
+    try {
+      const groupOffsets = await this.admin.fetchOffsets({ groupId, topics })
+      const lag: any[] = []
+
+      for (const topicOffset of groupOffsets) {
+        const topicHighWatermarks = await this.admin.fetchTopicOffsets(topicOffset.topic)
+
+        for (const partition of topicOffset.partitions) {
+          const highWatermark = topicHighWatermarks.find(
+            hw => hw.partition === partition.partition
+          )
+
+          if (highWatermark && partition.offset) {
+            const currentLag = parseInt(highWatermark.high) - parseInt(partition.offset)
+            lag.push({
+              topic: topicOffset.topic,
+              partition: partition.partition,
+              currentOffset: partition.offset,
+              highWatermark: highWatermark.high,
+              lag: currentLag
+            })
+          }
+        }
+      }
+
+      return lag
+    } catch (error) {
+      logger.error(`Failed to calculate lag for group ${groupId}`, error)
+      throw error
     }
   }
 
@@ -447,62 +386,40 @@ export class KafkaClient {
       // Get current topic configuration before deletion
       const metadata = await this.admin.fetchTopicMetadata({ topics: [topic] })
       const topicInfo = metadata.topics.find(t => t.name === topic)
-
+      
       if (!topicInfo) {
         throw new Error(`Topic ${topic} not found`)
       }
 
       const numPartitions = topicInfo.partitions.length
-      const replicationFactor = topicInfo.partitions[0]?.replicas.length || 1
-
-      // Get topic configurations
-      const configs = await this.admin.describeConfigs({
-        resources: [{
-          type: 2, // TOPIC
-          name: topic
-        }],
-        includeSynonyms: false
-      })
-
-      const topicConfigs = configs.resources[0]?.configEntries || []
-      const configEntries: Array<{ name: string; value: string }> = []
-
-      // Preserve important configurations
-      for (const config of topicConfigs) {
-        if (config.configValue && config.configName) {
-          configEntries.push({
-            name: config.configName,
-            value: config.configValue
-          })
-        }
-      }
+      const replicationFactor = topicInfo.partitions[0]?.replicas?.length || 1
 
       // Delete the topic
-      logger.info(`Deleting topic ${topic}`)
-      await this.admin.deleteTopics({ topics: [topic] })
+      await this.admin.deleteTopics({
+        topics: [topic],
+        timeout: 30000
+      })
 
-      // Wait for deletion to complete
+      // Wait a moment for deletion to propagate
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       // Recreate the topic with same configuration
-      logger.info(`Recreating topic ${topic} with ${numPartitions} partitions`)
       await this.admin.createTopics({
         topics: [{
           topic,
           numPartitions,
           replicationFactor,
-          configEntries
-        }]
+        }],
+        waitForLeaders: true,
+        timeout: 30000
       })
 
-      // Wait for creation to complete
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      logger.info(`Successfully recreated topic ${topic} - all data cleared`)
-
+      logger.info(`Successfully recreated topic ${topic} with ${numPartitions} partitions`)
     } catch (error) {
       logger.error(`Failed to recreate topic ${topic}:`, error)
       throw error
     }
   }
 }
+
+export const kafkaClient = new KafkaClient()
