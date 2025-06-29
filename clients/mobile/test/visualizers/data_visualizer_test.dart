@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foom/models/data_model.dart';
-import 'package:foom/ui/visualizers/data_visualizer.dart';
-import 'package:foom/ui/visualizers/sensor_visualizer.dart';
-import 'package:foom/ui/visualizers/image_visualizer.dart';
+import 'package:loom/models/data_model.dart';
+import 'package:loom/ui/visualizers/data_visualizer.dart';
+import 'package:loom/ui/visualizers/sensor_visualizer.dart';
+import 'package:loom/ui/visualizers/image_visualizer.dart';
 
 void main() {
   group('DataVisualizer Tests', () {

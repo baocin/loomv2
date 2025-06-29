@@ -9,7 +9,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:foom/models/data_model.dart';
+import 'package:loom/models/data_model.dart';
 
 // Mock version of MyApp for testing
 class TestApp extends StatelessWidget {
