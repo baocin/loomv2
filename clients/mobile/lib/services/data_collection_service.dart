@@ -160,6 +160,15 @@ class DataCollectionService {
   /// Start a specific data source
   Future<void> _startDataSource(String sourceId, DataSource dataSource) async {
     try {
+      // Configure the data source with collection interval
+      final config = _config?.getConfig(sourceId);
+      if (config != null) {
+        await dataSource.updateConfiguration({
+          'frequency_ms': config.collectionIntervalMs,
+          'enabled': config.enabled,
+        });
+      }
+      
       await dataSource.start();
       
       // Subscribe to data stream
@@ -169,7 +178,7 @@ class DataCollectionService {
       );
       
       _subscriptions[sourceId] = subscription;
-      print('Started data source: $sourceId');
+      print('Started data source: $sourceId with interval ${config?.collectionIntervalMs}ms');
     } catch (e) {
       print('Failed to start data source $sourceId: $e');
     }
