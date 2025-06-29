@@ -15,14 +15,14 @@ from .kafka_topics import topic_manager
 from .models import HealthCheck
 from .routers import (
     audio,
-    devices,
-    documents,
-    github,
-    images,
-    notes,
+    # devices,  # TODO: Requires database implementation
+    # documents,  # TODO: Check if this requires database
+    # github,  # TODO: Check if this requires database
+    # images,  # TODO: Check if this requires database
+    # notes,  # TODO: Check if this requires database
     sensors,
-    system,
-    urls,
+    # system,  # TODO: Check if this requires database
+    # urls,  # TODO: Check if this requires database
 )
 from .tracing import TracingMiddleware, get_trace_context
 
@@ -132,14 +132,14 @@ app.add_middleware(
 
 # Include routers
 app.include_router(audio.router)
-app.include_router(devices.router)
-app.include_router(documents.router)
-app.include_router(github.router)
-app.include_router(images.router)
-app.include_router(notes.router)
+# app.include_router(devices.router)  # TODO: Requires database implementation
+# app.include_router(documents.router)  # TODO: Check if this requires database
+# app.include_router(github.router)  # TODO: Check if this requires database
+# app.include_router(images.router)  # TODO: Check if this requires database
+# app.include_router(notes.router)  # TODO: Check if this requires database
 app.include_router(sensors.router)
-app.include_router(system.router)
-app.include_router(urls.router)
+# app.include_router(system.router)  # TODO: Check if this requires database
+# app.include_router(urls.router)  # TODO: Check if this requires database
 
 
 @app.get("/", status_code=status.HTTP_200_OK)
