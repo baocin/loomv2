@@ -9,10 +9,10 @@ import os
 @pytest.fixture
 def mock_hackernews_fetcher():
     """Mock HackerNewsFetcher class."""
-    with patch('app.main.HackerNewsFetcher') as mock_class:
+    with patch("app.main.HackerNewsFetcher") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock fetch methods to return sample HN activity
         mock_instance.fetch_user_activity.return_value = {
             "submitted": [
@@ -25,16 +25,16 @@ def mock_hackernews_fetcher():
                     "score": 150,
                     "by": "testuser",
                     "time": int(datetime.now(timezone.utc).timestamp()),
-                    "descendants": 45
+                    "descendants": 45,
                 },
                 {
-                    "id": "40849400", 
+                    "id": "40849400",
                     "type": "comment",
                     "text": "This is a great point about distributed systems...",
                     "parent": "40849300",
                     "by": "testuser",
-                    "time": int(datetime.now(timezone.utc).timestamp()) - 3600
-                }
+                    "time": int(datetime.now(timezone.utc).timestamp()) - 3600,
+                },
             ],
             "upvoted": [
                 {
@@ -45,7 +45,7 @@ def mock_hackernews_fetcher():
                     "score": 250,
                     "by": "rustfan",
                     "time": int(datetime.now(timezone.utc).timestamp()) - 7200,
-                    "descendants": 100
+                    "descendants": 100,
                 }
             ],
             "favorites": [
@@ -57,32 +57,32 @@ def mock_hackernews_fetcher():
                     "score": 500,
                     "by": "architect",
                     "time": int(datetime.now(timezone.utc).timestamp()) - 86400,
-                    "descendants": 200
+                    "descendants": 200,
                 }
-            ]
+            ],
         }
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_kafka_producer():
     """Mock KafkaProducer class."""
-    with patch('app.main.KafkaProducer') as mock_class:
+    with patch("app.main.KafkaProducer") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock methods
         mock_instance.send_message = MagicMock()
         mock_instance.close = MagicMock()
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_schedule():
     """Mock schedule module."""
-    with patch('app.main.schedule') as mock:
+    with patch("app.main.schedule") as mock:
         mock.every = MagicMock()
         mock.run_pending = MagicMock()
         yield mock
@@ -101,7 +101,7 @@ def sample_hn_story():
         "by": "devops_guru",
         "time": int(datetime(2025, 6, 26, 10, 0, 0, tzinfo=timezone.utc).timestamp()),
         "descendants": 156,
-        "kids": ["40850001", "40850002", "40850003"]
+        "kids": ["40850001", "40850002", "40850003"],
     }
 
 
@@ -115,7 +115,7 @@ def sample_hn_comment():
         "parent": "40850000",
         "by": "experienced_dev",
         "time": int(datetime(2025, 6, 26, 11, 0, 0, tzinfo=timezone.utc).timestamp()),
-        "kids": ["40850101", "40850102"]
+        "kids": ["40850101", "40850102"],
     }
 
 
@@ -138,12 +138,9 @@ def sample_kafka_message():
             "author": "devops_guru",
             "created_at": 1735214400,
             "descendants": 156,
-            "parent_id": None
+            "parent_id": None,
         },
-        "metadata": {
-            "fetched_at": "2025-06-26T12:00:00+00:00",
-            "user": "testuser"
-        }
+        "metadata": {"fetched_at": "2025-06-26T12:00:00+00:00", "user": "testuser"},
     }
 
 
@@ -155,17 +152,17 @@ def setup_environment():
         "LOOM_KAFKA_OUTPUT_TOPIC": "external.hackernews.activity.raw",
         "LOOM_HN_FETCH_INTERVAL_MINUTES": "60",
         "LOOM_HN_RUN_ON_STARTUP": "true",
-        "LOOM_HN_USERNAME": "testuser"
+        "LOOM_HN_USERNAME": "testuser",
     }
-    
+
     # Save original environment
     original_env = {}
     for key, value in test_env.items():
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
-    
+
     yield
-    
+
     # Restore original environment
     for key, original_value in original_env.items():
         if original_value is None:

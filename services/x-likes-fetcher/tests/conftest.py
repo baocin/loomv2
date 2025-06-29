@@ -9,10 +9,10 @@ import os
 @pytest.fixture
 def mock_x_likes_fetcher():
     """Mock XLikesFetcher class."""
-    with patch('app.main.XLikesFetcher') as mock_class:
+    with patch("app.main.XLikesFetcher") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock fetch_likes to return sample liked tweets
         mock_instance.fetch_likes.return_value = [
             {
@@ -27,7 +27,7 @@ def mock_x_likes_fetcher():
                 "reply_count": 25,
                 "is_retweet": False,
                 "has_media": True,
-                "media_urls": ["https://pbs.twimg.com/media/example.jpg"]
+                "media_urls": ["https://pbs.twimg.com/media/example.jpg"],
             },
             {
                 "tweet_id": "9876543210987654321",
@@ -41,45 +41,45 @@ def mock_x_likes_fetcher():
                 "reply_count": 40,
                 "is_retweet": True,
                 "has_media": False,
-                "media_urls": []
-            }
+                "media_urls": [],
+            },
         ]
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_db_checker():
     """Mock DBChecker class."""
-    with patch('app.main.DBChecker') as mock_class:
+    with patch("app.main.DBChecker") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock check_duplicate to return False (not duplicate)
         mock_instance.check_duplicate = AsyncMock(return_value=False)
         mock_instance.close = AsyncMock()
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_kafka_producer():
     """Mock KafkaProducer class."""
-    with patch('app.main.KafkaProducer') as mock_class:
+    with patch("app.main.KafkaProducer") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock methods
         mock_instance.send_message = MagicMock()
         mock_instance.close = MagicMock()
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_schedule():
     """Mock schedule module."""
-    with patch('app.main.schedule') as mock:
+    with patch("app.main.schedule") as mock:
         mock.every = MagicMock()
         mock.run_pending = MagicMock()
         yield mock
@@ -103,9 +103,12 @@ def sample_tweet_data():
         "has_media": True,
         "is_reply": False,
         "is_quote": False,
-        "media_urls": ["https://pbs.twimg.com/media/rocket.jpg", "https://pbs.twimg.com/media/launch.jpg"],
+        "media_urls": [
+            "https://pbs.twimg.com/media/rocket.jpg",
+            "https://pbs.twimg.com/media/launch.jpg",
+        ],
         "quoted_tweet_id": None,
-        "in_reply_to_id": None
+        "in_reply_to_id": None,
     }
 
 
@@ -129,12 +132,15 @@ def sample_kafka_message():
             "reply_count": 5000,
             "is_retweet": False,
             "has_media": True,
-            "media_urls": ["https://pbs.twimg.com/media/rocket.jpg", "https://pbs.twimg.com/media/launch.jpg"]
+            "media_urls": [
+                "https://pbs.twimg.com/media/rocket.jpg",
+                "https://pbs.twimg.com/media/launch.jpg",
+            ],
         },
         "metadata": {
             "fetched_at": "2025-06-26T12:00:00+00:00",
-            "user_agent": "x-likes-fetcher/1.0"
-        }
+            "user_agent": "x-likes-fetcher/1.0",
+        },
     }
 
 
@@ -147,17 +153,17 @@ def setup_environment():
         "LOOM_X_FETCH_INTERVAL_MINUTES": "30",
         "LOOM_X_RUN_ON_STARTUP": "true",
         "LOOM_DATABASE_URL": "postgresql://test:test@localhost:5432/test",
-        "LOOM_X_DUPLICATE_CHECK": "true"
+        "LOOM_X_DUPLICATE_CHECK": "true",
     }
-    
+
     # Save original environment
     original_env = {}
     for key, value in test_env.items():
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
-    
+
     yield
-    
+
     # Restore original environment
     for key, original_value in original_env.items():
         if original_value is None:

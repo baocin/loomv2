@@ -1,9 +1,9 @@
 """Common test fixtures for kafka-to-db-consumer tests."""
 
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+
 import asyncpg
+import pytest
 from aiokafka import AIOKafkaConsumer
 
 
@@ -44,11 +44,9 @@ def sample_gps_message():
             "altitude": 100.5,
             "accuracy": 5.0,
             "speed": 10.5,
-            "heading": 180.0
+            "heading": 180.0,
         },
-        "metadata": {
-            "activity": "walking"
-        }
+        "metadata": {"activity": "walking"},
     }
 
 
@@ -65,9 +63,9 @@ def sample_power_message():
             "is_charging": True,
             "is_plugged_in": True,
             "temperature_celsius": 25.5,
-            "voltage": 3.8
+            "voltage": 3.8,
         },
-        "metadata": {}
+        "metadata": {},
     }
 
 
@@ -91,12 +89,9 @@ def sample_twitter_message():
             "reply_count": 25,
             "is_retweet": False,
             "has_media": True,
-            "media_urls": ["https://example.com/image.jpg"]
+            "media_urls": ["https://example.com/image.jpg"],
         },
-        "metadata": {
-            "fetched_at": "2025-06-26T12:00:00Z",
-            "user_agent": "test-agent"
-        }
+        "metadata": {"fetched_at": "2025-06-26T12:00:00Z", "user_agent": "test-agent"},
     }
 
 
@@ -110,7 +105,7 @@ def sample_mapping_config():
             "conflict_strategy": "ignore",
             "timestamp_field": "timestamp",
             "device_id_field": "device_id",
-            "schema_version_field": "schema_version"
+            "schema_version_field": "schema_version",
         },
         "topics": {
             "device.sensor.gps.raw": {
@@ -126,7 +121,7 @@ def sample_mapping_config():
                     "data.altitude": "altitude",
                     "data.accuracy": "accuracy",
                     "data.speed": "speed",
-                    "data.heading": "bearing"
+                    "data.heading": "bearing",
                 },
                 "data_types": {
                     "latitude": "float",
@@ -135,15 +130,15 @@ def sample_mapping_config():
                     "accuracy": "float",
                     "speed": "float",
                     "bearing": "float",
-                    "timestamp": "timestamp"
+                    "timestamp": "timestamp",
                 },
                 "required_fields": [
                     "trace_id",
                     "device_id",
                     "timestamp",
                     "data.latitude",
-                    "data.longitude"
-                ]
+                    "data.longitude",
+                ],
             }
-        }
+        },
     }

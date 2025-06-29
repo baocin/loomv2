@@ -4,22 +4,22 @@ import asyncio
 import base64
 import json
 from datetime import datetime
-from typing import AsyncGenerator, Generator
+from io import BytesIO
+from typing import Generator
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
-from io import BytesIO
 
 from app.config import Settings
 from app.main import app
 from app.models import (
+    AudioMessage,
+    ImageMessage,
+    MultimodalAnalysisResult,
     MultimodalRequest,
     TextMessage,
-    ImageMessage,
-    AudioMessage,
-    MultimodalAnalysisResult,
 )
 from app.ollama_client import OllamaClient
 
@@ -70,7 +70,7 @@ def sample_text_message() -> TextMessage:
         recorded_at=datetime.utcnow(),
         text="This is a test message for analysis.",
         context="Testing context",
-        metadata={"source": "test"}
+        metadata={"source": "test"},
     )
 
 
@@ -78,9 +78,9 @@ def sample_text_message() -> TextMessage:
 def sample_image_data() -> str:
     """Create sample base64 encoded image."""
     # Create a simple test image
-    image = Image.new('RGB', (100, 100), color='red')
+    image = Image.new("RGB", (100, 100), color="red")
     buffer = BytesIO()
-    image.save(buffer, format='PNG')
+    image.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode()
 
 
@@ -92,7 +92,7 @@ def sample_image_message(sample_image_data: str) -> ImageMessage:
         recorded_at=datetime.utcnow(),
         data=sample_image_data,
         format="png",
-        metadata={"source": "test"}
+        metadata={"source": "test"},
     )
 
 
@@ -113,12 +113,14 @@ def sample_audio_message(sample_audio_data: str) -> AudioMessage:
         data=sample_audio_data,
         format="wav",
         duration=5.0,
-        metadata={"source": "test"}
+        metadata={"source": "test"},
     )
 
 
 @pytest.fixture
-def sample_multimodal_request(sample_image_data: str, sample_audio_data: str) -> MultimodalRequest:
+def sample_multimodal_request(
+    sample_image_data: str, sample_audio_data: str
+) -> MultimodalRequest:
     """Create sample multimodal request."""
     return MultimodalRequest(
         prompt="Analyze this multimodal content",
@@ -126,7 +128,7 @@ def sample_multimodal_request(sample_image_data: str, sample_audio_data: str) ->
         image_data=sample_image_data,
         audio_data=sample_audio_data,
         max_tokens=1000,
-        temperature=0.7
+        temperature=0.7,
     )
 
 
@@ -139,7 +141,7 @@ def sample_analysis_result() -> MultimodalAnalysisResult:
         analysis_type="multimodal_analysis",
         primary_result="Mock analysis result",
         processing_time_ms=1500.0,
-        model_version="gemma3n:e4b"
+        model_version="gemma3n:e4b",
     )
 
 

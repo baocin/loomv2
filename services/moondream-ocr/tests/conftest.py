@@ -21,11 +21,11 @@ def reset_global_state():
     """Reset global state before each test."""
     # Import after path is set
     import app.main
-    
+
     # Reset the global OCR processor to None before each test
     app.main.ocr_processor = None
-    
+
     yield
-    
+
     # Clean up after test
     app.main.ocr_processor = None

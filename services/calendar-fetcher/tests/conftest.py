@@ -9,14 +9,14 @@ import os
 @pytest.fixture
 def mock_calendar_fetcher():
     """Mock CalendarFetcher class."""
-    with patch('app.main.CalendarFetcher') as mock_class:
+    with patch("app.main.CalendarFetcher") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock fetch_all_events to return sample events
         start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(hours=1)
-        
+
         mock_instance.fetch_all_events.return_value = [
             {
                 "event_id": "test-event-1",
@@ -27,7 +27,7 @@ def mock_calendar_fetcher():
                 "location": "Conference Room A",
                 "attendees": ["user1@example.com", "user2@example.com"],
                 "calendar_name": "Work Calendar",
-                "is_recurring": False
+                "is_recurring": False,
             },
             {
                 "event_id": "test-event-2",
@@ -38,31 +38,31 @@ def mock_calendar_fetcher():
                 "location": "Virtual",
                 "attendees": ["team@example.com"],
                 "calendar_name": "Work Calendar",
-                "is_recurring": True
-            }
+                "is_recurring": True,
+            },
         ]
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_kafka_producer():
     """Mock KafkaProducer class."""
-    with patch('app.main.KafkaProducer') as mock_class:
+    with patch("app.main.KafkaProducer") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Mock methods
         mock_instance.send_message = MagicMock()
         mock_instance.close = MagicMock()
-        
+
         yield mock_instance
 
 
 @pytest.fixture
 def mock_schedule():
     """Mock schedule module."""
-    with patch('app.main.schedule') as mock:
+    with patch("app.main.schedule") as mock:
         mock.every = MagicMock()
         mock.run_pending = MagicMock()
         yield mock
@@ -73,7 +73,7 @@ def sample_calendar_event():
     """Sample calendar event data structure."""
     start = datetime(2025, 6, 26, 14, 0, 0, tzinfo=timezone.utc)
     end = datetime(2025, 6, 26, 15, 0, 0, tzinfo=timezone.utc)
-    
+
     return {
         "event_id": "sample-event-123",
         "title": "Project Review",
@@ -85,7 +85,7 @@ def sample_calendar_event():
         "calendar_name": "Corporate Calendar",
         "is_recurring": False,
         "organizer": "pm@company.com",
-        "status": "confirmed"
+        "status": "confirmed",
     }
 
 
@@ -105,8 +105,8 @@ def sample_kafka_message():
             "location": "Board Room",
             "attendees": ["ceo@company.com", "cto@company.com", "team@company.com"],
             "calendar_name": "Corporate Calendar",
-            "is_recurring": False
-        }
+            "is_recurring": False,
+        },
     }
 
 
@@ -118,17 +118,17 @@ def setup_environment():
         "LOOM_KAFKA_OUTPUT_TOPIC": "external.calendar.events.raw",
         "LOOM_CALENDAR_FETCH_INTERVAL_MINUTES": "15",
         "LOOM_CALENDAR_RUN_ON_STARTUP": "true",
-        "LOOM_CALENDAR_DAYS_AHEAD": "7"
+        "LOOM_CALENDAR_DAYS_AHEAD": "7",
     }
-    
+
     # Save original environment
     original_env = {}
     for key, value in test_env.items():
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
-    
+
     yield
-    
+
     # Restore original environment
     for key, original_value in original_env.items():
         if original_value is None:

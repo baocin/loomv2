@@ -5,7 +5,7 @@ import base64
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import AsyncGenerator, Generator
+from typing import Generator
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -15,13 +15,13 @@ from PIL import Image
 from app.config import Settings
 from app.main import app
 from app.models import (
-    ImageMessage,
-    ImageAnalysisRequest,
-    MoondreamAnalysisResult,
     DetectedObject,
-    OCRBlock,
+    ImageAnalysisRequest,
     ImageFeatures,
+    ImageMessage,
+    MoondreamAnalysisResult,
     MoondreamResponse,
+    OCRBlock,
 )
 from app.moondream_client import MoondreamClient
 
@@ -70,14 +70,14 @@ def mock_moondream_client() -> AsyncMock:
         brightness=0.7,
         contrast=0.6,
         sharpness=0.8,
-        aspect_ratio=1.5
+        aspect_ratio=1.5,
     )
     client.full_analysis.return_value = MoondreamResponse(
         caption="Test caption",
         query_response="Test response",
         objects=[{"label": "test", "confidence": 0.9, "bbox": [0, 0, 100, 100]}],
         text_blocks=[{"text": "test", "confidence": 0.9, "bbox": [0, 0, 50, 50]}],
-        metadata={"processing_time_ms": 100}
+        metadata={"processing_time_ms": 100},
     )
     return client
 
@@ -85,18 +85,18 @@ def mock_moondream_client() -> AsyncMock:
 @pytest.fixture
 def sample_image_base64() -> str:
     """Create sample base64 encoded image."""
-    image = Image.new('RGB', (200, 200), color='blue')
+    image = Image.new("RGB", (200, 200), color="blue")
     buffer = BytesIO()
-    image.save(buffer, format='PNG')
+    image.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode()
 
 
 @pytest.fixture
 def sample_large_image_base64() -> str:
     """Create sample large base64 encoded image."""
-    image = Image.new('RGB', (3000, 2000), color='green')
+    image = Image.new("RGB", (3000, 2000), color="green")
     buffer = BytesIO()
-    image.save(buffer, format='JPEG', quality=95)
+    image.save(buffer, format="JPEG", quality=95)
     return base64.b64encode(buffer.getvalue()).decode()
 
 
@@ -108,7 +108,7 @@ def sample_image_message(sample_image_base64: str) -> ImageMessage:
         recorded_at=datetime.utcnow(),
         data=sample_image_base64,
         format="png",
-        metadata={"source": "test", "location": "test-lab"}
+        metadata={"source": "test", "location": "test-lab"},
     )
 
 
@@ -120,7 +120,7 @@ def sample_analysis_request(sample_image_base64: str) -> ImageAnalysisRequest:
         query="What objects are in this image?",
         enable_object_detection=True,
         enable_ocr=True,
-        max_objects=5
+        max_objects=5,
     )
 
 
@@ -145,13 +145,13 @@ def sample_analysis_result() -> MoondreamAnalysisResult:
             brightness=0.7,
             contrast=0.6,
             sharpness=0.8,
-            aspect_ratio=1.0
+            aspect_ratio=1.0,
         ),
         scene_type="indoor",
         scene_attributes=["people", "technology"],
         image_quality_score=0.85,
         processing_time_ms=1500.0,
-        model_version="moondream-latest"
+        model_version="moondream-latest",
     )
 
 
@@ -189,7 +189,7 @@ def mock_httpx_response() -> Mock:
     response.json.return_value = {
         "caption": "Test caption",
         "response": "Test response",
-        "status": "ok"
+        "status": "ok",
     }
     response.raise_for_status = Mock()
     return response
@@ -198,14 +198,14 @@ def mock_httpx_response() -> Mock:
 @pytest.fixture
 def sample_image_file() -> UploadFile:
     """Create sample image upload file."""
-    image = Image.new('RGB', (100, 100), color='red')
+    image = Image.new("RGB", (100, 100), color="red")
     buffer = BytesIO()
-    image.save(buffer, format='PNG')
+    image.save(buffer, format="PNG")
     buffer.seek(0)
-    
+
     upload_file = Mock(spec=UploadFile)
     upload_file.filename = "test_image.png"
     upload_file.read = AsyncMock(return_value=buffer.getvalue())
     upload_file.content_type = "image/png"
-    
+
     return upload_file
