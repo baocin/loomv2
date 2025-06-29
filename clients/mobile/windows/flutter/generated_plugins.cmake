@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   battery_plus
   connectivity_plus
+  gal
   geolocator_windows
   permission_handler_windows
   record_windows

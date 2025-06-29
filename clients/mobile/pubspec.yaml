@@ -64,7 +64,8 @@ dependencies:
   
   # Screenshot support
   screenshot: ^3.0.0
-  image_gallery_saver: ^2.0.3
+  # Using gal instead of image_gallery_saver for better compatibility
+  gal: ^2.3.0
   
   # Camera support
   camera: ^0.11.0

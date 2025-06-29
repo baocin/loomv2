@@ -6,7 +6,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/api/loom_api_client.dart';
 import '../services/platform_screenshot_service.dart';
@@ -145,12 +145,11 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
-          final result = await ImageGallerySaver.saveImage(
+          await Gal.putImageBytes(
             imageBytes,
-            quality: 100,
             name: "loom_auto_screenshot_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Auto screenshot saved to gallery: $result');
+          print('Auto screenshot saved to gallery');
         } catch (e) {
           print('Failed to save to gallery: $e');
         }
@@ -233,12 +232,11 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
-          final result = await ImageGallerySaver.saveImage(
+          await Gal.putImageBytes(
             imageBytes,
-            quality: 100,
             name: "loom_screenshot_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Screenshot saved to gallery: $result');
+          print('Screenshot saved to gallery');
         } catch (e) {
           print('Failed to save to gallery: $e');
         }

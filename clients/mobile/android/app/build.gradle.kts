@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mobile"
+    namespace = "red.steele.loom"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 

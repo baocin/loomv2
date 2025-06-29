@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/api/loom_api_client.dart';
 
@@ -205,12 +205,11 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
-          final result = await ImageGallerySaver.saveImage(
+          await Gal.putImageBytes(
             imageBytes,
-            quality: 100,
             name: "loom_photo_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Photo saved to gallery: $result');
+          print('Photo saved to gallery');
         } catch (e) {
           print('Failed to save to gallery: $e');
         }
