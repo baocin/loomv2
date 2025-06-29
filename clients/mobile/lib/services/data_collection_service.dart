@@ -192,13 +192,28 @@ class DataCollectionService {
 
   /// Handle received data from any source
   void _onDataReceived(String sourceId, dynamic data) {
+    // Add specific logging for audio data
+    if (sourceId == 'audio') {
+      print('AUDIO: Data received by DataCollectionService - type: ${data.runtimeType}');
+      if (data is AudioChunk) {
+        print('AUDIO: AudioChunk details - fileId: ${data.fileId}, size: ${data.chunkData.length} bytes, duration: ${data.durationMs}ms');
+      }
+    }
+    
     final queue = _uploadQueues[sourceId] ?? [];
     queue.add(data);
     _uploadQueues[sourceId] = queue;
 
     final config = _config?.getConfig(sourceId);
     if (config != null && queue.length >= config.uploadBatchSize) {
+      if (sourceId == 'audio') {
+        print('AUDIO: Queue reached batch size (${queue.length}/${config.uploadBatchSize}), triggering upload...');
+      }
       _uploadQueuedDataForSource(sourceId);
+    } else {
+      if (sourceId == 'audio') {
+        print('AUDIO: Added to queue - current size: ${queue.length}/${config?.uploadBatchSize ?? 'unknown'} (batch size)');
+      }
     }
     
     // Update background service with queue information
@@ -222,7 +237,16 @@ class DataCollectionService {
   /// Upload queued data for a specific source
   Future<void> _uploadQueuedDataForSource(String sourceId) async {
     final queue = _uploadQueues[sourceId];
-    if (queue == null || queue.isEmpty) return;
+    if (queue == null || queue.isEmpty) {
+      if (sourceId == 'audio') {
+        print('AUDIO: Upload called but queue is empty');
+      }
+      return;
+    }
+
+    if (sourceId == 'audio') {
+      print('AUDIO: Starting upload process - queue size: ${queue.length}');
+    }
 
     final dataToUpload = List.from(queue);
     queue.clear();
@@ -231,8 +255,17 @@ class DataCollectionService {
       await _uploadDataByType(sourceId, dataToUpload);
       // Update background service after successful upload
       _updateBackgroundServiceQueues();
+      
+      if (sourceId == 'audio') {
+        print('AUDIO: Upload completed successfully');
+      }
     } catch (e) {
       print('Error uploading $sourceId data: $e');
+      
+      if (sourceId == 'audio') {
+        print('AUDIO: Upload failed, re-adding to queue');
+      }
+      
       // Re-add failed uploads to queue (with a limit)
       if (queue.length < 1000) {
         queue.addAll(dataToUpload);
@@ -300,11 +333,24 @@ class DataCollectionService {
         case 'audio':
           endpoint = '/audio/upload';
           final items = data.cast<AudioChunk>();
-          for (final item in items) {
+          print('AUDIO: Starting upload of ${items.length} audio chunks...');
+          
+          for (int i = 0; i < items.length; i++) {
+            final item = items[i];
+            print('AUDIO: Uploading chunk ${i + 1}/${items.length} - fileId: ${item.fileId}, size: ${item.chunkData.length} bytes');
+            
             // Audio data is in bytes
             totalBytes += item.chunkData.length;
-            await _apiClient.uploadAudioChunk(item);
+            
+            try {
+              await _apiClient.uploadAudioChunk(item);
+              print('AUDIO: Successfully uploaded chunk ${item.fileId}');
+            } catch (e) {
+              print('AUDIO: ERROR uploading chunk ${item.fileId}: $e');
+              rethrow;
+            }
           }
+          print('AUDIO: Completed upload of all ${items.length} audio chunks');
           break;
           
         case 'screenshot':

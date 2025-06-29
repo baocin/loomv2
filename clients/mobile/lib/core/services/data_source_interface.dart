@@ -210,6 +210,16 @@ abstract class BaseDataSource<T> implements DataSource<T> {
       _dataController.add(data);
       _dataPointsCollected++;
       _updateStatus(lastUpdate: DateTime.now());
+      
+      // Add specific logging for audio data
+      if (sourceId == 'audio') {
+        print('AUDIO: Data emitted successfully to stream (total points: $_dataPointsCollected)');
+      }
+    } else {
+      // Add logging for failed emit attempts
+      if (sourceId == 'audio') {
+        print('AUDIO: WARNING - Failed to emit data. Controller closed: ${_dataController.isClosed}, enabled: ${_config.enabled}, running: ${_status.isRunning}');
+      }
     }
   }
 
