@@ -175,6 +175,69 @@ clean: ## Clean up build artifacts
 	@find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
 	@rm -f bandit-report.json
 
+clean-all: ## Complete cleanup - DESTRUCTIVE! Removes all data, topics, and consumer groups
+	@echo "⚠️  WARNING: This will delete ALL data including:"
+	@echo "  - PostgreSQL/TimescaleDB data"
+	@echo "  - All Kafka topics and consumer groups"
+	@echo "  - All Zookeeper data"
+	@echo ""
+	@echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+	@sleep 5
+	@echo ""
+	@echo "Stopping all services..."
+	@docker compose -f docker-compose.local.yml down -v || true
+	@echo ""
+	@echo "Removing persistent volumes..."
+	@rm -rf ~/.loom/timescaledb ~/.loom/kafka ~/.loom/zookeeper ~/.loom/models 2>/dev/null || true
+	@echo ""
+	@echo "Removing any orphaned Docker volumes..."
+	@docker volume prune -f 2>/dev/null || true
+	@echo ""
+	@echo "✅ Complete cleanup done. All data has been removed."
+	@echo "Run 'make dev-compose-up' to start fresh."
+
+clean-kafka: ## Clean all Kafka topics and consumer groups (keeps database)
+	@echo "⚠️  WARNING: This will delete all Kafka topics and consumer groups"
+	@echo "Press Ctrl+C to cancel, or wait 3 seconds to continue..."
+	@sleep 3
+	@echo ""
+	@echo "Deleting all consumer groups..."
+	@docker exec loomv2-kafka-1 bash -c 'kafka-consumer-groups --bootstrap-server localhost:9092 --list | xargs -P 10 -I {} kafka-consumer-groups --bootstrap-server localhost:9092 --delete --group {} 2>/dev/null' || true
+	@echo ""
+	@echo "Deleting all topics except __consumer_offsets..."
+	@docker exec loomv2-kafka-1 bash -c 'kafka-topics --bootstrap-server localhost:9092 --list | grep -v "^__consumer_offsets$$" | xargs -P 10 -I {} kafka-topics --bootstrap-server localhost:9092 --delete --topic {} 2>/dev/null' || true
+	@echo ""
+	@echo "Waiting for deletions to propagate..."
+	@sleep 5
+	@echo ""
+	@echo "Recreating topics..."
+	@python scripts/create_kafka_topics.py --bootstrap-servers localhost:9092 --create-processed || true
+	@echo ""
+	@echo "✅ Kafka cleanup complete. Topics recreated."
+
+clean-db: ## Clean database only (keeps Kafka)
+	@echo "⚠️  WARNING: This will delete all PostgreSQL/TimescaleDB data"
+	@echo "Press Ctrl+C to cancel, or wait 3 seconds to continue..."
+	@sleep 3
+	@echo ""
+	@echo "Stopping database container..."
+	@docker compose -f docker-compose.local.yml stop postgres
+	@echo ""
+	@echo "Removing database volume..."
+	@rm -rf ~/.loom/timescaledb 2>/dev/null || true
+	@echo ""
+	@echo "Starting database container..."
+	@docker compose -f docker-compose.local.yml up -d postgres
+	@echo ""
+	@echo "Waiting for database to be ready..."
+	@sleep 10
+	@echo ""
+	@echo "✅ Database cleanup complete. Fresh database ready."
+
+clean-monitor-consumers: ## Clean up orphaned monitor consumer groups
+	@echo "Cleaning up monitor consumer groups..."
+	@./scripts/cleanup_monitor_consumer_groups_batch.sh
+
 # Database
 db-connect: ## Connect to local PostgreSQL database
 	@kubectl exec -n loom-dev -it deployment/postgres -- psql -U loom -d loom
