@@ -1,0 +1,76 @@
+---
+description: React Style Guide
+globs: *.tsx, *.ts
+alwaysApply: false
+---
+# React Style Guide
+
+## Component Structure
+* Use functional components with hooks instead of class components
+* Keep components small and focused on a single responsibility
+* Extract reusable logic into custom hooks
+* Organize files by feature or route, not by type
+* Use named exports for components instead of default exports
+
+## Naming Conventions
+* Use PascalCase for component names (e.g., `UserProfile`)
+* Use camelCase for variables, functions, and instances
+* Use descriptive, specific names (e.g., `handleSubmit` instead of `handle`)
+* Prefix event handlers with "handle" (e.g., `handleClick`)
+* Prefix boolean variables with "is", "has", or "should" (e.g., `isLoading`)
+
+## Props
+* Destructure props in function parameters
+* Use prop-types or TypeScript for type checking
+* Set default values for optional props
+* Pass only necessary props to child components
+* Use spread operator sparingly for props
+
+## State Management
+* Keep state as local as possible
+* Use context API for global state when appropriate
+* Prefer useState for simple state, useReducer for complex state
+* Avoid redundant state that can be derived from existing state
+* Initialize state properly to avoid undefined values
+
+## Styling
+* Use CSS modules or styled-components for component-scoped styling
+* Avoid inline styles except for dynamic values
+* Maintain consistent naming for CSS classes
+* Use a design system or common variables for colors, spacing, etc.
+* Separate layout styles from component-specific styles
+
+## Performance
+* Use React.memo() for expensive components
+* Implement useMemo() for expensive calculations
+* Use useCallback() for functions passed to child components
+* Virtualize long lists with react-window or similar libraries
+* Avoid unnecessary re-renders by optimizing render conditions
+
+## JSX Syntax
+* Use self-closing tags for components without children (`<Component />`)
+* Wrap multi-line JSX in parentheses
+* Use fragments (`<>...</>`) instead of div when possible
+* Put each prop on a new line when a component has many props
+* Always use double quotes for JSX attributes
+
+## Testing
+* Write tests for each component (unit, integration, snapshot)
+* Use meaningful test descriptions that explain expected behavior
+* Mock external dependencies in unit tests
+* Test user interactions using React Testing Library
+* Ensure accessibility compliance with testing tools
+
+## File Organization
+* One component per file (except for tightly coupled helper components)
+* Co-locate test files with component files
+* Group related files in feature-specific directories
+* Keep index.js files simple, mainly for re-exporting
+* Separate business logic from UI components
+
+## Hooks Usage
+* Always follow React Hooks rules (only call at top level, only in React functions)
+* Create custom hooks for reusable stateful logic
+* Keep custom hooks focused on a specific concern
+* Name custom hooks with "use" prefix (e.g., `useFormValidation`)
+* Avoid complex logic inside useEffect

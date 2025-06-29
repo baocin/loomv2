@@ -1,0 +1,271 @@
+---
+description: general software architecture
+globs: 
+alwaysApply: false
+---
+Architecture Overview
+Devices (Edge Devices): Simulated as Dart isolates within the Flutter app, representing smartwatches or phones with sensors. They collect data, send it to the hub when "connected," and buffer it briefly in memory during offline periods to minimize resource use.
+Hub (Central Desktop App): A Flutter desktop app running on the same machine. It receives data from device isolates via gRPC, queues it locally in a processing isolate, and processes it for insights, displaying results in a UI.
+Communication: gRPC facilitates real-time data transfer between device isolates and the hub over localhost, replacing Rust’s IPC with Dart’s isolate-compatible networking.
+Queue: An in-memory Queue<Data> (from dart:collection) in the processing isolate manages data on the hub, mirroring the simplicity of Rust’s VecDeque.
+Offline Support: Device isolates buffer data in a small in-memory Queue when disconnected, syncing it when reconnected, avoiding heavy I/O to simulate battery efficiency.
+Components and Structure
+1. Edge Devices (Device Isolates)
+These simulate sensor-equipped devices like smartwatches, running as isolates within the Flutter app.
+
+Sensor Modules
+Purpose: Collect data from specific sensor types (e.g., heart rate, GPS).
+Behavior: Periodically generates simulated data and passes it to a manager.
+Code Interface:
+dart
+Unwrap
+Copy
+abstract class SensorModule {
+  Data? collectData(); // Returns sensor data if available
+}
+
+class Data {
+  final String sensorType;      // e.g., "heart_rate", "gps"
+  final List<int> payload;      // Raw sensor data
+  Data(this.sensorType, this.payload);
+}
+Example: A heart rate sensor:
+dart
+Unwrap
+Copy
+class HeartRateSensor implements SensorModule {
+  @override
+  Data? collectData() {
+    return Data("heart_rate", [75]); // Simulated value
+  }
+}
+Device Manager
+Purpose: Manages sensor modules, connectivity, and offline buffering within each device isolate.
+Behavior:
+Polls sensors for data using a timer.
+If connected, sends data via gRPC and flushes any buffered data.
+If offline, buffers data in a Queue with a cap (e.g., 100 items).
+On reconnection, sends buffered data first, then resumes real-time sending.
+Code Skeleton:
+dart
+Unwrap
+Copy
+import 'dart:collection';
+import 'dart:isolate';
+
+class DeviceManager {
+  final List<SensorModule> sensors;
+  final Queue<Data> buffer = Queue();
+  final int maxBufferSize = 100;
+  final GrpcClient grpcClient; // Custom gRPC client class
+
+  DeviceManager(this.sensors, this.grpcClient);
+
+  void run() {
+    Timer.periodic(Duration(milliseconds: 100), (timer) async {
+      for (var sensor in sensors) {
+        if (sensor.collectData() case Data data?) {
+          if (await isConnected()) {
+            try {
+              await grpcClient.sendData(data);
+              while (buffer.isNotEmpty) {
+                await grpcClient.sendData(buffer.removeFirst());
+              }
+            } catch (e) {
+              if (buffer.length < maxBufferSize) buffer.addLast(data);
+            }
+          } else {
+            if (buffer.length < maxBufferSize) buffer.addLast(data);
+          }
+        }
+      }
+    });
+  }
+
+  Future<bool> isConnected() async {
+    try {
+      await grpcClient.checkConnection(); // Simple gRPC ping
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+}
+Resource Saving: Uses a capped buffer and periodic timers to mimic battery efficiency.
+gRPC Client
+Purpose: Sends data to the hub when connected.
+Proto Definition: Same as original, adapted for Dart:
+proto
+Unwrap
+Copy
+syntax = "proto3";
+package loom;
+
+service Hub {
+  rpc SendData(Data) returns (Ack); // Unary RPC for data transfer
+}
+
+message Data {
+  string sensor_type = 1;
+  bytes payload = 2;
+}
+
+message Ack {
+  bool success = 1;
+}
+Notes: Uses Dart’s grpc package. Unary RPC suits the single-machine setup.
+2. Hub (Flutter Desktop App)
+The hub runs as a Flutter app, managing data reception, processing, and display.
+
+gRPC Server Isolate
+Purpose: Receives data from device isolates and forwards it to the processing isolate.
+Behavior: Listens for SendData calls and uses isolate ports for communication.
+Code Skeleton:
+dart
+Unwrap
+Copy
+import 'package:grpc/grpc.dart';
+import 'hub.pbgrpc.dart'; // Generated from .proto
+
+class HubService extends HubServiceBase {
+  final SendPort processingPort;
+
+  HubService(this.processingPort);
+
+  @override
+  Future<Ack> sendData(ServiceCall call, Data request) async {
+    processingPort.send(request); // Forward to processing isolate
+    return Ack()..success = true;
+  }
+}
+
+void serverIsolate(SendPort mainPort) async {
+  final server = Server([HubService(mainPort)]);
+  await server.serve(port: 50051);
+}
+Processing Isolate
+Purpose: Queues and processes incoming data, sending results to the UI.
+Behavior:
+Maintains a Queue<Data> and a registry of processing modules.
+Processes data as it arrives and updates results.
+Code Skeleton:
+dart
+Unwrap
+Copy
+import 'dart:collection';
+import 'dart:isolate';
+
+abstract class ProcessingModule {
+  String process(Data data);
+}
+
+void processingIsolate(SendPort uiPort) {
+  final queue = Queue<Data>();
+  final modules = <String, ProcessingModule>{};
+  // Register modules, e.g., HeartRateProcessor
+
+  final port = ReceivePort();
+  uiPort.send(port.sendPort);
+
+  port.listen((message) {
+    if (message is Data) {
+      queue.addLast(message);
+      if (queue.isNotEmpty) {
+        final data = queue.removeFirst();
+        final result = modules[data.sensorType]?.process(data) ?? "Unknown";
+        uiPort.send(result);
+      }
+    }
+  });
+}
+Main Isolate (UI)
+Purpose: Runs the Flutter UI and coordinates isolates.
+Behavior: Spawns isolates, receives processed results, and updates the display.
+Code Skeleton:
+dart
+Unwrap
+Copy
+import 'package:flutter/material.dart';
+import 'dart:isolate';
+
+void main() async {
+  runApp(MyApp());
+  
+  final serverPort = ReceivePort();
+  Isolate.spawn(serverIsolate, serverPort.sendPort);
+
+  final processingPort = ReceivePort();
+  Isolate.spawn(processingIsolate, processingPort.sendPort);
+  final processingSendPort = await processingPort.first as SendPort;
+
+  // Spawn device isolates
+  for (int i = 0; i < 2; i++) {
+    Isolate.spawn(deviceIsolate, processingSendPort);
+  }
+}
+
+void deviceIsolate(SendPort processingPort) {
+  final client = GrpcClient(); // Initialize with localhost:50051
+  final manager = DeviceManager([HeartRateSensor()], client);
+  manager.run();
+}
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  String result = "Waiting for data...";
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for processing results
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text(result)),
+      ),
+    );
+  }
+}
+Data Flow
+On Edge Devices (Device Isolates):
+Sensors generate data periodically.
+Device manager checks connectivity:
+Connected: Sends data via gRPC, flushing the buffer.
+Offline: Buffers data in a capped Queue.
+On reconnection, sends buffered data first.
+On the Hub:
+gRPC server isolate receives data and sends it to the processing isolate.
+Processing isolate queues data, processes it with the appropriate module, and sends results to the main isolate.
+Main isolate updates the UI with processed results.
+Implementation Steps
+Set Up gRPC:
+Write the .proto file (as shown).
+Use protoc with the Dart plugin: protoc --dart_out=grpc:lib/hub hub.proto.
+Add grpc package: dart pub add grpc.
+Build Edge Devices:
+Define SensorModule implementations.
+Implement DeviceManager with gRPC client and buffering.
+Build the Hub:
+Set up the gRPC server in an isolate.
+Implement processing logic with a Queue and module registry.
+Create a basic Flutter UI to display results.
+Run It:
+Start the Flutter desktop app (flutter run -d <platform>).
+Device isolates connect to localhost:50051.
+Tools
+Dart: Core language for logic and concurrency.
+Flutter: UI framework for the desktop app.
+grpc: Dart package for gRPC communication.
+dart:collection: Provides Queue for data management.
+dart:isolate: Enables concurrency with isolates.
+Notes
+Offline Support: Device isolates use a small Queue for buffering, dropping old data if full, mimicking the original lightweight design.
+Scalability: Suited for one machine; extendable to multiple devices by changing gRPC addresses.
+Resource Efficiency: Periodic timers and capped buffers simulate battery-friendly behavior in this desktop context.
