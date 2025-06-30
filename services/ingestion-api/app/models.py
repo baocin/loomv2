@@ -504,6 +504,77 @@ class DeviceMetadata(BaseMessage):
         return v
 
 
+# OS Event Models
+
+
+class OSEventAppLifecycle(BaseMessage):
+    """OS application lifecycle event."""
+
+    app_identifier: str = Field(description="Application identifier (package name or bundle ID)")
+    app_name: str | None = Field(default=None, description="Human-readable application name")
+    event_type: str = Field(
+        description="Event type",
+        regex="^(launch|foreground|background|terminate|crash)$",
+    )
+    duration_seconds: int | None = Field(
+        default=None,
+        description="Duration in seconds (for background/foreground events)",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional event metadata",
+    )
+
+
+class OSEventSystemRaw(BaseMessage):
+    """OS system event (power, screen, lock, etc.)."""
+
+    event_type: str = Field(
+        description="System event type (e.g., screen_on, screen_off, device_lock, device_unlock, power_connected, power_disconnected)",
+    )
+    event_category: str = Field(
+        default="system",
+        description="Event category (system, power, screen, lock)",
+    )
+    severity: str = Field(
+        default="info",
+        description="Event severity (info, warning, error)",
+        regex="^(info|warning|error)$",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Human-readable event description",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional event metadata",
+    )
+
+    @validator("event_type")
+    def validate_event_type(cls, v):
+        """Validate that event_type is not empty."""
+        if not v or v.strip() == "":
+            raise ValueError("event_type cannot be empty")
+        return v.strip().lower()
+
+
+class OSEventNotification(BaseMessage):
+    """OS notification event."""
+
+    notification_id: str = Field(description="Unique notification identifier")
+    app_identifier: str = Field(description="Application identifier that sent the notification")
+    title: str | None = Field(default=None, description="Notification title")
+    body: str | None = Field(default=None, description="Notification body text")
+    action: str | None = Field(
+        default=None,
+        description="Action taken on notification (posted, removed, clicked)",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional notification metadata",
+    )
+
+
 # Response Models
 
 

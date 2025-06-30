@@ -10,6 +10,7 @@ import 'package:gal/gal.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/api/loom_api_client.dart';
 import '../services/platform_screenshot_service.dart';
+import 'screen_state_data_source.dart';
 
 class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   final String? deviceId;
@@ -95,6 +96,11 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       final started = await PlatformScreenshotService.startAutomaticCapture(
         interval: _captureInterval,
         onScreenshot: (Uint8List imageBytes) async {
+          // Check screen state before handling screenshot
+          if (!_shouldCaptureScreenshot()) {
+            print('Skipping screenshot - screen is off or device is locked');
+            return;
+          }
           await _handlePlatformScreenshot(imageBytes);
         },
       );
@@ -108,6 +114,12 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
     // Fallback to timer-based approach (limited functionality)
     _captureTimer = Timer.periodic(_captureInterval, (timer) async {
       try {
+        // Check screen state before capturing
+        if (!_shouldCaptureScreenshot()) {
+          print('Skipping timer-based screenshot - screen is off or device is locked');
+          return;
+        }
+        
         // This is limited - can only capture app's own UI
         print('Timer-based screenshot capture (limited to app UI)');
         
@@ -299,6 +311,36 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       'interval_seconds': _captureInterval.inSeconds,
       'save_to_gallery': _saveToGallery,
     };
+  }
+
+  /// Check if we should capture a screenshot based on screen state
+  bool _shouldCaptureScreenshot() {
+    final screenStateSource = ScreenStateDataSource.instance;
+    if (screenStateSource == null) {
+      // If screen state source is not available, allow capture
+      return true;
+    }
+    
+    // Don't capture if screen is off
+    if (!screenStateSource.isScreenOn) {
+      return false;
+    }
+    
+    // Don't capture if device is locked (unless it was just unlocked)
+    if (screenStateSource.isDeviceLocked) {
+      // Check if device was recently unlocked (within 5 seconds)
+      final lastScreenOn = screenStateSource.lastScreenOnTime;
+      if (lastScreenOn != null) {
+        final timeSinceScreenOn = DateTime.now().difference(lastScreenOn);
+        if (timeSinceScreenOn.inSeconds < 5) {
+          // Wait a bit after screen turns on (likely still showing lock screen)
+          return false;
+        }
+      }
+      return false;
+    }
+    
+    return true;
   }
 
   @override

@@ -150,6 +150,16 @@ make docker-run              # Run container locally
 - `POST /sensor/generic` - Generic sensor readings
 - `POST /sensor/batch` - Batch upload multiple sensors
 
+#### OS Event Data
+- `POST /os-events/app-lifecycle` - Application lifecycle events (launch, foreground, background, terminate)
+- `POST /os-events/system` - System events (screen on/off, lock/unlock, power connected/disconnected)
+- `POST /os-events/notifications` - Notification events
+
+#### System Monitoring
+- `POST /system/apps/android` - Android app monitoring data
+- `POST /system/apps/android/usage` - Android app usage statistics
+- `POST /system/metadata` - Device metadata and capabilities
+
 ## Data Schemas
 
 ### Schema Validation
@@ -205,8 +215,9 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 - `device.network.bluetooth.raw` - Nearby Bluetooth devices
 
 **OS Events:**
-- `os.events.app_lifecycle.raw` - Android app lifecycle events
-- `os.events.notifications.raw` - System notifications
+- `os.events.app_lifecycle.raw` - Android app lifecycle events (30 days retention)
+- `os.events.system.raw` - System events (screen on/off, lock/unlock, power) (30 days retention)
+- `os.events.notifications.raw` - System notifications (30 days retention)
 
 **Digital Data:**
 - `digital.clipboard.raw` - Clipboard content
@@ -584,6 +595,63 @@ uv run uvicorn app.main:app --reload --log-level debug
 4. Create Helm chart in `deploy/helm/`
 5. Add to Tiltfile for local development
 6. Update this documentation
+
+## Mobile Client (Flutter)
+
+### Overview
+The mobile client is a Flutter application that collects data from Android/iOS devices and sends it to the ingestion API. It supports background data collection with configurable battery profiles.
+
+### Data Sources
+- **Audio**: Microphone recording with chunking
+- **GPS**: Location tracking with accuracy
+- **Accelerometer**: 3-axis motion data  
+- **Battery**: Power state and charging status
+- **Network**: WiFi and Bluetooth state
+- **Screenshot**: Automatic and manual captures
+- **Camera**: Photo capture
+- **Screen State** (Android): Screen on/off and lock detection
+- **App Lifecycle** (Android): App foreground/background events
+- **App Monitoring** (Android): Running apps and usage statistics
+
+### Android-Specific Features
+
+#### OS Event Tracking
+The mobile client monitors Android system events:
+- **Screen Events**: Screen on/off detection via `ACTION_SCREEN_ON/OFF` broadcasts
+- **Lock Events**: Device lock/unlock detection via `KeyguardManager`
+- **Power Events**: Charger connected/disconnected via `ACTION_POWER_CONNECTED/DISCONNECTED`
+
+#### App Lifecycle Monitoring
+Tracks application lifecycle events:
+- **App Launch**: When an app is started
+- **App Foreground/Background**: When apps move between states
+- **App Termination**: When apps are closed
+- Requires `PACKAGE_USAGE_STATS` permission (user must grant in Settings)
+
+#### Screenshot Behavior
+- Screenshots are automatically skipped when:
+  - Screen is off
+  - Device is locked
+  - Within 5 seconds of screen turning on (to avoid lock screen capture)
+
+### Battery Profiles
+- **Performance**: Immediate upload, high frequency collection
+- **Balanced**: Moderate intervals and batch sizes
+- **Power Saver**: Conservative settings for battery life
+- **Custom**: User-configurable intervals and batch sizes
+
+### Permissions
+The app requires various permissions depending on enabled data sources:
+- Location (GPS)
+- Microphone (Audio)
+- Storage/Photos (Screenshots)
+- Usage Stats (App Monitoring - Android only)
+
+### Configuration
+Data collection is configured through battery profiles that control:
+- **Collection Interval**: How often to collect data (ms)
+- **Upload Batch Size**: Number of data points before upload
+- **Upload Interval**: Maximum time between uploads (ms)
 
 ---
 

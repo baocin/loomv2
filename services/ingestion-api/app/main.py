@@ -20,8 +20,9 @@ from .routers import (
     # github,  # TODO: Check if this requires database
     images,  # Images router doesn't require database
     # notes,  # TODO: Check if this requires database
+    os_events,  # OS event tracking
     sensors,
-    # system,  # TODO: Check if this requires database
+    system,  # System monitoring (app monitoring, device metadata)
     # urls,  # TODO: Check if this requires database
 )
 from .tracing import TracingMiddleware, get_trace_context
@@ -137,8 +138,9 @@ app.include_router(audio.router)
 # app.include_router(github.router)  # TODO: Check if this requires database
 app.include_router(images.router)  # Images router doesn't require database
 # app.include_router(notes.router)  # TODO: Check if this requires database
+app.include_router(os_events.router)  # OS event tracking
 app.include_router(sensors.router)
-# app.include_router(system.router)  # TODO: Check if this requires database
+app.include_router(system.router)  # System monitoring (app monitoring, device metadata)
 # app.include_router(urls.router)  # TODO: Check if this requires database
 
 
@@ -179,6 +181,11 @@ async def root() -> JSONResponse:
                     "android_usage": "/system/apps/android/usage",
                 },
                 "device_metadata": "/system/metadata",
+                "os_events": {
+                    "app_lifecycle": "/os-events/app-lifecycle",
+                    "system": "/os-events/system",
+                    "notifications": "/os-events/notifications",
+                },
                 "metrics": "/metrics",
                 "docs": "/docs",
             },

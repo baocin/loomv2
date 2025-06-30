@@ -1,6 +1,6 @@
 # Use pre-built PyTorch image to avoid long build times
-# Updated to 2.4.0 to support enable_gqa parameter in scaled_dot_product_attention
-FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime
+# Updated to 2.5.1 to support enable_gqa parameter in scaled_dot_product_attention
+FROM pytorch/pytorch:2.5.1-cuda11.8-cudnn9-runtime
 
 # Install additional dependencies
 RUN apt-get update && apt-get install -y \

@@ -15,6 +15,9 @@ import '../data_sources/network_data_source.dart';
 import '../data_sources/audio_data_source.dart';
 import '../data_sources/screenshot_data_source.dart';
 import '../data_sources/camera_data_source.dart';
+import '../data_sources/screen_state_data_source.dart';
+import '../data_sources/app_lifecycle_data_source.dart';
+import '../data_sources/android_app_monitoring_data_source.dart';
 
 class DataCollectionService {
   final DeviceManager _deviceManager;
@@ -158,6 +161,24 @@ class DataCollectionService {
     final cameraSource = CameraDataSource(_deviceId);
     if (await cameraSource.isAvailable()) {
       _dataSources['camera'] = cameraSource;
+    }
+
+    // Screen State Data Source (Android only)
+    final screenStateSource = ScreenStateDataSource(_deviceId);
+    if (await screenStateSource.isAvailable()) {
+      _dataSources['screen_state'] = screenStateSource;
+    }
+
+    // App Lifecycle Data Source (Android only)
+    final appLifecycleSource = AppLifecycleDataSource(_deviceId);
+    if (await appLifecycleSource.isAvailable()) {
+      _dataSources['app_lifecycle'] = appLifecycleSource;
+    }
+
+    // Android App Monitoring Data Source
+    final appMonitoringSource = AndroidAppMonitoringDataSource(_deviceId);
+    if (await appMonitoringSource.isAvailable()) {
+      _dataSources['android_app_monitoring'] = appMonitoringSource;
     }
 
     print('Initialized ${_dataSources.length} data sources: ${_dataSources.keys.join(', ')}');
