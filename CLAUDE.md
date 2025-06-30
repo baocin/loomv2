@@ -32,7 +32,9 @@
 │   ├── dev/                 # Development K8s configs
 │   └── helm/                # Production Helm charts
 ├── docs/                    # Architecture documentation
-│   └── storage.md           # Database design and patterns
+│   ├── storage.md           # Database design and patterns
+│   ├── data-processing-flows.md  # Comprehensive data pipeline documentation
+│   └── flows/               # Detailed flow specifications (11 pipelines)
 ├── scripts/                 # Utility scripts (Kafka topics, deployment)
 ├── services/                # Microservices
 │   └── ingestion-api/       # Core data ingestion service
@@ -248,18 +250,63 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 #### Processed Data Topics
 **Media Processing:**
 - `media.audio.vad_filtered` - Audio chunks identified as speech
+- `media.audio.environment_classified` - Audio environment classification (indoor/outdoor/vehicle)
 - `media.text.transcribed.words` - Word-by-word transcripts from speech
+- `media.text.ocr_extracted` - Raw OCR text from images
+- `media.text.ocr_cleaned` - Cleaned and structured OCR text
+- `media.image.camera.preprocessed` - Normalized camera images
+- `media.image.screenshot.preprocessed` - Preprocessed screenshots for OCR
+- `media.image.objects_detected` - Detected objects with bounding boxes
+- `media.image.objects_hashed` - Perceptual hashes for object tracking
+- `media.image.faces_detected` - Detected faces with landmarks
+- `media.image.pose_detected` - Body and hand pose keypoints
+- `media.image.gaze_detected` - Eye gaze vectors
 - `media.image.analysis.moondream_results` - Image analysis (captions, gaze, objects)
+- `media.image.analysis.minicpm_results` - Vision-language analysis results
 - `media.video.analysis.yolo_results` - Object detection/tracking from video
 
 **Analysis Results:**
 - `analysis.3d_reconstruction.dustr_results` - 3D environment reconstruction
 - `analysis.inferred_context.qwen_results` - High-level context inferences
+- `analysis.inferred_context.mistral_results` - Mistral reasoning outputs
+- `analysis.audio.emotion_results` - Speech emotion recognition
+- `analysis.image.emotion_results` - Face emotion recognition
 
 **Task Results:**
 - `task.url.processed.twitter_archived` - Archived X.com/Twitter content
 - `task.url.processed.hackernews_archived` - Archived HackerNews content
 - `task.url.processed.pdf_extracted` - Extracted PDF content/summaries
+
+**Location Processing:**
+- `location.georegion.detected` - Detected presence in saved georegions (home/work/custom)
+- `location.address.geocoded` - Geocoded addresses from GPS
+- `location.business.identified` - Identified businesses at locations
+
+**Motion & Activity:**
+- `device.sensor.accelerometer.windowed` - Windowed accelerometer features
+- `motion.events.significant` - Significant motion events detected
+- `motion.classification.activity` - Classified activities (walking/driving/etc)
+
+**Device State Processing:**
+- `device.state.power.enriched` - Enriched power state with patterns
+- `device.state.power.patterns` - Detected charging patterns
+- `device.network.wifi.enriched` - Enriched WiFi connection data
+- `device.network.location_correlated` - WiFi networks correlated with locations
+- `os.events.app_lifecycle.enriched` - Enriched app lifecycle events
+
+**External Data Processing:**
+- `external.email.raw` - Raw fetched emails
+- `external.email.parsed` - Parsed email structure
+- `external.email.embedded` - Email text embeddings
+- `external.calendar.raw` - Raw calendar events
+- `external.calendar.enriched` - Enriched calendar data
+- `external.calendar.embedded` - Calendar event embeddings
+- `external.hackernews.liked` - Liked HN items
+- `external.hackernews.content_fetched` - Fetched article content
+- `external.hackernews.embedded` - HN content embeddings
+
+**Spatial Data:**
+- `spatial.slam.mapping` - SLAM-generated 3D maps
 
 #### Kafka Configuration
 **Message Format:**

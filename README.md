@@ -349,6 +349,23 @@ curl http://localhost:8000/healthz
 curl http://localhost:8000/readyz
 ```
 
+## 📚 Documentation
+
+### Core Documentation
+- **[CLAUDE.md](CLAUDE.md)** - Claude Code configuration and project instructions
+- **[Data Processing Flows](docs/data-processing-flows.md)** - Comprehensive guide to all 11 data pipelines
+- **[Flow Specifications](docs/flows/)** - Detailed YAML specifications for each processing pipeline
+- **[Storage Architecture](docs/storage.md)** - Database design patterns and TimescaleDB configuration
+
+### Key Processing Pipelines
+1. **Audio Processing** - VAD → Speech-to-Text → Environment Classification
+2. **Vision Processing** - Object Detection → Face/Pose/Gaze Analysis → 3D Mapping
+3. **Location Enrichment** - GPS → Geocoding → Business Identification
+4. **Motion Classification** - Accelerometer → Activity Detection (walking/driving)
+5. **External Data** - Email/Calendar/HackerNews → Embeddings → Search
+
+See [docs/data-processing-flows.md](docs/data-processing-flows.md) for complete pipeline documentation.
+
 ## 🏗️ Architecture
 
 ### System Components
