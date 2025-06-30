@@ -68,13 +68,6 @@ class Settings(BaseSettings):
         default="", description="Hacker News user ID for fetching liked/upvoted items"
     )
 
-    # Reddit configuration
-    reddit_username: str = Field(default="", description="Reddit username")
-    reddit_client_id: str = Field(default="", description="Reddit API client ID")
-    reddit_client_secret: str = Field(
-        default="", description="Reddit API client secret"
-    )
-
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
 

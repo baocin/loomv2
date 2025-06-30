@@ -770,6 +770,94 @@ topics:
       - tweet_id
       - data.embedding
 
+  analysis.text.embedded.notifications:
+    table: "analysis_text_embedded_notifications"
+    description: "System notification embeddings"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: time
+      schema_version: schema_version
+      data.notification_id: notification_id
+      data.source: source
+      data.title: title
+      data.content: content
+      data.embedding: embedding
+      data.embedding_model: embedding_model
+      data.embedding_dimensions: embedding_dimensions
+      metadata: metadata
+    data_types:
+      embedding: float_array
+      embedding_dimensions: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.content
+      - data.embedding
+      
+  analysis.text.embedded.notes:
+    table: "analysis_text_embedded_notes"
+    description: "Digital notes embeddings including OCR results"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: time
+      schema_version: schema_version
+      data.note_id: note_id
+      data.source: source
+      data.title: title
+      data.content: content
+      data.ocr_content: ocr_content
+      data.embedding: embedding
+      data.embedding_model: embedding_model
+      data.embedding_dimensions: embedding_dimensions
+      metadata: metadata
+    data_types:
+      embedding: float_array
+      embedding_dimensions: integer
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.content
+      - data.embedding
+      
+  # Add digital notes raw topic
+  digital.notes.raw:
+    table: "digital_notes_raw"
+    description: "Raw digital notes from various apps"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.note_id: note_id
+      data.source_app: source_app
+      data.title: title
+      data.content: content
+      data.has_images: has_images
+      data.image_urls: image_urls
+      data.created_at: created_at
+      data.updated_at: updated_at
+      metadata.tags: tags
+      metadata.folder: folder
+    data_types:
+      has_images: boolean
+      image_urls: array
+      created_at: timestamp
+      updated_at: timestamp
+      tags: array
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.note_id
+      - data.content
+      
   # Task Topics
   task.url.ingest:
     table: "task_url_ingest"

@@ -200,7 +200,6 @@ class WebConsumer(BaseConsumer):
             },
             {"url": "https://docs.python.org/3/", "title": "Python 3 Documentation"},
             {"url": "https://fastapi.tiangolo.com/", "title": "FastAPI Documentation"},
-            {"url": "https://www.reddit.com/r/programming", "title": "r/programming"},
             {"url": "https://techcrunch.com", "title": "TechCrunch"},
             {
                 "url": "https://arxiv.org/list/cs.AI/recent",

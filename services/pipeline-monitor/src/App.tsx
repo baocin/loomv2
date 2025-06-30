@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -7,15 +7,20 @@ import ReactFlow, {
   useEdgesState,
   Node,
   NodeChange,
+  ReactFlowProvider,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
+import './App.css'
+import { toPng } from 'html-to-image'
 
 import { nodeTypes } from './components/NodeTypes'
 import { DataModal } from './components/DataModal'
 import { LogViewer } from './components/LogViewer'
 import { TestMessagePanel } from './components/TestMessagePanel'
-import { StructureView } from './components/StructureView'
-import { usePipelineData, useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
+import { StructureViewEnhanced } from './components/StructureViewEnhanced'
+import { useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
+import { usePipelineDefinitions } from './hooks/usePipelineDefinitions'
+import { usePipelineGraph } from './hooks/usePipelineGraph'
 
 const STORAGE_KEY = 'loom-pipeline-node-positions'
 
@@ -65,7 +70,48 @@ const loadNodePositions = (): Record<string, { x: number; y: number }> => {
   }
 }
 
-function App() {
+const clearNodePositions = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    console.log('Cleared all stored node positions')
+  } catch (error) {
+    console.warn('Failed to clear node positions:', error)
+  }
+}
+
+const exportPositions = () => {
+  try {
+    const positions = loadNodePositions()
+    const dataStr = JSON.stringify(positions, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+    
+    const exportFileDefaultName = `loom-pipeline-positions-${new Date().toISOString().split('T')[0]}.json`
+    
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+  } catch (error) {
+    console.error('Failed to export positions:', error)
+  }
+}
+
+const importPositions = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const positions = JSON.parse(e.target?.result as string)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(positions))
+      window.location.reload() // Reload to apply imported positions
+    } catch (error) {
+      console.error('Failed to import positions:', error)
+      alert('Failed to import positions. Please check the file format.')
+    }
+  }
+  reader.readAsText(file)
+}
+
+function PipelineMonitor() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [modalData, setModalData] = useState<{ isOpen: boolean; title: string; data: any }>({
@@ -78,8 +124,14 @@ function App() {
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [testPanelTopic, setTestPanelTopic] = useState<string>('')
   const [showStructureView, setShowStructureView] = useState(false)
+  const [useManualPositions, setUseManualPositions] = useState(true)
+  const [pulsingTopics, setPulsingTopics] = useState<Set<string>>(new Set())
+  const [lastMessageCounts, setLastMessageCounts] = useState<Map<string, number>>(new Map())
+  
+  const reactFlowWrapper = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: pipelineData, isLoading: isPipelineLoading } = usePipelineData()
+  const { data: pipelineGraph, isLoading: isPipelineLoading } = usePipelineGraph()
   const { data: topicMetrics, isLoading: isTopicMetricsLoading } = useTopicMetrics()
   const { data: consumerMetrics, isLoading: isConsumerMetricsLoading } = useConsumerMetrics()
   const { data: latestMessage } = useLatestMessage(selectedTopic || '')
@@ -87,6 +139,34 @@ function App() {
   const clearAllTopicsMutation = useClearAllTopics()
   const { data: autoDiscoveryData } = useAutoDiscovery()
   const { data: serviceHealthData } = useServiceHealth()
+  const { data: pipelineDefinitions } = usePipelineDefinitions()
+  
+  // Screenshot function
+  const takeScreenshot = useCallback(() => {
+    if (reactFlowWrapper.current === null) {
+      return
+    }
+
+    toPng(reactFlowWrapper.current, {
+      cacheBust: true,
+      backgroundColor: '#ffffff',
+      width: reactFlowWrapper.current.scrollWidth,
+      height: reactFlowWrapper.current.scrollHeight,
+      style: {
+        width: reactFlowWrapper.current.scrollWidth + 'px',
+        height: reactFlowWrapper.current.scrollHeight + 'px',
+      }
+    })
+      .then((dataUrl) => {
+        const link = document.createElement('a')
+        link.download = `loom-pipeline-${new Date().toISOString().split('T')[0]}.png`
+        link.href = dataUrl
+        link.click()
+      })
+      .catch((err) => {
+        console.error('Failed to take screenshot:', err)
+      })
+  }, [])
 
   // Custom nodes change handler (keep basic functionality)
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
@@ -101,21 +181,56 @@ function App() {
 
   // Handle drag stop event to save positions
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node, _nodes: Node[]) => {
-    console.log('Node drag stopped, saving position for:', node.id, node.position)
+    if (useManualPositions) {
+      console.log('Node drag stopped, saving position for:', node.id, node.position)
 
-    // Save only this node's position (preserving others)
-    setTimeout(() => {
-      updateNodePosition(node.id, node.position)
-    }, 50)
-  }, [])
+      // Save only this node's position (preserving others)
+      setTimeout(() => {
+        updateNodePosition(node.id, node.position)
+      }, 50)
+    } else {
+      console.log('Node drag stopped, but in algorithm mode - not saving position')
+    }
+  }, [useManualPositions])
+
+  // Track message count changes for pulse effect
+  useEffect(() => {
+    if (!topicMetrics) return
+
+    const newPulsing = new Set<string>()
+    const newCounts = new Map<string, number>()
+
+    topicMetrics.forEach(metric => {
+      const prevCount = lastMessageCounts.get(metric.topic) || 0
+      const currentCount = metric.messageCount || 0
+      newCounts.set(metric.topic, currentCount)
+
+      // If message count increased, add to pulsing set
+      if (currentCount > prevCount && prevCount > 0) {
+        newPulsing.add(metric.topic)
+        
+        // Remove pulse after 2 seconds
+        setTimeout(() => {
+          setPulsingTopics(prev => {
+            const next = new Set(prev)
+            next.delete(metric.topic)
+            return next
+          })
+        }, 2000)
+      }
+    })
+
+    setLastMessageCounts(newCounts)
+    setPulsingTopics(prev => new Set([...prev, ...newPulsing]))
+  }, [topicMetrics])
 
   // Update nodes with real metrics data and restore positions
   React.useEffect(() => {
-    if (!pipelineData || isTopicMetricsLoading || isConsumerMetricsLoading) return
+    if (!pipelineGraph || isTopicMetricsLoading || isConsumerMetricsLoading) return
 
-    const savedPositions = loadNodePositions()
+    const savedPositions = useManualPositions ? loadNodePositions() : {}
 
-    const updatedNodes = pipelineData.nodes.map(node => {
+    const updatedNodes = pipelineGraph.nodes.map(node => {
       let updatedData = { ...node.data }
 
       // Add topic metrics
@@ -124,6 +239,8 @@ function App() {
         if (metrics) {
           updatedData.metrics = metrics
           updatedData.status = metrics.isActive ? 'active' : 'idle'
+          // Add pulsing class if topic is pulsing
+          ;(updatedData as any).isPulsing = pulsingTopics.has(node.id)
         }
       }
 
@@ -145,20 +262,23 @@ function App() {
             s.serviceName.toLowerCase().includes(node.data.label.toLowerCase())
           )
           if (health) {
-            updatedData.health = health
-            updatedData.status = health.status === 'healthy' ? 'active' :
-                                health.status === 'degraded' ? 'idle' : 'error'
+            updatedData = {
+              ...updatedData,
+              health,
+              status: health.status === 'healthy' ? 'active' :
+                     health.status === 'degraded' ? 'idle' : 'error'
+            }
           }
         }
       }
 
-      // Restore saved position if available, otherwise use default
+      // Use saved position if manual mode and available, otherwise use algorithm position
       const savedPosition = savedPositions[node.id]
-      const position = savedPosition ? savedPosition : node.position
+      const position = savedPosition && useManualPositions ? savedPosition : node.position
 
       // Debug: Log position restoration
-      if (savedPosition) {
-        console.log(`Restored position for ${node.id}:`, savedPosition)
+      if (savedPosition && useManualPositions) {
+        console.log(`Restored manual position for ${node.id}:`, savedPosition)
       }
 
       return {
@@ -169,8 +289,8 @@ function App() {
     })
 
     setNodes(updatedNodes)
-    setEdges(pipelineData.edges)
-  }, [pipelineData, topicMetrics, consumerMetrics, setNodes, setEdges])
+    setEdges(pipelineGraph.edges)
+  }, [pipelineGraph, topicMetrics, consumerMetrics, setNodes, setEdges, useManualPositions, pulsingTopics, serviceHealthData])
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'kafka-topic') {
@@ -272,6 +392,22 @@ function App() {
           <div>Active Consumers: {consumerMetrics?.filter(c =>
             new Date().getTime() - new Date(c.lastHeartbeat).getTime() < 30000
           ).length || 0}</div>
+          
+          {/* Pipeline Definitions Summary */}
+          {pipelineDefinitions && (
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="font-semibold mb-1">Pipeline Flows</div>
+              <div className="text-xs space-y-1">
+                <div>Total: {pipelineDefinitions.summary.totalFlows}</div>
+                <div className="grid grid-cols-2 gap-1 mt-1">
+                  <span className="text-red-600">Critical: {pipelineDefinitions.summary.byPriority.critical}</span>
+                  <span className="text-orange-600">High: {pipelineDefinitions.summary.byPriority.high}</span>
+                  <span className="text-green-600">Medium: {pipelineDefinitions.summary.byPriority.medium}</span>
+                  <span className="text-blue-600">Low: {pipelineDefinitions.summary.byPriority.low}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Service Health Summary */}
           {serviceHealthData && (
@@ -323,6 +459,74 @@ function App() {
           <div className="text-xs text-gray-500 mt-2">
             Click on nodes to view raw data
           </div>
+          <button
+            onClick={() => {
+              setUseManualPositions(!useManualPositions)
+              if (useManualPositions) {
+                // Switching to algorithm layout
+                clearNodePositions()
+              }
+            }}
+            className="mt-3 w-full bg-purple-500 hover:bg-purple-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+            {useManualPositions ? 'Use Algorithm Layout' : 'Use Manual Layout'}
+          </button>
+          <div className="text-xs text-gray-500 mt-1 text-center">
+            {useManualPositions ? 'Drag nodes to reposition' : 'Auto-aligned by data flow'}
+          </div>
+          
+          {/* Screenshot and Export/Import buttons */}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={takeScreenshot}
+              className="bg-indigo-500 hover:bg-indigo-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-1"
+              title="Take Screenshot"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Screenshot
+            </button>
+            <button
+              onClick={exportPositions}
+              disabled={!useManualPositions}
+              className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-1"
+              title="Export Positions"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export
+            </button>
+          </div>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!useManualPositions}
+            className="mt-2 w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Import Positions
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                importPositions(file)
+              }
+            }}
+          />
+          
           <button
             onClick={() => setShowStructureView(!showStructureView)}
             className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
@@ -423,21 +627,22 @@ function App() {
         </div>
       )}
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        onNodeDragStop={handleNodeDragStop}
-        nodeTypes={nodeTypes}
-        fitView
-        attributionPosition="bottom-left"
-        multiSelectionKeyCode="Shift"
-        selectionKeyCode="Shift"
-        deleteKeyCode="Delete"
-        selectNodesOnDrag={false}
-      >
+      <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
+          onNodeDragStop={handleNodeDragStop}
+          nodeTypes={nodeTypes}
+          fitView
+          attributionPosition="bottom-left"
+          multiSelectionKeyCode="Shift"
+          selectionKeyCode="Shift"
+          deleteKeyCode="Delete"
+          selectNodesOnDrag={false}
+        >
         <Controls />
         <MiniMap
           nodeStrokeColor={(n) => {
@@ -455,7 +660,8 @@ function App() {
           nodeBorderRadius={8}
         />
         <Background color="#aaa" gap={16} />
-      </ReactFlow>
+        </ReactFlow>
+      </div>
 
       <DataModal
         isOpen={modalData.isOpen}
@@ -486,11 +692,19 @@ function App() {
                 </svg>
               </button>
             </div>
-            <StructureView />
+            <StructureViewEnhanced />
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function App() {
+  return (
+    <ReactFlowProvider>
+      <PipelineMonitor />
+    </ReactFlowProvider>
   )
 }
 

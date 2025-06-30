@@ -32,7 +32,6 @@
   - **Twitter Fetcher**: Social media data collection
   - **Calendar Fetcher**: Calendar events synchronization
   - **Email Fetcher**: Email monitoring service
-  - **Reddit Fetcher**: Reddit activity tracking
   - **Web Analytics**: Website visit tracking
   - **macOS Client**: macOS system monitoring
   - **Android Client**: Android system monitoring

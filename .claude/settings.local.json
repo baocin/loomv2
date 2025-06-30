@@ -66,7 +66,10 @@
       "Bash(true)",
       "Bash(pre-commit run:*)",
       "Bash(flutter pub:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(bun add:*)",
+      "Bash(kubectl get pods:*)",
+      "Bash(kubectl config:*)"
     ]
   },
   "enableAllProjectMcpServers": false

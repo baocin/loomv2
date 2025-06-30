@@ -255,6 +255,8 @@ services:
       DEBIAN_FRONTEND: noninteractive
     ports:
       - "8082:8080"
+    volumes:
+      - ./docs:/docs:ro  # Mount docs directory as read-only
     depends_on:
       postgres:
         condition: service_healthy
@@ -453,6 +455,39 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    restart: unless-stopped
+
+  # GPS Geocoding Consumer
+  gps-geocoding-consumer:
+    build:
+      context: ./services/gps-geocoding-consumer
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_CONSUMER_GROUP_ID: gps-geocoding-consumer
+      LOOM_KAFKA_INPUT_TOPIC: device.sensor.gps.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: location.address.geocoded
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_OPENCAGE_API_KEY: ${LOOM_OPENCAGE_API_KEY:-}  # Set via environment variable
+      LOOM_MIN_DISTANCE_METERS: 100.0  # Only geocode if 100m+ from cached points
+      LOOM_CACHE_RADIUS_METERS: 50.0   # Search radius for cache hits
+      LOOM_LOG_LEVEL: INFO
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8012:8000"  # Health check and metrics endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   # Processing Services

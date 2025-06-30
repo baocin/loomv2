@@ -29,14 +29,6 @@ EXTERNAL_DATA_TOPICS = {
             "compression.type": "producer",
         },
     },
-    "external.reddit.activity.raw": {
-        "partitions": 3,
-        "replication_factor": 1,
-        "config": {
-            "retention.ms": "15552000000",  # 180 days
-            "compression.type": "producer",
-        },
-    },
     # Hacker News data
     "external.hackernews.activity.raw": {
         "partitions": 2,

@@ -123,24 +123,6 @@ class WebVisit(BaseMessage):
     )
 
 
-class RedditActivity(BaseMessage):
-    """Reddit activity data."""
-
-    post_id: str = Field(description="Reddit post ID")
-    subreddit: str = Field(description="Subreddit name")
-    post_title: str = Field(description="Post title")
-    post_url: str = Field(description="Post URL")
-    author: str = Field(description="Post author")
-    content: Optional[str] = Field(default=None, description="Post content")
-    score: int = Field(default=0, description="Post score")
-    comments_count: int = Field(default=0, description="Number of comments")
-    created_at: datetime = Field(description="Post creation timestamp")
-    interacted_at: datetime = Field(description="When user interacted")
-    interaction_type: str = Field(
-        description="Type of interaction (upvote, save, comment)"
-    )
-
-
 class RSSFeedItem(BaseMessage):
     """RSS feed item data."""
 

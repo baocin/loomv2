@@ -32,12 +32,6 @@ This service runs scheduled data collection jobs that gather information from ex
 - **Data**: Visited URLs, page titles, visit duration
 - **Requirements**: Browser history database access
 
-### 📊 Reddit Activity
-- **Topic**: `external.reddit.activity.raw`
-- **Interval**: 60 minutes (configurable)
-- **Data**: Upvoted posts, saved items, comments
-- **Requirements**: Reddit API credentials
-
 ### 📰 RSS Feeds
 - **Topic**: `external.rss.items.raw`
 - **Interval**: 60 minutes (configurable)
@@ -63,8 +57,6 @@ LOOM_WEB_ACTIVITY_CHECK_INTERVAL_MINUTES=10
 LOOM_TWITTER_BEARER_TOKEN=your_bearer_token
 LOOM_GMAIL_CREDENTIALS_PATH=/path/to/gmail_credentials.json
 LOOM_HACKERNEWS_USER_ID=your_hn_username
-LOOM_REDDIT_CLIENT_ID=your_reddit_client_id
-LOOM_REDDIT_CLIENT_SECRET=your_reddit_secret
 
 # Browser Paths (optional - auto-detected)
 LOOM_CHROME_HISTORY_PATH=/path/to/chrome/History
@@ -81,7 +73,6 @@ LOOM_RSS_FEEDS='["https://feeds.example.com/rss", "https://blog.example.com/feed
 | Email | `external.email.events.raw` | 90 days | Important communication history |
 | Calendar | `external.calendar.events.raw` | 365 days | Long-term scheduling data |
 | Twitter | `external.twitter.liked.raw` | 365 days | Social media engagement patterns |
-| Reddit | `external.reddit.activity.raw` | 180 days | Discussion participation |
 | Hacker News | `external.hackernews.activity.raw` | 180 days | Tech news engagement |
 | Web Visits | `external.web.visits.raw` | 30 days | Recent browsing patterns |
 | RSS Items | `external.rss.items.raw` | 90 days | Content consumption tracking |

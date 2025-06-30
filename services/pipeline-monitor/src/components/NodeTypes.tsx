@@ -32,8 +32,9 @@ export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div className={clsx(
-      'px-4 py-3 shadow-lg rounded-lg bg-white border-2',
-      getStatusBorder(data.status)
+      'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
+      getStatusBorder(data.status),
+      (data as any).isPulsing && 'animate-pulse-border'
     )}>
       <Handle type="target" position={Position.Left} />
 

@@ -10,6 +10,7 @@ import { MonitorWebSocketServer } from './websocket/server'
 import { createKafkaRoutes } from './routes/kafka'
 import { createDatabaseRoutes } from './routes/database'
 import { createHealthRoutes } from './routes/health'
+import pipelineDefinitionsRoutes from './routes/pipeline-definitions'
 import { K8sDiscovery } from './services/k8sDiscovery'
 import { ServiceRegistry } from './services/serviceRegistry'
 import { HealthMonitor } from './services/healthMonitor'
@@ -83,6 +84,7 @@ class PipelineMonitorAPI {
       this.healthMonitor
     ))
     this.app.use('/api/database', createDatabaseRoutes(this.databaseClient))
+    this.app.use('/api/pipeline-definitions', pipelineDefinitionsRoutes)
 
     // Root endpoint
     this.app.get('/', (req, res) => {

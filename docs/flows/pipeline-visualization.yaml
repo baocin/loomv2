@@ -1,0 +1,516 @@
+# Pipeline Visualization Configuration
+# This file provides structured data for the LLM pipeline monitor to visualize flows
+
+visualization_config:
+  layout: hierarchical  # Options: hierarchical, circular, force-directed
+  grouping: by_priority  # Options: by_priority, by_category, by_data_type
+  
+  # Color scheme for different pipeline categories
+  color_scheme:
+    critical: "#FF5252"  # Red for critical priority
+    high: "#FF9800"     # Orange for high priority
+    medium: "#4CAF50"   # Green for medium priority
+    low: "#2196F3"      # Blue for low priority
+    
+    # Data type colors
+    audio: "#9C27B0"    # Purple
+    vision: "#E91E63"   # Pink
+    sensor: "#00BCD4"   # Cyan
+    text: "#795548"     # Brown
+    external: "#607D8B" # Blue Grey
+
+# Simplified pipeline overview for visualization
+pipeline_summary:
+  # Critical Priority Flows
+  audio_processing:
+    priority: critical
+    category: media
+    stages: 4
+    models: ["Silero VAD", "NVIDIA Parakeet-TDT"]
+    input_rate: "10 events/sec"
+    latency_target: "< 3s"
+    service_name: "silero-vad"
+    container_name: "loomv2-silero-vad-1"
+    connections:
+      inputs: ["device.audio.raw"]
+      outputs: ["media.audio.vad_filtered", "media.text.transcribed.words", "media.audio.environment_classified"]
+      
+  camera_vision:
+    priority: critical
+    category: media
+    stages: 6
+    models: ["Moondream", "MediaPipe", "ORB-SLAM3"]
+    input_rate: "0.03 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.image.camera.raw"]
+      outputs: ["media.image.objects_detected", "media.image.faces_detected", "spatial.slam.mapping"]
+
+  # High Priority Flows  
+  screenshot_ocr:
+    priority: high
+    category: media
+    stages: 4
+    models: ["Tesseract OCR", "Moondream"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    service_name: "moondream-ocr"
+    container_name: "loomv2-moondream-ocr-1"
+    connections:
+      inputs: ["device.image.screenshot.raw", "device.video.screen.raw"]
+      outputs: ["media.text.ocr_extracted", "media.text.ocr_cleaned", "media.image.analysis.moondream_results"]
+      
+  vision_language_processing:
+    priority: high
+    category: media
+    stages: 3
+    models: ["MiniCPM-Llama3-V", "CLIP"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    service_name: "minicpm-vision"
+    container_name: "loomv2-minicpm-vision-1"
+    connections:
+      inputs: ["device.image.camera.raw", "device.video.screen.raw", "external.twitter.images.raw"]
+      outputs: ["media.image.analysis.minicpm_results", "media.image.vision_annotations"]
+      
+  speech_emotion_recognition:
+    priority: high
+    category: analysis
+    stages: 2
+    models: ["BUD-E-Whisper"]
+    input_rate: "1 events/sec"
+    latency_target: "< 2s"
+    connections:
+      inputs: ["media.audio.vad_filtered"]
+      outputs: ["analysis.audio.emotion_results", "analysis.audio.emotion_scores"]
+      
+  face_emotion_recognition:
+    priority: high
+    category: analysis
+    stages: 3
+    models: ["Empathic-Insight-Face"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 3s"
+    connections:
+      inputs: ["media.image.faces_detected"]
+      outputs: ["analysis.image.face_emotions"]
+      
+  location_enrichment:
+    priority: high
+    category: location
+    stages: 4
+    models: ["PostGIS", "Nominatim", "Foursquare"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    service_name: "gps-geocoding-consumer"
+    container_name: "loomv2-gps-geocoding-consumer-1"
+    connections:
+      inputs: ["device.sensor.gps.raw"]
+      outputs: ["location.georegion.detected", "location.address.geocoded", "location.business.identified"]
+      
+  app_lifecycle:
+    priority: high
+    category: system
+    stages: 2
+    models: []
+    input_rate: "2 events/sec"
+    latency_target: "< 1s"
+    connections:
+      inputs: ["os.events.app_lifecycle.raw"]
+      outputs: ["os.events.app_lifecycle.enriched"]
+
+  # Medium Priority Flows
+  context_reasoning:
+    priority: medium
+    category: analysis
+    stages: 4
+    models: ["Qwen", "Mistral"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["media.text.transcribed.words", "media.image.analysis.minicpm_results", "media.image.analysis.moondream_results", "analysis.audio.emotion_results"]
+      outputs: ["analysis.inferred_context.qwen_results", "analysis.context.reasoning_chains"]
+      
+  text_embedding:
+    priority: medium
+    category: analysis
+    stages: 2
+    models: ["Sentence Transformers", "Nomic Embed"]
+    input_rate: "0.5 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["media.text.transcribed.words", "media.text.ocr_extracted", "external.email.parsed", "task.url.processed_content", "media.text.notifications_extracted", "media.text.notes_extracted"]
+      outputs: ["analysis.text.embedded.emails", "analysis.text.embedded.twitter", "analysis.text.embedded.notifications", "analysis.text.embedded.notes"]
+      
+  video_analysis:
+    priority: medium
+    category: media
+    stages: 3
+    models: ["YOLO", "Object Tracking"]
+    input_rate: "0.03 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["device.video.screen.raw"]
+      outputs: ["media.video.analysis.yolo_results"]
+      
+  3d_reconstruction:
+    priority: medium
+    category: spatial
+    stages: 4
+    models: ["DUSt3R", "ORB-SLAM3"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["device.image.camera.raw", "spatial.slam.mapping"]
+      outputs: ["analysis.3d_reconstruction.dustr_results"]
+      
+  motion_classification:
+    priority: medium
+    category: sensor
+    stages: 4
+    models: ["TensorFlow Activity Recognition"]
+    input_rate: "50 events/sec"  # Highest volume
+    latency_target: "< 1s"
+    connections:
+      inputs: ["device.sensor.accelerometer.raw"]
+      outputs: ["device.sensor.accelerometer.windowed", "motion.events.significant", "motion.classification.activity"]
+      
+  email_processing:
+    priority: medium
+    category: external
+    stages: 3
+    models: ["Sentence Transformers"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["external.email.events.raw"]
+      outputs: ["external.email.parsed", "external.email.embedded"]
+      
+  calendar_processing:
+    priority: medium
+    category: external
+    stages: 3
+    models: ["Sentence Transformers"]
+    input_rate: "0.001 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["external.calendar.events.raw"]
+      outputs: ["external.calendar.enriched", "external.calendar.embedded"]
+      
+  power_state:
+    priority: medium
+    category: system
+    stages: 3
+    models: []
+    input_rate: "0.1 events/sec"
+    latency_target: "< 2s"
+    connections:
+      inputs: ["device.state.power.raw"]
+      outputs: ["device.state.power.enriched", "device.state.power.patterns"]
+
+  # Additional High Priority Flows
+  twitter_processing:
+    priority: high
+    category: external
+    stages: 4
+    models: ["URL Processor", "Content Archiver"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["external.twitter.liked.raw"]
+      outputs: ["task.url.ingest", "task.url.processed.twitter_archived"]
+      
+  twitter_image_processing:
+    priority: high
+    category: media
+    stages: 5
+    models: ["Moondream", "CLIP", "Tesseract OCR"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["external.twitter.images.raw"]
+      outputs: ["media.image.analysis.moondream_results", "media.text.ocr_extracted", "media.image.objects_detected"]
+      
+  url_content_processing:
+    priority: high
+    category: external
+    stages: 3
+    models: ["Content Extractor", "PDF Parser"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 60s"
+    connections:
+      inputs: ["task.url.ingest"]
+      outputs: ["task.url.processed_content", "task.url.processed.pdf_extracted"]
+
+  # Additional Processing Flows
+  pdf_content_extraction:
+    priority: medium
+    category: external
+    stages: 3
+    models: ["PDF Parser", "Text Extraction"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 60s"
+    connections:
+      inputs: ["task.url.ingest"]
+      outputs: ["task.url.processed.pdf_extracted", "media.text.content_extracted"]
+      
+  hackernews_content_archiving:
+    priority: medium
+    category: external
+    stages: 4
+    models: ["Content Archiver", "Screenshot Tool"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 120s"
+    connections:
+      inputs: ["external.hackernews.favorites.raw"]
+      outputs: ["task.url.ingest", "task.url.processed.hackernews_archived"]
+      
+  web_analytics_processing:
+    priority: low
+    category: external
+    stages: 3
+    models: ["Analytics Parser"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["digital.web_analytics.raw"]
+      outputs: ["external.web.visits.categorized"]
+      
+  clipboard_processing:
+    priority: low
+    category: system
+    stages: 2
+    models: ["Content Classifier"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["digital.clipboard.raw"]
+      outputs: ["media.text.content_extracted"]
+      
+  barometer_processing:
+    priority: low
+    category: sensor
+    stages: 2
+    models: []
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["device.sensor.barometer.raw"]
+      outputs: ["device.sensor.barometer.enriched"]
+      
+  temperature_processing:
+    priority: low
+    category: sensor
+    stages: 2
+    models: []
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["device.sensor.temperature.raw"]
+      outputs: ["device.sensor.temperature.enriched"]
+      
+  bluetooth_processing:
+    priority: low
+    category: system
+    stages: 3
+    models: ["Device Fingerprinting"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.network.bluetooth.raw"]
+      outputs: ["device.network.bluetooth.enriched", "device.network.location_correlated"]
+      
+  health_steps_processing:
+    priority: medium
+    category: health
+    stages: 3
+    models: ["Activity Recognition"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.health.steps.raw"]
+      outputs: ["device.health.steps.enriched", "motion.classification.activity"]
+      
+  system_notification_processing:
+    priority: low
+    category: system
+    stages: 2
+    models: ["Content Classifier"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["os.events.notifications.raw"]
+      outputs: ["os.events.notifications.enriched", "media.text.notifications_extracted"]
+      
+      
+  generic_sensor_processing:
+    priority: low
+    category: sensor
+    stages: 2
+    models: []
+    input_rate: "1 events/sec"
+    latency_target: "< 5s"
+    connections:
+      inputs: ["device.sensor.generic.raw"]
+      outputs: ["device.sensor.generic.enriched"]
+      
+  macos_app_monitoring:
+    priority: medium
+    category: system
+    stages: 3
+    models: ["Usage Pattern Analysis"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.system.apps.macos.raw"]
+      outputs: ["device.system.apps.macos.enriched", "device.system.apps.usage_patterns"]
+      
+  android_app_monitoring:
+    priority: medium
+    category: system
+    stages: 3
+    models: ["Usage Pattern Analysis"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.system.apps.android.raw"]
+      outputs: ["device.system.apps.android.enriched", "device.system.apps.usage_patterns"]
+      
+  device_metadata_processing:
+    priority: low
+    category: system
+    stages: 2
+    models: []
+    input_rate: "0.01 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.metadata.raw"]
+      outputs: ["device.metadata.enriched"]
+      
+  twitter_image_extraction:
+    priority: high
+    category: media
+    stages: 2
+    models: ["Image Extractor"]
+    input_rate: "0.01 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["external.twitter.liked.raw"]
+      outputs: ["external.twitter.images.raw"]
+      
+  
+  digital_notes_processing:
+    priority: high
+    category: media
+    stages: 4
+    models: ["Tesseract OCR", "Text Extraction"]
+    input_rate: "0.05 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["digital.notes.raw"]
+      outputs: ["media.text.notes_extracted", "media.text.ocr_extracted"]
+      
+      
+  # Low Priority Flows
+  hackernews_processing:
+    priority: low
+    category: external
+    stages: 3
+    models: ["Sentence Transformers"]
+    input_rate: "0.0001 events/sec"
+    latency_target: "< 5min"
+    connections:
+      inputs: ["external.hackernews.activity.raw"]
+      outputs: ["task.url.ingest", "external.hackernews.content_fetched", "external.hackernews.embedded"]
+      
+  web_visit_processing:
+    priority: low
+    category: external
+    stages: 2
+    models: ["URL Categorizer"]
+    input_rate: "0.1 events/sec"
+    latency_target: "< 30s"
+    connections:
+      inputs: ["external.web.visits.raw"]
+      outputs: ["external.web.visits.categorized", "external.web.visits.embedded"]
+      
+  network_events:
+    priority: low
+    category: system
+    stages: 3
+    models: []
+    input_rate: "0.01 events/sec"
+    latency_target: "< 10s"
+    connections:
+      inputs: ["device.network.wifi.raw"]
+      outputs: ["device.network.wifi.enriched", "device.network.location_correlated"]
+
+# Node definitions for graph visualization
+graph_nodes:
+  # Define key processing nodes
+  vad_processor:
+    type: model
+    label: "VAD\n(Silero)"
+    category: audio
+    
+  stt_processor:
+    type: model
+    label: "Speech-to-Text\n(Parakeet)"
+    category: audio
+    
+  vision_processor:
+    type: model
+    label: "Vision AI\n(Moondream)"
+    category: vision
+    
+  ocr_processor:
+    type: model
+    label: "OCR\n(Tesseract)"
+    category: text
+    
+  geocoder:
+    type: service
+    label: "Geocoding\n(Nominatim)"
+    category: location
+    
+  embedding_processor:
+    type: model
+    label: "Text Embeddings\n(Sentence-BERT)"
+    category: text
+    
+  timescaledb:
+    type: storage
+    label: "TimescaleDB\n(Time-Series)"
+    category: database
+
+# Aggregated metrics for dashboard
+dashboard_metrics:
+  total_pipelines: 26  # Updated after removing reddit and duplicate embedding flows
+  total_kafka_topics: 91  # Updated count after removing reddit topics
+  total_ai_models: 16  # Updated model count
+  
+  by_priority:
+    critical: 2
+    high: 7
+    medium: 10
+    low: 7
+    
+  by_category:
+    media: 7
+    location: 1
+    sensor: 5
+    system: 7
+    external: 4
+    health: 1
+    analysis: 2
+    spatial: 1
+    
+  volume_summary:
+    highest_volume: "motion_classification (50 events/sec)"
+    lowest_volume: "hackernews_processing (0.0001 events/sec)"
+    total_events_per_second: 62.2111  # Sum of all input rates
+    
+  latency_targets:
+    real_time: 5      # < 5s
+    near_real_time: 4 # 5s - 30s
+    batch: 2          # > 30s

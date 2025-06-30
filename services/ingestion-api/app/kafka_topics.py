@@ -192,14 +192,6 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
-            "external.reddit.activity.raw": {
-                "partitions": settings.kafka_default_partitions,
-                "replication_factor": settings.kafka_default_replication_factor,
-                "config": {
-                    "retention.ms": "15552000000",  # 180 days
-                    "compression.type": "producer",
-                },
-            },
             "external.hackernews.activity.raw": {
                 "partitions": 2,
                 "replication_factor": settings.kafka_default_replication_factor,
