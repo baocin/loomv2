@@ -14,6 +14,7 @@ interface GraphNode {
     models?: string[]
     metrics?: any
     health?: any
+    containerName?: string
   }
 }
 

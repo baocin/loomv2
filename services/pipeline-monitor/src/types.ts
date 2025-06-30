@@ -28,11 +28,14 @@ export interface PipelineNode {
   position: { x: number; y: number }
   data: {
     label: string
-    metrics?: KafkaTopicMetrics | ConsumerMetrics
+    metrics?: KafkaTopicMetrics | ConsumerMetrics | any
     lastSampleData?: any
-    status: 'active' | 'idle' | 'error' | 'unknown'
+    status?: 'active' | 'idle' | 'error' | 'unknown'
     description?: string
     health?: any
+    containerName?: string
+    priority?: string
+    models?: string[]
   }
 }
 

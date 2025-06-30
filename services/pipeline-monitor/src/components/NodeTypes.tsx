@@ -34,7 +34,7 @@ export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
   return (
     <div className={clsx(
       'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
-      getStatusBorder(data.status),
+      getStatusBorder(data.status || 'unknown'),
       health?.errorCount > 0 && 'border-red-500',
       (data as any).isPulsing && 'animate-pulse-border'
     )}>
@@ -42,7 +42,7 @@ export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
 
       <div className="flex items-center gap-2 mb-2">
         <MessageSquare className="w-4 h-4 text-blue-600" />
-        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status))} />
+        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status || 'unknown'))} />
         <span className="font-semibold text-sm">{data.label}</span>
       </div>
 
@@ -75,14 +75,14 @@ export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
   return (
     <div className={clsx(
       'w-32 h-32 shadow-lg rounded-full bg-white border-2 flex flex-col items-center justify-center relative',
-      getStatusBorder(data.status),
+      getStatusBorder(data.status || 'unknown'),
       health?.errorCount > 0 && 'border-red-500 border-4'
     )}>
       <Handle type="target" position={Position.Left} />
 
       <div className="flex flex-col items-center gap-1">
         <Cpu className="w-5 h-5 text-purple-600" />
-        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status))} />
+        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status || 'unknown'))} />
         <span className="font-semibold text-xs text-center leading-tight">{data.label}</span>
       </div>
 
@@ -125,14 +125,14 @@ export const DatabaseNode: React.FC<NodeProps> = ({ data }) => {
   return (
     <div className={clsx(
       'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
-      getStatusBorder(data.status),
+      getStatusBorder(data.status || 'unknown'),
       health?.errorCount > 0 && 'border-red-500'
     )}>
       <Handle type="target" position={Position.Left} />
 
       <div className="flex items-center gap-2 mb-2">
         <Database className="w-4 h-4 text-green-600" />
-        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status))} />
+        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status || 'unknown'))} />
         <span className="font-semibold text-sm">{data.label}</span>
       </div>
 
@@ -156,12 +156,12 @@ export const ExternalNode: React.FC<NodeProps> = ({ data }) => {
   return (
     <div className={clsx(
       'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
-      getStatusBorder(data.status),
+      getStatusBorder(data.status || 'unknown'),
       health?.errorCount > 0 && 'border-red-500'
     )}>
       <div className="flex items-center gap-2 mb-2">
         <ExternalLink className="w-4 h-4 text-orange-600" />
-        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status))} />
+        <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status || 'unknown'))} />
         <span className="font-semibold text-sm">{data.label}</span>
       </div>
 
