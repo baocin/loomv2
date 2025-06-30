@@ -6,16 +6,17 @@ import 'package:permission_handler/permission_handler.dart' as permission_handle
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'services/background_service.dart';
-import 'services/permission_handler.dart';
 import 'core/services/permission_manager.dart';
 import 'core/config/data_collection_config.dart';
 import 'core/api/loom_api_client.dart';
 import 'core/services/device_manager.dart';
 import 'services/data_collection_service.dart';
 import 'screens/settings_screen.dart';
+import 'screens/advanced_settings_screen.dart';
 import 'data_sources/screenshot_data_source.dart';
 import 'data_sources/camera_data_source.dart';
 import 'widgets/screenshot_widget.dart';
+import 'core/utils/power_estimation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,12 +74,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _isServiceRunning = false;
   bool _isDataCollectionRunning = false;
   PermissionSummary? _permissionSummary;
   DateTime? _lastUpdate;
   final Map<String, bool> _dataSourceStates = {};
-  BatteryProfile _currentProfile = BatteryProfile.balanced;
   ScreenshotDataSource? _screenshotDataSource;
   CameraDataSource? _cameraDataSource;
   bool _isCapturingScreenshot = false;
@@ -96,10 +95,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkServiceStatus() async {
-    final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
     setState(() {
-      _isServiceRunning = isRunning;
       _isDataCollectionRunning = widget.dataService.isRunning;
     });
   }
@@ -324,34 +320,27 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Battery Profile Selector
-            Card(
-              child: ListTile(
-                title: const Text('Battery Profile'),
-                subtitle: Text(_currentProfile.name.toUpperCase()),
-                trailing: DropdownButton<BatteryProfile>(
-                  value: _currentProfile,
-                  onChanged: (profile) async {
-                    if (profile != null) {
-                      await _changeBatteryProfile(profile);
-                    }
-                  },
-                  items: BatteryProfile.values.map((profile) {
-                    return DropdownMenuItem(
-                      value: profile,
-                      child: Text(profile.name.toUpperCase()),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             
-            // Data Sources
-            const Text(
-              'Data Sources',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            // Data Sources Header with Advanced Settings Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Data Sources',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => AdvancedSettingsScreen(dataService: widget.dataService),
+                      ),
+                    ).then((_) => setState(() {})); // Refresh on return
+                  },
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Advanced'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -361,10 +350,10 @@ class _HomePageState extends State<HomePage> {
                     final sourceId = entry.key;
                     final dataSource = entry.value;
                     final isEnabled = _dataSourceStates[sourceId] ?? false;
-                    final config = widget.dataService.getDataSourceConfig(sourceId);
                     final queueSize = widget.dataService.getQueueSizeForSource(sourceId);
+                    final powerLevel = PowerEstimation.sensorPowerConsumption[sourceId] ?? 0;
 
-                    return ExpansionTile(
+                    return ListTile(
                       title: Text(dataSource.displayName),
                       subtitle: Row(
                         children: [
@@ -374,49 +363,60 @@ class _HomePageState extends State<HomePage> {
                             Text('$queueSize', style: const TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(width: 8),
                           ],
-                          Expanded(child: Text(_getDataSourceSubtitle(sourceId, config))),
+                          Text(
+                            PowerEstimation.getPowerLevelDescription(powerLevel),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _getPowerColor(powerLevel),
+                            ),
+                          ),
                         ],
                       ),
                       leading: Icon(
                         _getDataSourceIcon(sourceId),
                         color: isEnabled ? Colors.green : Colors.grey,
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.expand_more, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Switch(
-                            value: isEnabled,
-                            onChanged: (value) async {
-                              await widget.dataService.setDataSourceEnabled(sourceId, value);
-                              setState(() {
-                                _dataSourceStates[sourceId] = value;
-                              });
-                            },
-                          ),
-                        ],
+                      trailing: Switch(
+                        value: isEnabled,
+                        onChanged: (value) async {
+                          await widget.dataService.setDataSourceEnabled(sourceId, value);
+                          setState(() {
+                            _dataSourceStates[sourceId] = value;
+                          });
+                        },
                       ),
-                      children: [
-                        if (config != null) ..._buildConfigTiles(sourceId, config, _currentProfile == BatteryProfile.custom),
-                        if (sourceId == 'screenshot') ..._buildScreenshotSettings(),
-                        if (sourceId == 'camera') ..._buildCameraSettings(),
-                      ],
                     );
                   }).toList(),
                 ),
               ),
             ),
-
-
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          border: Border(
+            top: BorderSide(color: Colors.grey.withOpacity(0.3)),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
             if (_lastUpdate != null) ...[
-              const SizedBox(height: 16),
-              Card(
-                child: ListTile(
-                  title: const Text('Service Last Active'),
-                  subtitle: Text(_lastUpdate!.toLocal().toString()),
-                  leading: const Icon(Icons.update),
-                ),
+              Icon(Icons.update, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                'Service last active: ${_formatLastUpdate(_lastUpdate!)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ] else ...[
+              Icon(Icons.info_outline, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                'Service not active',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ],
@@ -434,6 +434,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /* // Removed - moved to advanced settings
   Future<void> _changeBatteryProfile(BatteryProfile profile) async {
     setState(() {
       _currentProfile = profile;
@@ -455,7 +456,9 @@ class _HomePageState extends State<HomePage> {
       await widget.dataService.startDataCollection();
     }
   }
+  */
   
+  /* // Removed - moved to advanced settings
   List<Widget> _buildConfigTiles(String sourceId, DataSourceConfigParams config, bool isCustomMode) {
     return [
       Padding(
@@ -549,7 +552,9 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
   }
+  */
   
+  /* // Removed - not needed with simplified UI
   List<Widget> _buildScreenshotSettings() {
     final screenshotSource = _screenshotDataSource;
     if (screenshotSource == null) return [];
@@ -616,6 +621,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
   
+  // Removed - not needed with simplified UI
   List<Widget> _buildCameraSettings() {
     final cameraSource = _cameraDataSource;
     if (cameraSource == null) return [];
@@ -701,6 +707,7 @@ class _HomePageState extends State<HomePage> {
     final interval = (config.collectionIntervalMs / 1000).toStringAsFixed(1);
     return '• ${interval}s • ${config.priority.name}';
   }
+  */
   
   List<Widget> _buildPermissionSummary() {
     final summary = _permissionSummary!;
@@ -790,6 +797,12 @@ class _HomePageState extends State<HomePage> {
         return Icons.screenshot;
       case 'camera':
         return Icons.camera_alt;
+      case 'screen_state':
+        return Icons.phone_android;
+      case 'app_lifecycle':
+        return Icons.apps;
+      case 'android_app_monitoring':
+        return Icons.analytics;
       default:
         return Icons.sensors;
     }
@@ -898,5 +911,25 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+  
+  Color _getPowerColor(double level) {
+    final hex = PowerEstimation.getPowerLevelColor(level);
+    return Color(int.parse(hex.substring(1), radix: 16) + 0xFF000000);
+  }
+  
+  String _formatLastUpdate(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 }
