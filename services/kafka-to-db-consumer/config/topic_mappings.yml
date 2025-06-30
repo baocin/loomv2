@@ -140,6 +140,49 @@ topics:
       - data.latitude
       - data.longitude
 
+  device.sensor.barometer.raw:
+    table: "device_sensor_barometer_raw"
+    description: "Atmospheric pressure data"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.pressure: pressure
+      data.altitude: altitude
+      data.unit: unit
+      metadata: metadata
+    data_types:
+      pressure: float
+      altitude: float
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.pressure
+
+  device.sensor.temperature.raw:
+    table: "device_sensor_temperature_raw"
+    description: "Device temperature readings"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.temperature: temperature
+      data.unit: unit
+      data.sensor_location: sensor_location
+      metadata: metadata
+    data_types:
+      temperature: float
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.temperature
+
   device.sensor.accelerometer.raw:
     table: "device_sensor_accelerometer_raw"
     description: "3-axis motion sensor data"
@@ -302,6 +345,93 @@ topics:
       - device_id
       - timestamp
       - data.app_name
+
+  device.metadata.raw:
+    table: "device_metadata_raw"
+    description: "Arbitrary device metadata"
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.key: key
+      data.value: value
+      data.category: category
+      metadata: metadata
+    data_types:
+      value: json
+      timestamp: timestamp
+    required_fields:
+      - trace_id
+      - device_id
+      - timestamp
+      - data.key
+      - data.value
+
+  # OS Event Topics
+  os.events.app_lifecycle.raw:
+    table: "os_events_app_lifecycle_raw"
+    description: "Application lifecycle events"
+    field_mappings:
+      trace_id: id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.app_identifier: app_identifier
+      data.app_name: app_name
+      data.event_type: event_type
+      data.duration_seconds: duration_seconds
+      metadata: metadata
+    data_types:
+      duration_seconds: integer
+      timestamp: timestamp
+    required_fields:
+      - device_id
+      - timestamp
+      - data.app_identifier
+      - data.event_type
+
+  os.events.system.raw:
+    table: "os_events_system_raw"
+    description: "System-level OS events"
+    field_mappings:
+      trace_id: id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.event_type: event_type
+      data.event_category: event_category
+      data.severity: severity
+      data.description: description
+      metadata: metadata
+    data_types:
+      timestamp: timestamp
+    required_fields:
+      - device_id
+      - timestamp
+      - data.event_type
+
+  os.events.notifications.raw:
+    table: "os_events_notifications_raw"
+    description: "System notification events"
+    field_mappings:
+      trace_id: id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.notification_id: notification_id
+      data.app_identifier: app_identifier
+      data.title: title
+      data.body: body
+      data.action: action
+      metadata: metadata
+    data_types:
+      timestamp: timestamp
+    required_fields:
+      - device_id
+      - timestamp
+      - data.notification_id
+      - data.app_identifier
 
   # Network Topics
   device.network.wifi.raw:
