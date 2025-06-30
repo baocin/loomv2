@@ -1,0 +1,155 @@
+name: location_enrichment
+description: Enrich GPS coordinates with address, business, and georegion information
+priority: high
+data_volume:
+  expected_events_per_second: 0.1  # GPS updates every 10 seconds
+  average_event_size_bytes: 200
+  peak_multiplier: 5  # Bursts when location changes rapidly
+
+stages:
+  - name: georegion_detection
+    service:
+      name: georegion-detector
+      image: loom/georegion-detector:latest
+      replicas: 2
+    input_topics:
+      - device.sensor.gps.raw
+    output_topics:
+      - location.georegion.detected
+    error_topic: processing.errors.georegion
+    configuration:
+      database_connection: true  # Reads from saved_georegions table
+      cache_refresh_minutes: 5   # Refresh georegion cache
+      detection_method: postgis_st_contains
+      emit_on_change_only: true  # Only emit when entering/exiting region
+    database_access:
+      tables:
+        - saved_georegions  # Read georegion definitions
+      queries:
+        - name: get_all_georegions
+          sql: "SELECT id, name, region_type, geom FROM saved_georegions WHERE active = true"
+        - name: check_point_in_regions
+          sql: "SELECT id, name FROM saved_georegions WHERE ST_Contains(geom, ST_SetSRID(ST_MakePoint($1, $2), 4326)) AND active = true"
+    schema_mappings:
+      input_schema: shared/schemas/device/sensor/gps/v1.json
+      output_schema: shared/schemas/location/georegion/v1.json
+    processing:
+      batch_size: 1  # Process immediately for real-time detection
+      timeout_seconds: 1
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.1  # Very fast for real-time tracking
+      alert_on_error_rate: 0.05
+  - name: geocoding
+    service:
+      name: geocoder
+      image: loom/geocoder:latest
+      replicas: 2
+    input_topics:
+      - device.sensor.gps.raw
+    output_topics:
+      - location.address.geocoded
+    error_topic: processing.errors.geocoding
+    configuration:
+      provider: nominatim  # Can switch to google, mapbox
+      cache_ttl_hours: 24
+      precision_meters: 50  # Don't re-geocode if within 50m
+      rate_limit_per_second: 1
+    schema_mappings:
+      input_schema: shared/schemas/device/sensor/gps/v1.json
+      output_schema: shared/schemas/location/address/v1.json
+    processing:
+      batch_size: 10  # Batch to respect rate limits
+      timeout_seconds: 30
+      retry_policy:
+        max_retries: 3
+        backoff_seconds: 60  # Rate limit backoff
+    monitoring:
+      sla_seconds: 5.0
+      alert_on_error_rate: 0.1
+
+  - name: business_identification
+    service:
+      name: business-matcher
+      image: loom/business-matcher:latest
+      replicas: 1
+    input_topics:
+      - location.address.geocoded
+    output_topics:
+      - location.business.identified
+    error_topic: processing.errors.business_match
+    configuration:
+      providers:
+        - foursquare
+        - google_places
+      match_radius_meters: 100
+      confidence_threshold: 0.7
+      database_connection: true  # Access historical visit data
+    database_access:
+      tables:
+        - identified_businesses  # Read for visit history
+        - user_location_history  # Read recent locations
+      queries:
+        - name: get_last_business_visited
+          sql: "SELECT business_id, name, category FROM identified_businesses WHERE device_id = $1 ORDER BY timestamp DESC LIMIT 1"
+        - name: get_current_location
+          sql: "SELECT latitude, longitude, address FROM geocoded_locations WHERE device_id = $1 ORDER BY timestamp DESC LIMIT 1"
+        - name: get_visit_frequency
+          sql: "SELECT business_id, COUNT(*) as visit_count FROM identified_businesses WHERE device_id = $1 AND timestamp > NOW() - INTERVAL '30 days' GROUP BY business_id"
+    schema_mappings:
+      input_schema: shared/schemas/location/address/v1.json
+      output_schema: shared/schemas/location/business/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 20
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 30
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.2
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - location.georegion.detected
+      - location.address.geocoded
+      - location.business.identified
+    output_topics: []
+    configuration:
+      batch_size: 50
+      flush_interval_ms: 10000
+      tables:
+        - georegion_presence  # High-volume time series
+        - geocoded_locations
+        - identified_businesses
+      hypertable_config:
+        georegion_presence:
+          time_column: timestamp
+          chunk_time_interval: 1 hour  # Very granular for high volume
+          compression_after: 6 hours   # Compress quickly
+          retention_days: 30          # Keep detailed data for 30 days
+        geocoded_locations:
+          time_column: timestamp
+          chunk_time_interval: 1 day
+          compression_after: 7 days
+          retention_days: 90
+        identified_businesses:
+          time_column: timestamp
+          chunk_time_interval: 1 day
+          compression_after: 7 days
+          retention_days: 365
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

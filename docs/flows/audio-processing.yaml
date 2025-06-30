@@ -1,0 +1,121 @@
+name: audio_processing
+description: Process raw audio through VAD, speech-to-text, and environment classification
+priority: critical
+data_volume:
+  expected_events_per_second: 10  # 10Hz audio chunks
+  average_event_size_bytes: 32000  # ~2 seconds of audio at 16kHz
+  peak_multiplier: 2
+
+stages:
+  - name: voice_activity_detection
+    service:
+      name: vad-processor
+      image: loom/vad-processor:latest
+      replicas: 2
+    input_topics:
+      - device.audio.raw
+    output_topics:
+      - media.audio.vad_filtered
+    error_topic: processing.errors.vad
+    configuration:
+      model: silero-vad
+      sample_rate: 16000
+      threshold: 0.5
+      min_speech_duration_ms: 250
+      max_speech_duration_s: 15
+    schema_mappings:
+      input_schema: shared/schemas/device/audio/raw/v1.json
+      output_schema: shared/schemas/media/audio/vad_filtered/v1.json
+    processing:
+      batch_size: 1  # Process immediately for low latency
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 3
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.05
+
+  - name: speech_to_text
+    service:
+      name: stt-processor
+      image: loom/stt-processor:latest
+      replicas: 3
+    input_topics:
+      - media.audio.vad_filtered
+    output_topics:
+      - media.text.transcribed.words
+    error_topic: processing.errors.stt
+    configuration:
+      model: nvidia/parakeet-tdt-1.1b
+      language: en
+      enable_timestamps: true
+      enable_speaker_diarization: false
+    schema_mappings:
+      input_schema: shared/schemas/media/audio/vad_filtered/v1.json
+      output_schema: shared/schemas/media/text/transcribed/v1.json
+    processing:
+      batch_size: 5  # Batch for GPU efficiency
+      timeout_seconds: 30
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.1
+
+  - name: environment_classification
+    service:
+      name: audio-classifier
+      image: loom/audio-classifier:latest
+      replicas: 1
+    input_topics:
+      - media.audio.vad_filtered
+    output_topics:
+      - media.audio.environment_classified
+    error_topic: processing.errors.audio_classifier
+    configuration:
+      model: microsoft/unispeech-sat-base
+      categories:
+        - indoor
+        - outdoor
+        - vehicle
+        - crowd
+        - quiet
+    schema_mappings:
+      input_schema: shared/schemas/media/audio/vad_filtered/v1.json
+      output_schema: shared/schemas/media/audio/environment/v1.json
+    processing:
+      batch_size: 10
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 1.0
+      alert_on_error_rate: 0.2
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - media.text.transcribed.words
+      - media.audio.environment_classified
+    output_topics: []  # Terminal stage
+    configuration:
+      batch_size: 100
+      flush_interval_ms: 5000
+      tables:
+        - transcripts
+        - audio_environments
+    processing:
+      batch_size: 100
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

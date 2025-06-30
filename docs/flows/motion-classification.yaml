@@ -1,0 +1,130 @@
+name: motion_classification
+description: Process accelerometer data to detect motion patterns and classify activities
+priority: medium
+data_volume:
+  expected_events_per_second: 50  # 50Hz accelerometer sampling
+  average_event_size_bytes: 100
+  peak_multiplier: 1.5  # Consistent data rate
+
+stages:
+  - name: data_aggregation
+    service:
+      name: accelerometer-aggregator
+      image: loom/accelerometer-aggregator:latest
+      replicas: 2
+    input_topics:
+      - device.sensor.accelerometer.raw
+    output_topics:
+      - device.sensor.accelerometer.windowed
+    error_topic: processing.errors.accelerometer
+    configuration:
+      window_size_ms: 5000  # 5-second windows
+      overlap_ms: 1000  # 1-second overlap
+      features:
+        - mean
+        - std_dev
+        - magnitude
+        - peak_frequency
+    schema_mappings:
+      input_schema: shared/schemas/device/sensor/accelerometer/v1.json
+      output_schema: shared/schemas/device/sensor/accelerometer/windowed/v1.json
+    processing:
+      batch_size: 250  # 5 seconds of 50Hz data
+      timeout_seconds: 2
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.05
+
+  - name: significant_motion_detection
+    service:
+      name: motion-detector
+      image: loom/motion-detector:latest
+      replicas: 1
+    input_topics:
+      - device.sensor.accelerometer.windowed
+    output_topics:
+      - motion.events.significant
+    configuration:
+      threshold_g: 0.1  # Acceleration threshold in g
+      min_duration_ms: 500
+      debounce_ms: 2000
+    schema_mappings:
+      input_schema: shared/schemas/device/sensor/accelerometer/windowed/v1.json
+      output_schema: shared/schemas/motion/events/significant/v1.json
+    processing:
+      batch_size: 10
+      timeout_seconds: 1
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.2
+      alert_on_error_rate: 0.1
+
+  - name: activity_classification
+    service:
+      name: activity-classifier
+      image: loom/activity-classifier:latest
+      replicas: 2
+    input_topics:
+      - device.sensor.accelerometer.windowed
+    output_topics:
+      - motion.classification.activity
+    error_topic: processing.errors.activity_classification
+    configuration:
+      model: tensorflow/activity-recognition
+      activities:
+        - still
+        - walking
+        - running
+        - cycling
+        - driving
+        - public_transport
+      confidence_threshold: 0.7
+    schema_mappings:
+      input_schema: shared/schemas/device/sensor/accelerometer/windowed/v1.json
+      output_schema: shared/schemas/motion/classification/activity/v1.json
+    processing:
+      batch_size: 20
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 1.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - device.sensor.accelerometer.raw
+      - motion.events.significant
+      - motion.classification.activity
+    output_topics: []
+    configuration:
+      batch_size: 500
+      flush_interval_ms: 5000
+      tables:
+        - accelerometer_raw
+        - significant_motion_events
+        - activity_classifications
+      hypertable_config:
+        time_column: timestamp
+        chunk_time_interval: 1 hour
+        compression_after: 1 day
+        retention_days: 7  # High volume, short retention
+    processing:
+      batch_size: 500
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

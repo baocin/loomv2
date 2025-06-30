@@ -1,0 +1,121 @@
+name: screenshot_ocr
+description: Extract text from screenshots using OCR and persist to database
+priority: high
+data_volume:
+  expected_events_per_second: 0.1  # Screenshot every 10 seconds
+  average_event_size_bytes: 2000000  # ~2MB per screenshot
+  peak_multiplier: 3
+
+stages:
+  - name: image_preprocessing
+    service:
+      name: image-preprocessor
+      image: loom/image-preprocessor:latest
+      replicas: 2
+    input_topics:
+      - device.image.screenshot.raw
+    output_topics:
+      - media.image.screenshot.preprocessed
+    error_topic: processing.errors.image_preprocessing
+    configuration:
+      operations:
+        - resize_max_dimension: 2048  # Limit size for OCR
+        - convert_format: png
+        - enhance_contrast: true
+        - detect_text_regions: true
+    schema_mappings:
+      input_schema: shared/schemas/device/image/screenshot/v1.json
+      output_schema: shared/schemas/media/image/preprocessed/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.1
+
+  - name: text_extraction
+    service:
+      name: ocr-processor
+      image: loom/ocr-processor:latest
+      replicas: 3
+    input_topics:
+      - media.image.screenshot.preprocessed
+    output_topics:
+      - media.text.ocr_extracted
+    error_topic: processing.errors.ocr
+    configuration:
+      engine: tesseract  # Alternative: paddle-ocr, easyocr
+      languages:
+        - eng
+        - spa
+      output_format: hocr  # Includes position data
+      confidence_threshold: 0.6
+    schema_mappings:
+      input_schema: shared/schemas/media/image/preprocessed/v1.json
+      output_schema: shared/schemas/media/text/ocr/v1.json
+    processing:
+      batch_size: 1  # OCR is memory intensive
+      timeout_seconds: 30
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 10
+    monitoring:
+      sla_seconds: 5.0
+      alert_on_error_rate: 0.15
+
+  - name: text_postprocessing
+    service:
+      name: text-postprocessor
+      image: loom/text-postprocessor:latest
+      replicas: 1
+    input_topics:
+      - media.text.ocr_extracted
+    output_topics:
+      - media.text.ocr_cleaned
+    configuration:
+      operations:
+        - spell_check: true
+        - merge_fragments: true
+        - detect_layout: true  # Headers, paragraphs, etc.
+        - extract_entities: true  # URLs, emails, dates
+    schema_mappings:
+      input_schema: shared/schemas/media/text/ocr/v1.json
+      output_schema: shared/schemas/media/text/cleaned/v1.json
+    processing:
+      batch_size: 10
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 1.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - media.text.ocr_cleaned
+    output_topics: []
+    configuration:
+      batch_size: 50
+      flush_interval_ms: 10000
+      tables:
+        - screenshot_text
+      indexes:
+        - full_text_search
+        - extracted_entities
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

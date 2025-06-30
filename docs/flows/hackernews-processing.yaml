@@ -1,0 +1,118 @@
+name: hackernews_processing
+description: Process liked/saved Hacker News items with embeddings
+priority: low
+data_volume:
+  expected_events_per_second: 0.0001  # ~10 items per day
+  average_event_size_bytes: 5000
+  peak_multiplier: 50  # Bulk import
+
+stages:
+  - name: hn_scraper
+    service:
+      name: hn-scraper
+      image: loom/hn-scraper:latest
+      replicas: 1
+    input_topics: []  # Triggered by cron
+    output_topics:
+      - external.hackernews.liked
+    error_topic: processing.errors.hn_scrape
+    configuration:
+      api_endpoints:
+        - favorites  # If user has API access
+        - saved_stories
+      scrape_interval_hours: 6
+      fetch_comments: true
+      max_items_per_run: 100
+    schema_mappings:
+      output_schema: shared/schemas/external/hackernews/item/v1.json
+    processing:
+      batch_size: 20
+      timeout_seconds: 60
+      retry_policy:
+        max_retries: 3
+        backoff_seconds: 3600  # 1 hour
+    monitoring:
+      sla_seconds: 30.0
+      alert_on_error_rate: 0.3
+
+  - name: content_fetcher
+    service:
+      name: content-fetcher
+      image: loom/content-fetcher:latest
+      replicas: 2
+    input_topics:
+      - external.hackernews.liked
+    output_topics:
+      - external.hackernews.content_fetched
+    configuration:
+      fetch_linked_content: true
+      use_reader_mode: true  # Extract main content
+      max_content_size_mb: 10
+      timeout_seconds: 30
+    schema_mappings:
+      input_schema: shared/schemas/external/hackernews/item/v1.json
+      output_schema: shared/schemas/external/hackernews/enriched/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 45
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 60
+    monitoring:
+      sla_seconds: 20.0
+      alert_on_error_rate: 0.2
+
+  - name: text_embedding
+    service:
+      name: embedding-generator
+      image: loom/embedding-generator:latest
+      replicas: 2
+    input_topics:
+      - external.hackernews.content_fetched
+    output_topics:
+      - external.hackernews.embedded
+    error_topic: processing.errors.embedding
+    configuration:
+      model: sentence-transformers/all-MiniLM-L6-v2
+      dimensions: 384
+      batch_size: 32
+      include_fields:
+        - title
+        - content_summary
+        - top_comments
+    schema_mappings:
+      input_schema: shared/schemas/external/hackernews/enriched/v1.json
+      output_schema: shared/schemas/external/hackernews/embedded/v1.json
+    processing:
+      batch_size: 32
+      timeout_seconds: 15
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 10
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 1
+    input_topics:
+      - external.hackernews.embedded
+    output_topics: []
+    configuration:
+      batch_size: 20
+      flush_interval_ms: 60000
+      tables:
+        - hackernews_items
+        - hackernews_embeddings
+    processing:
+      batch_size: 20
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.01

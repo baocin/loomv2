@@ -1,0 +1,147 @@
+# JSON Schema for Loom v2 Flow Definitions
+# This schema validates the structure of flow definition files
+
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Loom Flow Definition"
+type: object
+required:
+  - name
+  - description
+  - priority
+  - stages
+properties:
+  name:
+    type: string
+    pattern: "^[a-z0-9_]+$"
+    description: "Unique identifier for the flow"
+  
+  description:
+    type: string
+    description: "Human-readable description of what this flow does"
+  
+  priority:
+    type: string
+    enum: ["critical", "high", "medium", "low"]
+    description: "Implementation priority"
+  
+  data_volume:
+    type: object
+    properties:
+      expected_events_per_second:
+        type: number
+      average_event_size_bytes:
+        type: number
+      peak_multiplier:
+        type: number
+        default: 3
+  
+  stages:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      required:
+        - name
+        - service
+        - input_topics
+        - output_topics
+      properties:
+        name:
+          type: string
+          description: "Stage identifier"
+        
+        service:
+          type: object
+          required:
+            - name
+            - image
+          properties:
+            name:
+              type: string
+            image:
+              type: string
+            replicas:
+              type: integer
+              minimum: 1
+              default: 1
+        
+        input_topics:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z0-9._]+$"
+        
+        output_topics:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-z0-9._]+$"
+        
+        error_topic:
+          type: string
+          pattern: "^[a-z0-9._]+$"
+        
+        configuration:
+          type: object
+          description: "Stage-specific configuration"
+        
+        database_access:
+          type: object
+          description: "Database access configuration for services that read from DB"
+          properties:
+            tables:
+              type: array
+              items:
+                type: string
+              description: "List of tables this service can access"
+            queries:
+              type: array
+              items:
+                type: object
+                required:
+                  - name
+                  - sql
+                properties:
+                  name:
+                    type: string
+                  sql:
+                    type: string
+                  description:
+                    type: string
+        
+        schema_mappings:
+          type: object
+          properties:
+            input_schema:
+              type: string
+              description: "Path to input JSON schema"
+            output_schema:
+              type: string
+              description: "Path to output JSON schema"
+        
+        processing:
+          type: object
+          properties:
+            batch_size:
+              type: integer
+              minimum: 1
+            timeout_seconds:
+              type: integer
+              minimum: 1
+            retry_policy:
+              type: object
+              properties:
+                max_retries:
+                  type: integer
+                backoff_seconds:
+                  type: integer
+        
+        monitoring:
+          type: object
+          properties:
+            sla_seconds:
+              type: number
+              description: "Expected processing time per event"
+            alert_on_error_rate:
+              type: number
+              description: "Error rate threshold for alerting (0-1)"

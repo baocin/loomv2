@@ -1,0 +1,98 @@
+name: power_state_processing
+description: Monitor device power states and charging patterns
+priority: medium
+data_volume:
+  expected_events_per_second: 0.1  # Every 10 seconds
+  average_event_size_bytes: 200
+  peak_multiplier: 1.5
+
+stages:
+  - name: power_enrichment
+    service:
+      name: power-enricher
+      image: loom/power-enricher:latest
+      replicas: 1
+    input_topics:
+      - device.state.power.raw
+    output_topics:
+      - device.state.power.enriched
+    configuration:
+      calculate:
+        - charging_rate
+        - estimated_time_to_full
+        - estimated_time_to_empty
+        - power_consumption_rate
+        - charging_session_id
+      thresholds:
+        low_battery: 20
+        critical_battery: 10
+    schema_mappings:
+      input_schema: shared/schemas/device/state/power/v1.json
+      output_schema: shared/schemas/device/state/power/enriched/v1.json
+    processing:
+      batch_size: 30  # 5 minutes of data
+      timeout_seconds: 2
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.05
+
+  - name: pattern_detection
+    service:
+      name: power-pattern-detector
+      image: loom/power-pattern-detector:latest
+      replicas: 1
+    input_topics:
+      - device.state.power.enriched
+    output_topics:
+      - device.state.power.patterns
+    configuration:
+      patterns:
+        - charging_locations  # Where device is typically charged
+        - charging_schedule   # When device is typically charged
+        - usage_patterns     # High/low consumption periods
+        - battery_health     # Degradation over time
+    schema_mappings:
+      input_schema: shared/schemas/device/state/power/enriched/v1.json
+      output_schema: shared/schemas/device/state/power/patterns/v1.json
+    processing:
+      batch_size: 100
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 1
+    input_topics:
+      - device.state.power.enriched
+      - device.state.power.patterns
+    output_topics: []
+    configuration:
+      batch_size: 100
+      flush_interval_ms: 30000
+      tables:
+        - power_states
+        - power_patterns
+      hypertable_config:
+        time_column: timestamp
+        chunk_time_interval: 1 day
+        compression_after: 7 days
+        retention_days: 30
+    processing:
+      batch_size: 100
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

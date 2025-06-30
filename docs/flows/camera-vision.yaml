@@ -1,0 +1,235 @@
+name: camera_vision_processing
+description: Process camera images for object detection, face analysis, and 3D reconstruction
+priority: high
+data_volume:
+  expected_events_per_second: 0.03  # ~1-2 images per minute
+  average_event_size_bytes: 3000000  # ~3MB per image
+  peak_multiplier: 5
+
+stages:
+  - name: image_preprocessing
+    service:
+      name: vision-preprocessor
+      image: loom/vision-preprocessor:latest
+      replicas: 2
+    input_topics:
+      - device.image.camera.raw
+    output_topics:
+      - media.image.camera.preprocessed
+    error_topic: processing.errors.vision_preprocessing
+    configuration:
+      operations:
+        - auto_orient: true
+        - resize_max: 2048
+        - normalize: true
+        - detect_blur: true
+      split_front_back: true  # Separate front/back camera
+    schema_mappings:
+      input_schema: shared/schemas/device/image/camera/v1.json
+      output_schema: shared/schemas/media/image/preprocessed/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.1
+
+  - name: object_detection
+    service:
+      name: moondream-processor
+      image: loom/moondream-processor:latest
+      replicas: 3
+    input_topics:
+      - media.image.camera.preprocessed
+    output_topics:
+      - media.image.objects_detected
+    error_topic: processing.errors.object_detection
+    configuration:
+      model: vikhyatk/moondream2
+      tasks:
+        - object_detection
+        - scene_description
+        - text_reading
+      confidence_threshold: 0.5
+      max_objects: 50
+    schema_mappings:
+      input_schema: shared/schemas/media/image/preprocessed/v1.json
+      output_schema: shared/schemas/media/image/objects/v1.json
+    processing:
+      batch_size: 1  # GPU memory constraint
+      timeout_seconds: 30
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 10
+    monitoring:
+      sla_seconds: 5.0
+      alert_on_error_rate: 0.15
+
+  - name: object_hashing
+    service:
+      name: object-hasher
+      image: loom/object-hasher:latest
+      replicas: 2
+    input_topics:
+      - media.image.objects_detected
+    output_topics:
+      - media.image.objects_hashed
+    configuration:
+      algorithm: phash  # Perceptual hashing
+      hash_size: 256
+      similarity_threshold: 0.85
+      track_across_frames: true
+    schema_mappings:
+      input_schema: shared/schemas/media/image/objects/v1.json
+      output_schema: shared/schemas/media/image/objects/hashed/v1.json
+    processing:
+      batch_size: 10
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 1.0
+      alert_on_error_rate: 0.1
+
+  - name: face_detection
+    service:
+      name: face-detector
+      image: loom/face-detector:latest
+      replicas: 2
+    input_topics:
+      - media.image.camera.preprocessed
+    output_topics:
+      - media.image.faces_detected
+    error_topic: processing.errors.face_detection
+    configuration:
+      model: opencv/haarcascade
+      min_face_size: 50
+      detect_landmarks: true
+      anonymize_option: blur  # Privacy option
+    schema_mappings:
+      input_schema: shared/schemas/media/image/preprocessed/v1.json
+      output_schema: shared/schemas/media/image/faces/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.1
+
+  - name: pose_detection
+    service:
+      name: pose-detector
+      image: loom/pose-detector:latest
+      replicas: 2
+    input_topics:
+      - media.image.faces_detected
+    output_topics:
+      - media.image.pose_detected
+    configuration:
+      model: mediapipe/pose
+      detect_body: true
+      detect_hands: true
+      smoothing: true
+    schema_mappings:
+      input_schema: shared/schemas/media/image/faces/v1.json
+      output_schema: shared/schemas/media/image/pose/v1.json
+    processing:
+      batch_size: 3
+      timeout_seconds: 15
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.2
+
+  - name: gaze_detection
+    service:
+      name: gaze-detector
+      image: loom/gaze-detector:latest
+      replicas: 1
+    input_topics:
+      - media.image.faces_detected
+    output_topics:
+      - media.image.gaze_detected
+    configuration:
+      model: eth-xgaze
+      calibration_required: false
+      output_format: vector_3d
+    schema_mappings:
+      input_schema: shared/schemas/media/image/faces/v1.json
+      output_schema: shared/schemas/media/image/gaze/v1.json
+    processing:
+      batch_size: 5
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.25
+
+  - name: slam_processor
+    service:
+      name: slam-processor
+      image: loom/slam-processor:latest
+      replicas: 1
+    input_topics:
+      - media.image.camera.preprocessed
+    output_topics:
+      - spatial.slam.mapping
+    configuration:
+      algorithm: orbslam3
+      mode: monocular
+      keyframe_interval: 10
+      map_format: pointcloud
+    schema_mappings:
+      input_schema: shared/schemas/media/image/preprocessed/v1.json
+      output_schema: shared/schemas/spatial/slam/v1.json
+    processing:
+      batch_size: 1
+      timeout_seconds: 60
+      retry_policy:
+        max_retries: 0  # SLAM needs continuity
+        backoff_seconds: 0
+    monitoring:
+      sla_seconds: 10.0
+      alert_on_error_rate: 0.3
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 3
+    input_topics:
+      - media.image.objects_hashed
+      - media.image.pose_detected
+      - media.image.gaze_detected
+      - spatial.slam.mapping
+    output_topics: []
+    configuration:
+      batch_size: 20
+      flush_interval_ms: 10000
+      tables:
+        - detected_objects
+        - object_hashes
+        - face_detections
+        - pose_detections
+        - gaze_vectors
+        - slam_maps
+    processing:
+      batch_size: 20
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.01

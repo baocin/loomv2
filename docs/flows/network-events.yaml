@@ -1,0 +1,96 @@
+name: network_events_processing
+description: Track WiFi connections and network environment changes
+priority: low
+data_volume:
+  expected_events_per_second: 0.01  # Network changes are infrequent
+  average_event_size_bytes: 500
+  peak_multiplier: 10  # Burst when moving locations
+
+stages:
+  - name: network_enrichment
+    service:
+      name: network-enricher
+      image: loom/network-enricher:latest
+      replicas: 1
+    input_topics:
+      - device.network.wifi.raw
+    output_topics:
+      - device.network.wifi.enriched
+    configuration:
+      enrich_with:
+        - network_name_category  # Home, Work, Public, etc.
+        - security_level        # Open, WPA2, WPA3
+        - connection_duration
+        - signal_quality
+        - known_network        # Previously connected
+    schema_mappings:
+      input_schema: shared/schemas/device/network/wifi/v1.json
+      output_schema: shared/schemas/device/network/wifi/enriched/v1.json
+    processing:
+      batch_size: 10
+      timeout_seconds: 2
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.1
+
+  - name: location_correlation
+    service:
+      name: network-location-correlator
+      image: loom/network-location-correlator:latest
+      replicas: 1
+    input_topics:
+      - device.network.wifi.enriched
+      - location.address.geocoded  # From GPS pipeline
+    output_topics:
+      - device.network.location_correlated
+    configuration:
+      correlation_window_minutes: 5
+      min_confidence: 0.7
+      cache_known_networks: true
+    schema_mappings:
+      input_schema: 
+        - shared/schemas/device/network/wifi/enriched/v1.json
+        - shared/schemas/location/address/v1.json
+      output_schema: shared/schemas/device/network/correlated/v1.json
+    processing:
+      batch_size: 20
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 1
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.2
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 1
+    input_topics:
+      - device.network.wifi.enriched
+      - device.network.location_correlated
+    output_topics: []
+    configuration:
+      batch_size: 50
+      flush_interval_ms: 60000
+      tables:
+        - network_connections
+        - network_locations
+      hypertable_config:
+        time_column: timestamp
+        chunk_time_interval: 7 days
+        compression_after: 30 days
+        retention_days: 90
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

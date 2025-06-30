@@ -1,0 +1,64 @@
+name: app_lifecycle_processing
+description: Process Android app lifecycle events and persist to TimescaleDB
+priority: high
+data_volume:
+  expected_events_per_second: 2  # App switches happen frequently
+  average_event_size_bytes: 500
+  peak_multiplier: 10  # Burst during heavy multitasking
+
+stages:
+  - name: event_enrichment
+    service:
+      name: app-event-enricher
+      image: loom/app-event-enricher:latest
+      replicas: 1
+    input_topics:
+      - os.events.app_lifecycle.raw
+    output_topics:
+      - os.events.app_lifecycle.enriched
+    error_topic: processing.errors.app_lifecycle
+    configuration:
+      enrich_with:
+        - app_category  # Productivity, Social, Entertainment, etc.
+        - app_permissions  # Track permission usage
+        - session_duration  # Calculate time in foreground
+    schema_mappings:
+      input_schema: shared/schemas/os/events/app_lifecycle/v1.json
+      output_schema: shared/schemas/os/events/app_lifecycle/enriched/v1.json
+    processing:
+      batch_size: 20
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 1
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.05
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - os.events.app_lifecycle.enriched
+    output_topics: []
+    configuration:
+      batch_size: 100
+      flush_interval_ms: 5000
+      tables:
+        - app_lifecycle_events
+      hypertable_config:
+        time_column: event_time
+        chunk_time_interval: 1 day
+        compression_after: 7 days
+        retention_days: 30
+    processing:
+      batch_size: 100
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.1
+      alert_on_error_rate: 0.01

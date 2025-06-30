@@ -1,0 +1,130 @@
+name: email_processing
+description: Fetch and process emails with text embeddings for semantic search
+priority: medium
+data_volume:
+  expected_events_per_second: 0.01  # ~50-100 emails per day
+  average_event_size_bytes: 50000  # ~50KB per email with attachments
+  peak_multiplier: 10  # Bulk fetches
+
+stages:
+  - name: email_fetcher
+    service:
+      name: email-fetcher
+      image: loom/email-fetcher:latest
+      replicas: 1
+    input_topics: []  # Triggered by cron
+    output_topics:
+      - external.email.raw
+    error_topic: processing.errors.email_fetch
+    configuration:
+      providers:
+        - gmail
+        - outlook
+        - imap_generic
+      fetch_interval_minutes: 15
+      fetch_folders:
+        - INBOX
+        - Sent
+      max_age_days: 30
+      include_attachments: true
+    schema_mappings:
+      output_schema: shared/schemas/external/email/raw/v1.json
+    processing:
+      batch_size: 50
+      timeout_seconds: 60
+      retry_policy:
+        max_retries: 3
+        backoff_seconds: 300  # 5 minutes
+    monitoring:
+      sla_seconds: 30.0
+      alert_on_error_rate: 0.2
+
+  - name: email_parser
+    service:
+      name: email-parser
+      image: loom/email-parser:latest
+      replicas: 2
+    input_topics:
+      - external.email.raw
+    output_topics:
+      - external.email.parsed
+    configuration:
+      extract:
+        - headers
+        - body_text
+        - body_html
+        - attachments_metadata
+        - thread_id
+      sanitize_html: true
+      extract_quotes: true  # Separate quoted replies
+    schema_mappings:
+      input_schema: shared/schemas/external/email/raw/v1.json
+      output_schema: shared/schemas/external/email/parsed/v1.json
+    processing:
+      batch_size: 20
+      timeout_seconds: 10
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 5
+    monitoring:
+      sla_seconds: 2.0
+      alert_on_error_rate: 0.1
+
+  - name: text_embedding
+    service:
+      name: embedding-generator
+      image: loom/embedding-generator:latest
+      replicas: 2
+    input_topics:
+      - external.email.parsed
+    output_topics:
+      - external.email.embedded
+    error_topic: processing.errors.embedding
+    configuration:
+      model: sentence-transformers/all-MiniLM-L6-v2
+      dimensions: 384
+      batch_size: 32
+      include_fields:
+        - subject
+        - body_text
+        - sender
+    schema_mappings:
+      input_schema: shared/schemas/external/email/parsed/v1.json
+      output_schema: shared/schemas/external/email/embedded/v1.json
+    processing:
+      batch_size: 32
+      timeout_seconds: 15
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 10
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - external.email.embedded
+    output_topics: []
+    configuration:
+      batch_size: 50
+      flush_interval_ms: 30000
+      tables:
+        - emails
+        - email_embeddings
+      vector_indexes:
+        - embedding_column: embedding
+          index_type: ivfflat
+          lists: 100
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.01

@@ -1,0 +1,128 @@
+name: calendar_processing
+description: Fetch calendar events and generate embeddings for temporal context
+priority: medium
+data_volume:
+  expected_events_per_second: 0.001  # ~100 events per day
+  average_event_size_bytes: 2000
+  peak_multiplier: 20  # Bulk sync
+
+stages:
+  - name: calendar_fetcher
+    service:
+      name: calendar-fetcher
+      image: loom/calendar-fetcher:latest
+      replicas: 1
+    input_topics: []  # Triggered by cron
+    output_topics:
+      - external.calendar.raw
+    error_topic: processing.errors.calendar_fetch
+    configuration:
+      providers:
+        - google_calendar
+        - outlook_calendar
+        - caldav_generic
+      sync_interval_minutes: 30
+      time_range:
+        past_days: 30
+        future_days: 60
+      include_declined: false
+    schema_mappings:
+      output_schema: shared/schemas/external/calendar/raw/v1.json
+    processing:
+      batch_size: 100
+      timeout_seconds: 30
+      retry_policy:
+        max_retries: 3
+        backoff_seconds: 300
+    monitoring:
+      sla_seconds: 20.0
+      alert_on_error_rate: 0.2
+
+  - name: event_enrichment
+    service:
+      name: calendar-enricher
+      image: loom/calendar-enricher:latest
+      replicas: 1
+    input_topics:
+      - external.calendar.raw
+    output_topics:
+      - external.calendar.enriched
+    configuration:
+      enrich_with:
+        - attendee_count
+        - meeting_type  # 1:1, team, external
+        - duration_category  # short, medium, long
+        - time_of_day  # morning, afternoon, evening
+        - recurring_pattern
+    schema_mappings:
+      input_schema: shared/schemas/external/calendar/raw/v1.json
+      output_schema: shared/schemas/external/calendar/enriched/v1.json
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 1.0
+      alert_on_error_rate: 0.1
+
+  - name: text_embedding
+    service:
+      name: embedding-generator
+      image: loom/embedding-generator:latest
+      replicas: 2
+    input_topics:
+      - external.calendar.enriched
+    output_topics:
+      - external.calendar.embedded
+    error_topic: processing.errors.embedding
+    configuration:
+      model: sentence-transformers/all-MiniLM-L6-v2
+      dimensions: 384
+      batch_size: 32
+      include_fields:
+        - title
+        - description
+        - location
+        - attendees
+    schema_mappings:
+      input_schema: shared/schemas/external/calendar/enriched/v1.json
+      output_schema: shared/schemas/external/calendar/embedded/v1.json
+    processing:
+      batch_size: 32
+      timeout_seconds: 15
+      retry_policy:
+        max_retries: 2
+        backoff_seconds: 10
+    monitoring:
+      sla_seconds: 3.0
+      alert_on_error_rate: 0.1
+
+  - name: database_writer
+    service:
+      name: timescale-writer
+      image: loom/timescale-writer:latest
+      replicas: 2
+    input_topics:
+      - external.calendar.embedded
+    output_topics: []
+    configuration:
+      batch_size: 50
+      flush_interval_ms: 30000
+      tables:
+        - calendar_events
+        - calendar_embeddings
+      hypertable_config:
+        time_column: start_time
+        chunk_time_interval: 7 days
+        retention_days: 90
+    processing:
+      batch_size: 50
+      timeout_seconds: 5
+      retry_policy:
+        max_retries: 5
+        backoff_seconds: 2
+    monitoring:
+      sla_seconds: 0.5
+      alert_on_error_rate: 0.01
