@@ -64,7 +64,9 @@
       "Bash(npm install)",
       "Bash(npm run build:*)",
       "Bash(true)",
-      "Bash(pre-commit run:*)"
+      "Bash(pre-commit run:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter build:*)"
     ]
   },
   "enableAllProjectMcpServers": false
