@@ -135,14 +135,6 @@ class KafkaTopicManager:
                 },
             },
             # Sprint 5.5: New data ingestion topics
-            "device.text.notes.raw": {
-                "partitions": settings.kafka_default_partitions,
-                "replication_factor": settings.kafka_default_replication_factor,
-                "config": {
-                    "retention.ms": "2592000000",  # 30 days
-                    "compression.type": "producer",
-                },
-            },
             "digital.notes.raw": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,

@@ -29,11 +29,13 @@ const getStatusBorder = (status: string) => {
 
 export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
   const metrics = data.metrics as any
+  const health = data.health as any
 
   return (
     <div className={clsx(
       'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
       getStatusBorder(data.status),
+      health?.errorCount > 0 && 'border-red-500',
       (data as any).isPulsing && 'animate-pulse-border'
     )}>
       <Handle type="target" position={Position.Left} />
@@ -54,6 +56,13 @@ export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
         </div>
       )}
 
+      {/* Error indicator */}
+      {health?.errorCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {health.errorCount > 99 ? '99+' : health.errorCount}
+        </div>
+      )}
+
       <Handle type="source" position={Position.Right} />
     </div>
   )
@@ -61,11 +70,13 @@ export const KafkaTopicNode: React.FC<NodeProps> = ({ data }) => {
 
 export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
   const metrics = data.metrics as any
+  const health = data.health as any
 
   return (
     <div className={clsx(
       'w-32 h-32 shadow-lg rounded-full bg-white border-2 flex flex-col items-center justify-center relative',
-      getStatusBorder(data.status)
+      getStatusBorder(data.status),
+      health?.errorCount > 0 && 'border-red-500 border-4'
     )}>
       <Handle type="target" position={Position.Left} />
 
@@ -78,6 +89,20 @@ export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
       {data.description && (
         <div className="text-xs text-gray-600 text-center mt-1 leading-tight max-w-full overflow-hidden">
           {data.description.slice(0, 20)}...
+        </div>
+      )}
+
+      {/* Error indicator */}
+      {health?.errorCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {health.errorCount > 99 ? '99+' : health.errorCount}
+        </div>
+      )}
+
+      {/* Error rate indicator */}
+      {health?.errorRate > 0 && (
+        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-xs text-red-600 font-semibold">
+          Error Rate: {(health.errorRate * 100).toFixed(1)}%
         </div>
       )}
 
@@ -95,10 +120,13 @@ export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
 }
 
 export const DatabaseNode: React.FC<NodeProps> = ({ data }) => {
+  const health = data.health as any
+
   return (
     <div className={clsx(
-      'px-4 py-3 shadow-lg rounded-lg bg-white border-2',
-      getStatusBorder(data.status)
+      'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
+      getStatusBorder(data.status),
+      health?.errorCount > 0 && 'border-red-500'
     )}>
       <Handle type="target" position={Position.Left} />
 
@@ -111,15 +139,25 @@ export const DatabaseNode: React.FC<NodeProps> = ({ data }) => {
       {data.description && (
         <div className="text-xs text-gray-600">{data.description}</div>
       )}
+
+      {/* Error indicator */}
+      {health?.errorCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {health.errorCount > 99 ? '99+' : health.errorCount}
+        </div>
+      )}
     </div>
   )
 }
 
 export const ExternalNode: React.FC<NodeProps> = ({ data }) => {
+  const health = data.health as any
+
   return (
     <div className={clsx(
-      'px-4 py-3 shadow-lg rounded-lg bg-white border-2',
-      getStatusBorder(data.status)
+      'px-4 py-3 shadow-lg rounded-lg bg-white border-2 relative',
+      getStatusBorder(data.status),
+      health?.errorCount > 0 && 'border-red-500'
     )}>
       <div className="flex items-center gap-2 mb-2">
         <ExternalLink className="w-4 h-4 text-orange-600" />
@@ -129,6 +167,13 @@ export const ExternalNode: React.FC<NodeProps> = ({ data }) => {
 
       {data.description && (
         <div className="text-xs text-gray-600">{data.description}</div>
+      )}
+
+      {/* Error indicator */}
+      {health?.errorCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {health.errorCount > 99 ? '99+' : health.errorCount}
+        </div>
       )}
 
       <Handle type="source" position={Position.Right} />

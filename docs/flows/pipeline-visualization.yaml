@@ -227,6 +227,8 @@ pipeline_summary:
     models: ["Moondream", "CLIP", "Tesseract OCR"]
     input_rate: "0.01 events/sec"
     latency_target: "< 10s"
+    service_name: "twitter-ocr-processor"
+    container_name: "loomv2-twitter-ocr-processor-1"
     connections:
       inputs: ["external.twitter.images.raw"]
       outputs: ["media.image.analysis.moondream_results", "media.text.ocr_extracted", "media.image.objects_detected"]

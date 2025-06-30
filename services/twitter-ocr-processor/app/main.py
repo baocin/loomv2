@@ -70,11 +70,19 @@ class TwitterImageMessage(BaseModel):
     """Message schema for Twitter images."""
 
     trace_id: str
-    tweet_id: str
-    tweet_url: str
     device_id: Optional[str] = None
     recorded_at: str
     data: Dict[str, Any]
+    
+    @property
+    def tweet_id(self) -> str:
+        """Extract tweet_id from data field."""
+        return self.data.get("tweet_id", "")
+    
+    @property
+    def tweet_url(self) -> str:
+        """Extract tweet_url from data field."""
+        return self.data.get("tweet_url", "")
 
 
 # Health check and monitoring endpoints
