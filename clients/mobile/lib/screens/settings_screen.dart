@@ -265,42 +265,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: const Text('Reset to Default'),
               ),
             ),
-            const SizedBox(height: 32),
-            
-            // Help section
-            Card(
-              color: Colors.blue[50],
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info, color: Colors.blue[700]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Connection Help',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '• Android Emulator: Use 10.0.2.2:8000 to reach host machine\n'
-                      '• Physical Device: Use your computer\'s IP address (e.g., 192.168.1.100:8000)\n'
-                      '• Local Testing: Use localhost:8000 only when running on same device\n'
-                      '• Production: Use your deployed server URL (https://your-domain.com)',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
             const Spacer(),
             
             // App info
