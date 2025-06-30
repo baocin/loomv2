@@ -189,8 +189,9 @@ class KafkaVADConsumer:
             logger.debug(
                 "Processing audio chunk",
                 device_id=audio_chunk.device_id,
-                sample_rate=audio_chunk.sample_rate,
-                channels=audio_chunk.channels,
+                sample_rate=audio_chunk.data.sample_rate,
+                channels=audio_chunk.data.channels,
+                duration_ms=audio_chunk.data.duration_ms,
             )
 
             # Decode audio data
@@ -198,27 +199,22 @@ class KafkaVADConsumer:
 
             # Process through VAD
             segments = await self.vad_processor.process_audio(
-                audio_bytes, audio_chunk.sample_rate, audio_chunk.channels
+                audio_bytes, audio_chunk.data.sample_rate, audio_chunk.data.channels
             )
 
             # Send each speech segment to output topic
-            for segment in segments:
+            for idx, segment in enumerate(segments):
                 filtered_audio = VADFilteredAudio(
+                    timestamp=audio_chunk.timestamp,
                     device_id=audio_chunk.device_id,
-                    recorded_at=audio_chunk.recorded_at,
-                    metadata={
-                        **audio_chunk.metadata,
-                        "original_sample_rate": audio_chunk.sample_rate,
-                        "original_channels": audio_chunk.channels,
-                    },
+                    file_id=audio_chunk.trace_id,  # Use trace_id as file_id
+                    chunk_index=idx,
                     audio_data="",  # Will be set below
                     sample_rate=segment["sample_rate"],
                     channels=1,  # Always mono after processing
-                    duration_ms=segment["duration_ms"],
-                    format="pcm",
+                    duration_ms=int(segment["duration_ms"]),
                     vad_confidence=segment["confidence"],
-                    speech_start_ms=segment["start_ms"],
-                    speech_end_ms=segment["end_ms"],
+                    speech_probability=segment.get("speech_probability", segment["confidence"]),
                 )
 
                 # Encode the audio data
