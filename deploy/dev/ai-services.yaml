@@ -24,7 +24,7 @@ spec:
         image: loom/silero-vad:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 8000
+        - containerPort: 8001
         env:
         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
           value: "kafka-infra-chart:9092"
@@ -44,7 +44,7 @@ spec:
         startupProbe:
           httpGet:
             path: /healthz
-            port: 8000
+            port: 8001
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -52,7 +52,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8000
+            port: 8001
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
@@ -60,7 +60,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8000
+            port: 8001
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 5
@@ -79,8 +79,8 @@ spec:
   selector:
     app: silero-vad
   ports:
-  - port: 8000
-    targetPort: 8000
+  - port: 8001
+    targetPort: 8001
     name: http
 
 ---

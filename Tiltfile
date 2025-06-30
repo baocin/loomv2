@@ -4,6 +4,7 @@
 k8s_yaml([
     'deploy/dev/namespace.yaml',
     'deploy/dev/postgres.yaml',
+    'deploy/dev/ai-services.yaml',
 ], allow_duplicates=True)
 
 # Build and deploy ingestion-api (verified exists)

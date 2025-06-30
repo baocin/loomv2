@@ -154,8 +154,8 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   Widget _buildPowerConsumptionInfo(String sourceId) {
     final powerFactors = PowerEstimation.getDetailedPowerFactors(sourceId);
     final basePower = powerFactors['base_power'] as double;
-    final factors = powerFactors['factors'] as Map<String, dynamic>;
-    final tips = powerFactors['tips'] as List<dynamic>;
+    final factors = Map<String, dynamic>.from(powerFactors['factors'] as Map);
+    final tips = List<dynamic>.from(powerFactors['tips'] as List);
     
     return Container(
       margin: const EdgeInsets.all(16),
@@ -306,7 +306,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                 ButtonSegment(value: 'medium', label: Text('Medium')),
                 ButtonSegment(value: 'high', label: Text('High')),
               ],
-              selected: {config.customParams['accuracy'] ?? 'medium'},
+              selected: {(config.customParams['accuracy'] ?? 'medium') as String},
               onSelectionChanged: (Set<String> selected) async {
                 final customParams = Map<String, dynamic>.from(config.customParams);
                 customParams['accuracy'] = selected.first;
@@ -327,7 +327,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                 ButtonSegment(value: 16000, label: Text('16 kHz')),
                 ButtonSegment(value: 44100, label: Text('44.1 kHz')),
               ],
-              selected: {config.customParams['sample_rate'] ?? 16000},
+              selected: {(config.customParams['sample_rate'] ?? 16000) as int},
               onSelectionChanged: (Set<int> selected) async {
                 final customParams = Map<String, dynamic>.from(config.customParams);
                 customParams['sample_rate'] = selected.first;
