@@ -347,22 +347,40 @@ This table details the core data processing pipeline, showing how raw data flows
 
 ## 🚀 Sprint Planning & Development Status
 
-### Current Sprint: Sprint 5 - Evolved Architecture (4 weeks)
-**Duration**: July 6 - August 3, 2024
-**Focus**: TimescaleDB migration, AI pipeline integration, and comprehensive data infrastructure
+### Current Sprint: Sprint 6 - AI Model Integration
+**Duration**: August 4 - August 31, 2024
+**Focus**: Integrate AI models for audio, vision, and context analysis
 
-#### Sprint 5 Objectives
-1. **TimescaleDB Migration**: Migrate from PostgreSQL to TimescaleDB for 95% storage compression
-2. **AI Model Pipeline**: Deploy specialized microservices for VAD, vision analysis, and reasoning
-3. **Database Schema**: Create 57 tables with RLS, retention policies, and compression schemes
-4. **CronJob Producers**: Implement scheduled data ingestion and external scrapers
-5. **Remote Control**: Add bidirectional device command/response infrastructure
+#### Sprint 5 Accomplishments (Completed)
+1. **Android OS Event Tracking**: 
+   - Screen on/off detection with BroadcastReceiver
+   - Device lock/unlock state monitoring
+   - Power connected/disconnected events
+   - Real-time event streaming via EventChannel
 
-#### Key Deliverables
-- **Week 1-2**: TimescaleDB migration with comprehensive table schema
-- **Week 2-3**: AI model microservices (Silero VAD, MiniCPM Vision, Mistral Reasoning)
-- **Week 3**: CronJob framework and external data scrapers
-- **Week 4**: Remote control infrastructure and end-to-end integration
+2. **App Lifecycle Monitoring**:
+   - Foreground/background app tracking
+   - App launch and termination detection
+   - Duration calculation for app sessions
+   - Integration with Android UsageStats API
+
+3. **Intelligent Screenshot Capture**:
+   - Automatic skip when screen is off
+   - Skip when device is locked
+   - 5-second delay after screen on (avoid lock screen)
+   - Privacy-aware capture logic
+
+4. **API & Database Integration**:
+   - New OS event endpoints (`/os-events/*`)
+   - System monitoring endpoints (`/system/apps/*`)
+   - TimescaleDB tables for OS events
+   - Kafka topic integration
+
+5. **Mobile Client Enhancements**:
+   - Three new data sources for OS events
+   - Native Android integration via Kotlin
+   - Comprehensive permission handling
+   - Batch upload optimization
 
 #### Sprint History
 - **Sprint 0**: ✅ Infrastructure setup, pre-commit hooks, k3d environment
@@ -370,7 +388,7 @@ This table details the core data processing pipeline, showing how raw data flows
 - **Sprint 2**: ✅ Core infrastructure, schema validation
 - **Sprint 3**: ✅ Storage abstraction layer, database migrations
 - **Sprint 4**: ✅ Kafka topic auto-creation, app monitoring endpoints
-- **Sprint 5**: 🚧 In Progress - Evolved architecture implementation
+- **Sprint 5**: ✅ OS event tracking, screenshot intelligence, app lifecycle monitoring
 
 ### Development Roadmap
 
@@ -378,14 +396,18 @@ This table details the core data processing pipeline, showing how raw data flows
 - Event-driven architecture with Kafka streaming
 - FastAPI ingestion service with WebSocket support
 - Kubernetes-native deployment with Helm charts
-- Comprehensive testing framework
+- Comprehensive testing framework (71+ tests)
 - Automatic Kafka topic management
 - Device monitoring (audio, sensors, health, apps)
+- Android OS event tracking (screen state, app lifecycle)
+- Intelligent screenshot capture with privacy awareness
+- Native Android integration for system monitoring
+- Batch data upload with configurable profiles
 
-#### In Development (Sprint 5)
-- TimescaleDB time-series optimization
-- AI model microservices architecture
-- Structured LLM output processing
+#### In Development (Sprint 6)
+- TimescaleDB migration for time-series optimization
+- AI model microservices (VAD, Vision, LLM)
+- Structured LLM output processing with outlines
 - External data ingestion via CronJobs
 - Cross-device remote control system
 
@@ -666,6 +688,40 @@ Data collection is configured through battery profiles that control:
 - **Collection Interval**: How often to collect data (ms)
 - **Upload Batch Size**: Number of data points before upload
 - **Upload Interval**: Maximum time between uploads (ms)
+
+### Implementation Details
+
+#### Native Android Integration
+The OS event tracking uses native Android components:
+
+1. **BroadcastReceiver** for system events:
+   - `ScreenStateReceiver.kt` - Listens for screen and power events
+   - Registered dynamically to receive `ACTION_SCREEN_ON/OFF`, `ACTION_USER_PRESENT`
+   - Provides real-time screen state to Flutter via EventChannel
+
+2. **UsageStatsManager** for app monitoring:
+   - `AppLifecycleMonitor.kt` - Tracks app usage and lifecycle
+   - Requires `PACKAGE_USAGE_STATS` permission (special permission)
+   - Provides app launch counts, foreground time, and event history
+
+3. **Method Channels** for Flutter communication:
+   - `red.steele.loom/screen_state` - Get current screen state
+   - `red.steele.loom/app_lifecycle` - Start/stop app monitoring
+   - `red.steele.loom/app_monitoring` - Get running apps and usage stats
+
+#### Data Flow
+1. Native Android components detect OS events
+2. Events are sent to Flutter via EventChannel/MethodChannel
+3. Flutter data sources process and batch events
+4. Data collection service uploads batches to API endpoints
+5. API forwards to Kafka topics for processing
+6. TimescaleDB stores events with automatic retention
+
+#### Database Schema
+OS events are stored in TimescaleDB hypertables:
+- `os_events_system_raw` - Screen, lock, and power events
+- `os_events_app_lifecycle_raw` - App lifecycle events
+- `device_system_apps_android_raw` - Running app snapshots
 
 ---
 
