@@ -24,25 +24,25 @@ class BaseMessage(BaseModel):
 class AudioChunk(BaseMessage):
     """Audio chunk model matching device.audio.raw schema."""
 
-    audio_data: str = Field(..., description="Base64 encoded audio data")
+    chunk_data: str = Field(..., description="Base64 encoded audio data")
     sample_rate: int = Field(..., description="Audio sample rate in Hz")
     channels: int = Field(..., description="Number of audio channels")
     duration_ms: float | None = Field(None, description="Duration in milliseconds")
-    format: str = Field(default="pcm", description="Audio format")
+    format: str = Field(default="wav", description="Audio format")
 
-    @field_validator("audio_data")
+    @field_validator("chunk_data")
     @classmethod
     def validate_base64(cls, v: str) -> str:
-        """Validate that audio_data is valid base64."""
+        """Validate that chunk_data is valid base64."""
         try:
             base64.b64decode(v, validate=True)
         except Exception:
-            raise ValueError("Invalid base64 encoding for audio_data")
+            raise ValueError("Invalid base64 encoding for chunk_data")
         return v
 
     def decode_audio(self) -> bytes:
         """Decode base64 audio data to bytes."""
-        return base64.b64decode(self.audio_data)
+        return base64.b64decode(self.chunk_data)
 
 
 class VADFilteredAudio(BaseMessage):

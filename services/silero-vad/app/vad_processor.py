@@ -93,6 +93,11 @@ class VADProcessor:
     ) -> list[dict[str, Any]]:
         """Synchronous audio processing."""
         try:
+            # Check if data starts with WAV header
+            if audio_data[:4] == b'RIFF':
+                # Skip WAV header (44 bytes for standard WAV)
+                audio_data = audio_data[44:]
+            
             # Convert bytes to numpy array
             audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
             audio_array = audio_array / 32768.0  # Normalize to [-1, 1]

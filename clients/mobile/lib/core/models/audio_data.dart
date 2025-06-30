@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -53,23 +54,16 @@ class AudioChunk extends BaseMessage {
   }
 
   static Uint8List _fromBase64(String base64String) {
-    final bytes = base64String.replaceAll(RegExp(r'[^A-Za-z0-9+/=]'), '');
     try {
-      return Uint8List.fromList(
-        bytes.codeUnits.map((c) => c & 0xFF).toList(),
-      );
+      return base64Decode(base64String);
     } catch (e) {
-      // Fallback: assume it's already bytes or handle differently
+      print('Error decoding base64: $e');
       return Uint8List(0);
     }
   }
 
   static String _toBase64(Uint8List bytes) {
-    final buffer = StringBuffer();
-    for (int byte in bytes) {
-      buffer.writeCharCode(byte);
-    }
-    return buffer.toString();
+    return base64Encode(bytes);
   }
 }
 
