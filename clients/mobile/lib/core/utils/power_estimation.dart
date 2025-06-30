@@ -3,6 +3,9 @@
 /// These estimates are based on typical Android device power consumption patterns
 /// and are approximate values for planning purposes.
 
+import '../config/data_collection_config.dart';
+import 'dart:math' as math;
+
 class PowerEstimation {
   /// Power consumption levels
   static const double POWER_NEGLIGIBLE = 0.1;  // < 1% battery/hour
@@ -65,6 +68,63 @@ class PowerEstimation {
     }
     // Apply some efficiency factor for combined usage
     // (some resources like CPU are shared)
+    return total * 0.85;
+  }
+
+  /// Calculate power consumption adjusted for collection interval and batch size
+  static double calculateAdjustedPower(String sensorId, DataSourceConfigParams config) {
+    final basePower = sensorPowerConsumption[sensorId] ?? 0;
+    
+    // Default intervals for comparison (in milliseconds)
+    const defaultIntervals = {
+      'gps': 30000,              // 30 seconds
+      'accelerometer': 100,       // 100ms (10 Hz)
+      'battery': 60000,          // 1 minute
+      'network': 120000,         // 2 minutes
+      'audio': 30000,            // 30 seconds
+      'screenshot': 60000,       // 1 minute
+      'camera': 300000,          // 5 minutes
+      'screen_state': 60000,     // 1 minute (event-based, so interval less relevant)
+      'app_lifecycle': 60000,    // 1 minute (event-based, so interval less relevant)
+      'android_app_monitoring': 300000, // 5 minutes
+    };
+    
+    final defaultInterval = defaultIntervals[sensorId] ?? 60000;
+    
+    // Calculate frequency multiplier (more frequent = higher power)
+    // Use power of 0.7 for non-linear scaling (diminishing impact)
+    final frequencyMultiplier = math.pow(defaultInterval / config.collectionIntervalMs, 0.7).toDouble();
+    
+    // Calculate network efficiency based on batch size
+    // Larger batches are more efficient (less network overhead)
+    final optimalBatchSize = 20.0; // Optimal batch size for network efficiency
+    final batchEfficiency = math.min(1.0, config.uploadBatchSize / optimalBatchSize);
+    
+    // Network power factor (0.7 to 1.0, where 1.0 is least efficient)
+    final networkEfficiencyFactor = 1.0 - (batchEfficiency * 0.3);
+    
+    // For event-based sensors, frequency has less impact
+    final isEventBased = ['screen_state', 'app_lifecycle', 'battery'].contains(sensorId);
+    final adjustedFrequencyMultiplier = isEventBased ? 1.0 + (frequencyMultiplier - 1.0) * 0.3 : frequencyMultiplier;
+    
+    // Calculate final adjusted power
+    final adjustedPower = basePower * adjustedFrequencyMultiplier * networkEfficiencyFactor;
+    
+    // Ensure power doesn't exceed very high threshold
+    return math.min(adjustedPower, POWER_VERY_HIGH * 1.5);
+  }
+
+  /// Calculate combined power consumption with configurations
+  static double calculateCombinedPowerWithConfigs(Map<String, DataSourceConfigParams> configs) {
+    double total = 0;
+    
+    for (final entry in configs.entries) {
+      if (entry.value.enabled) {
+        total += calculateAdjustedPower(entry.key, entry.value);
+      }
+    }
+    
+    // Apply efficiency factor for combined usage (shared resources)
     return total * 0.85;
   }
 

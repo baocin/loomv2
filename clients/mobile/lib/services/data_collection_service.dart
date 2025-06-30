@@ -508,6 +508,20 @@ class DataCollectionService {
     return null;
   }
 
+  /// Get recent data for a specific source
+  List<dynamic> getRecentDataForSource(String sourceId, {int limit = 10}) {
+    final queue = _uploadQueues[sourceId];
+    if (queue == null || queue.isEmpty) {
+      // Try to get the last data point if queue is empty
+      final lastData = getLastDataPointForSource(sourceId);
+      return lastData != null ? [lastData] : [];
+    }
+    
+    // Return the most recent items from the queue (up to limit)
+    final startIndex = queue.length > limit ? queue.length - limit : 0;
+    return queue.sublist(startIndex).reversed.toList();
+  }
+
   /// Manually trigger data upload for all sources
   Future<void> uploadNow() async {
     await _uploadAllQueuedData();

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/data_collection_service.dart';
 import '../core/config/data_collection_config.dart';
 import '../core/utils/power_estimation.dart';
+import '../widgets/data_preview_dialog.dart';
 
 class AdvancedSettingsScreen extends StatefulWidget {
   final DataCollectionService dataService;
@@ -14,6 +16,26 @@ class AdvancedSettingsScreen extends StatefulWidget {
 
 class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   final Map<String, bool> _expandedStates = {};
+  int _globalUploadIntervalMs = 300000; // Default 5 minutes
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGlobalUploadInterval();
+  }
+
+  void _loadGlobalUploadInterval() {
+    // Get the upload interval from the first enabled data source
+    for (final entry in widget.dataService.availableDataSources.entries) {
+      final config = widget.dataService.getDataSourceConfig(entry.key);
+      if (config != null && config.enabled) {
+        setState(() {
+          _globalUploadIntervalMs = config.uploadIntervalMs;
+        });
+        break;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +50,18 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           _buildPowerConsumptionSummary(),
           const Divider(),
           
+          // Global upload interval setting
+          _buildGlobalUploadInterval(),
+          const Divider(),
+          
           // Data source parameter settings
           ...widget.dataService.availableDataSources.entries.map((entry) {
             final sourceId = entry.key;
             final dataSource = entry.value;
             final config = widget.dataService.getDataSourceConfig(sourceId);
-            final powerLevel = PowerEstimation.sensorPowerConsumption[sourceId] ?? 0;
+            final powerLevel = config != null && config.enabled 
+                ? PowerEstimation.calculateAdjustedPower(sourceId, config)
+                : PowerEstimation.sensorPowerConsumption[sourceId] ?? 0;
             
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -43,15 +71,21 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                   key: PageStorageKey(sourceId),
                   title: Row(
                     children: [
-                      Icon(_getDataSourceIcon(sourceId), size: 20),
-                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => _showDataPreview(sourceId),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Icon(_getDataSourceIcon(sourceId), size: 20),
+                        ),
+                      ),
                       Expanded(child: Text(dataSource.displayName)),
                       _buildPowerIndicator(powerLevel),
                     ],
                   ),
                   subtitle: Text(
                     config != null && config.enabled 
-                        ? 'Interval: ${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s, Batch: ${config.uploadBatchSize}'
+                        ? _getSubtitleText(sourceId, config, powerLevel)
                         : 'Disabled',
                     style: TextStyle(
                       color: config?.enabled == true ? null : Colors.grey,
@@ -65,8 +99,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
                   },
                   children: [
                     if (config != null) ...[
-                      _buildPowerConsumptionInfo(sourceId),
-                      const Divider(indent: 16, endIndent: 16),
                       _buildParameterControls(sourceId, config),
                     ],
                   ],
@@ -74,24 +106,111 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
               ),
             );
           }).toList(),
+          const SizedBox(height: 16),
+          _buildSettingsExplainer(),
+          const SizedBox(height: 80), // Space for FAB
         ],
       ),
     );
   }
 
+  Widget _buildGlobalUploadInterval() {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_upload, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Global Upload Interval',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Force upload of all pending data after this time',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Upload Interval', style: TextStyle(fontWeight: FontWeight.w500)),
+                Text(
+                  _formatDuration(_globalUploadIntervalMs),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: _globalUploadIntervalMs / 1000,
+              min: 1,
+              max: 3600,
+              divisions: 360,
+              label: _formatDuration(_globalUploadIntervalMs),
+              onChanged: (value) async {
+                setState(() {
+                  _globalUploadIntervalMs = (value * 1000).toInt();
+                });
+                // Update all data source configs with new upload interval
+                for (final sourceId in widget.dataService.availableDataSources.keys) {
+                  final config = widget.dataService.getDataSourceConfig(sourceId);
+                  if (config != null) {
+                    final newConfig = config.copyWith(uploadIntervalMs: _globalUploadIntervalMs);
+                    await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
+                  }
+                }
+              },
+            ),
+            Text(
+              'Range: 1 second to 1 hour',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int milliseconds) {
+    final seconds = milliseconds / 1000;
+    if (seconds < 60) {
+      return '${seconds.toStringAsFixed(0)} second${seconds == 1 ? '' : 's'}';
+    } else if (seconds < 3600) {
+      final minutes = seconds / 60;
+      return '${minutes.toStringAsFixed(1)} minute${minutes == 1 ? '' : 's'}';
+    } else {
+      final hours = seconds / 3600;
+      return '${hours.toStringAsFixed(1)} hour${hours == 1 ? '' : 's'}';
+    }
+  }
+
   Widget _buildPowerConsumptionSummary() {
-    final activeSources = widget.dataService.availableDataSources.entries
-        .where((e) => widget.dataService.getDataSourceConfig(e.key)?.enabled == true)
-        .map((e) => e.key)
-        .toList();
+    // Collect configs for all active sources
+    final configs = <String, DataSourceConfigParams>{};
+    for (final entry in widget.dataService.availableDataSources.entries) {
+      final config = widget.dataService.getDataSourceConfig(entry.key);
+      if (config != null && config.enabled) {
+        configs[entry.key] = config;
+      }
+    }
     
-    final totalPower = PowerEstimation.calculateCombinedPower(activeSources);
+    final totalPower = PowerEstimation.calculateCombinedPowerWithConfigs(configs);
     final powerLevel = PowerEstimation.getPowerLevelDescription(totalPower);
     final batteryDrain = PowerEstimation.estimateBatteryDrain(totalPower);
     
     return Card(
       margin: const EdgeInsets.all(16),
-      color: _getPowerColor(totalPower).withOpacity(0.1),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -118,7 +237,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${activeSources.length} active data sources',
+              '${configs.length} active data sources',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -151,79 +270,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     );
   }
 
-  Widget _buildPowerConsumptionInfo(String sourceId) {
-    final powerFactors = PowerEstimation.getDetailedPowerFactors(sourceId);
-    final basePower = powerFactors['base_power'] as double;
-    final factors = Map<String, dynamic>.from(powerFactors['factors'] as Map);
-    final tips = List<dynamic>.from(powerFactors['tips'] as List);
-    
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-              const SizedBox(width: 8),
-              Text(
-                'Power Consumption Info',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue[700],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Base consumption: ${PowerEstimation.estimateBatteryDrain(basePower)}',
-            style: const TextStyle(fontSize: 13),
-          ),
-          if (factors.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const Text('Factors affecting power:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            ...factors.entries.map((e) => Padding(
-              padding: const EdgeInsets.only(left: 8, top: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(fontSize: 13)),
-                  Expanded(
-                    child: Text(
-                      '${e.key}: ${e.value}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-          if (tips.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const Text('Power saving tips:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            ...tips.map((tip) => Padding(
-              padding: const EdgeInsets.only(left: 8, top: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('✓ ', style: TextStyle(color: Colors.green[700], fontSize: 13)),
-                  Expanded(
-                    child: Text(tip.toString(), style: const TextStyle(fontSize: 13)),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ],
-      ),
-    );
-  }
 
   Widget _buildParameterControls(String sourceId, DataSourceConfigParams config) {
     return Padding(
@@ -237,8 +283,13 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             value: config.collectionIntervalMs / 1000,
             min: _getMinInterval(sourceId),
             max: _getMaxInterval(sourceId),
-            divisions: 100,
-            unit: 's',
+            divisions: sourceId == 'accelerometer' ? 1000 : 100,
+            unit: sourceId == 'accelerometer' && config.collectionIntervalMs < 1000 
+                ? ' per second' 
+                : 's',
+            displayFormatter: sourceId == 'accelerometer' && config.collectionIntervalMs < 1000
+                ? (v) => '${(1000 / (v * 1000)).toStringAsFixed(0)}'
+                : null,
             onChanged: (value) async {
               final newConfig = config.copyWith(collectionIntervalMs: (value * 1000).toInt());
               await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
@@ -258,22 +309,6 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             isInt: true,
             onChanged: (value) async {
               final newConfig = config.copyWith(uploadBatchSize: value.toInt());
-              await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
-              setState(() {});
-            },
-          ),
-          const SizedBox(height: 16),
-          
-          // Upload Interval
-          _buildSliderControl(
-            title: 'Upload Interval',
-            value: config.uploadIntervalMs / 1000,
-            min: 5,
-            max: 300,
-            divisions: 59,
-            unit: 's',
-            onChanged: (value) async {
-              final newConfig = config.copyWith(uploadIntervalMs: (value * 1000).toInt());
               await widget.dataService.updateDataSourceConfig(sourceId, newConfig);
               setState(() {});
             },
@@ -323,9 +358,9 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
             const SizedBox(height: 8),
             SegmentedButton<int>(
               segments: const [
-                ButtonSegment(value: 8000, label: Text('8 kHz')),
-                ButtonSegment(value: 16000, label: Text('16 kHz')),
-                ButtonSegment(value: 44100, label: Text('44.1 kHz')),
+                ButtonSegment(value: 8000, label: Text('8000/s')),
+                ButtonSegment(value: 16000, label: Text('16000/s')),
+                ButtonSegment(value: 44100, label: Text('44100/s')),
               ],
               selected: {(config.customParams['sample_rate'] ?? 16000) as int},
               onSelectionChanged: (Set<int> selected) async {
@@ -350,9 +385,12 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     required int divisions,
     required String unit,
     bool isInt = false,
+    String Function(double)? displayFormatter,
     required ValueChanged<double> onChanged,
   }) {
-    final displayValue = isInt ? value.toInt().toString() : value.toStringAsFixed(1);
+    final displayValue = displayFormatter != null 
+        ? displayFormatter(value)
+        : (isInt ? value.toInt().toString() : value.toStringAsFixed(1));
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,27 +423,50 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   double _getMinInterval(String sourceId) {
     switch (sourceId) {
       case 'gps':
-        return 5.0; // 5 seconds minimum
+        return 10.0; // 10 seconds minimum
       case 'accelerometer':
-        return 0.1; // 100ms minimum
+        return 0.01; // 10ms minimum (100 per second)
       case 'screenshot':
-        return 30.0; // 30 seconds minimum
-      case 'camera':
         return 60.0; // 1 minute minimum
+      case 'camera':
+        return 300.0; // 5 minutes minimum
+      case 'audio':
+        return 10.0; // 10 seconds minimum
+      case 'android_app_monitoring':
+        return 60.0; // 1 minute minimum
+      case 'battery':
+      case 'network':
+        return 30.0; // 30 seconds minimum
+      case 'screen_state':
+      case 'app_lifecycle':
+        return 1.0; // 1 second minimum (event-based)
       default:
-        return 1.0;
+        return 5.0;
     }
   }
 
   double _getMaxInterval(String sourceId) {
     switch (sourceId) {
       case 'accelerometer':
-        return 60.0; // 1 minute max
-      case 'screenshot':
-      case 'camera':
-        return 3600.0; // 1 hour max
-      default:
         return 300.0; // 5 minutes max
+      case 'screenshot':
+        return 7200.0; // 2 hours max
+      case 'camera':
+        return 86400.0; // 24 hours max
+      case 'gps':
+        return 3600.0; // 1 hour max
+      case 'audio':
+        return 600.0; // 10 minutes max
+      case 'android_app_monitoring':
+        return 3600.0; // 1 hour max
+      case 'battery':
+      case 'network':
+        return 1800.0; // 30 minutes max
+      case 'screen_state':
+      case 'app_lifecycle':
+        return 300.0; // 5 minutes max (event-based)
+      default:
+        return 600.0; // 10 minutes max
     }
   }
 
@@ -448,5 +509,152 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
       default:
         return Icons.sensors;
     }
+  }
+
+  Widget _buildSettingsExplainer() {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Theme.of(context).dividerColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.help_outline, size: 20, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Settings Guide',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildExplainerItem(
+              icon: Icons.timer,
+              title: 'Collection Interval',
+              description: 'How often the sensor collects data. For example, "30s" means data is collected every 30 seconds.',
+              example: 'Lower values = more frequent collection = higher battery usage',
+            ),
+            const SizedBox(height: 12),
+            _buildExplainerItem(
+              icon: Icons.layers,
+              title: 'Upload Batch Size',
+              description: 'Number of data points collected before uploading to the server. Larger batches reduce network overhead.',
+              example: 'Batch of 10 = upload after collecting 10 readings',
+            ),
+            const SizedBox(height: 12),
+            _buildExplainerItem(
+              icon: Icons.cloud_upload,
+              title: 'Upload Interval',
+              description: 'Maximum time before forcing an upload, even if the batch isn\'t full. Ensures data freshness.',
+              example: '5 minutes = data uploaded at least every 5 minutes',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, size: 18, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tip: Balance battery life vs data freshness by adjusting these settings. The power indicator updates in real-time!',
+                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExplainerItem({
+    required IconData icon,
+    required String title,
+    required String description,
+    required String example,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: Theme.of(context).colorScheme.secondary),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                example,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDataPreview(String sourceId) {
+    showDialog(
+      context: context,
+      builder: (context) => DataPreviewDialog(
+        sourceId: sourceId,
+        dataService: widget.dataService,
+      ),
+    );
+  }
+
+  String _getSubtitleText(String sourceId, DataSourceConfigParams config, double powerLevel) {
+    String intervalText;
+    if (sourceId == 'accelerometer' && config.collectionIntervalMs < 1000) {
+      final perSecond = 1000 / config.collectionIntervalMs;
+      intervalText = '${perSecond.toStringAsFixed(0)}/second';
+    } else {
+      intervalText = '${(config.collectionIntervalMs / 1000).toStringAsFixed(1)}s';
+    }
+    
+    return 'Interval: $intervalText, Batch: ${config.uploadBatchSize}, ${PowerEstimation.estimateBatteryDrain(powerLevel)}';
   }
 }
