@@ -1,65 +1,118 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class OSSystemEvent {
+  final String deviceId;
+  final DateTime timestamp;
+  final String eventType;
+  final String eventCategory;
+  final String severity;
+  final String? description;
+  final Map<String, dynamic>? metadata;
 
-part 'os_event_data.freezed.dart';
-part 'os_event_data.g.dart';
+  OSSystemEvent({
+    required this.deviceId,
+    required this.timestamp,
+    required this.eventType,
+    required this.eventCategory,
+    required this.severity,
+    this.description,
+    this.metadata,
+  });
 
-@freezed
-class OSSystemEvent with _$OSSystemEvent {
-  const factory OSSystemEvent({
-    required String deviceId,
-    required DateTime timestamp,
-    required String eventType,
-    required String eventCategory,
-    required String severity,
-    String? description,
-    Map<String, dynamic>? metadata,
-  }) = _OSSystemEvent;
-
-  factory OSSystemEvent.fromJson(Map<String, dynamic> json) =>
-      _$OSSystemEventFromJson(json);
+  Map<String, dynamic> toJson() {
+    return {
+      'device_id': deviceId,
+      'timestamp': timestamp.toIso8601String(),
+      'event_type': eventType,
+      'event_category': eventCategory,
+      'severity': severity,
+      if (description != null) 'description': description,
+      if (metadata != null) 'metadata': metadata,
+    };
+  }
 }
 
-@freezed
-class OSAppLifecycleEvent with _$OSAppLifecycleEvent {
-  const factory OSAppLifecycleEvent({
-    required String deviceId,
-    required DateTime timestamp,
-    required String appIdentifier,
-    String? appName,
-    required String eventType,
-    int? durationSeconds,
-    Map<String, dynamic>? metadata,
-  }) = _OSAppLifecycleEvent;
+class OSAppLifecycleEvent {
+  final String deviceId;
+  final DateTime timestamp;
+  final String appIdentifier;
+  final String? appName;
+  final String eventType;
+  final int? durationSeconds;
+  final Map<String, dynamic>? metadata;
 
-  factory OSAppLifecycleEvent.fromJson(Map<String, dynamic> json) =>
-      _$OSAppLifecycleEventFromJson(json);
+  OSAppLifecycleEvent({
+    required this.deviceId,
+    required this.timestamp,
+    required this.appIdentifier,
+    this.appName,
+    required this.eventType,
+    this.durationSeconds,
+    this.metadata,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'device_id': deviceId,
+      'timestamp': timestamp.toIso8601String(),
+      'app_identifier': appIdentifier,
+      if (appName != null) 'app_name': appName,
+      'event_type': eventType,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (metadata != null) 'metadata': metadata,
+    };
+  }
 }
 
-@freezed
-class AndroidAppInfo with _$AndroidAppInfo {
-  const factory AndroidAppInfo({
-    required int pid,
-    required String name,
-    required String packageName,
-    required bool active,
-    required bool hidden,
-    double? launchDate,
-    int? versionCode,
-    String? versionName,
-  }) = _AndroidAppInfo;
+class AndroidAppInfo {
+  final int pid;
+  final String name;
+  final String packageName;
+  final bool active;
+  final bool hidden;
+  final double? launchDate;
+  final int? versionCode;
+  final String? versionName;
 
-  factory AndroidAppInfo.fromJson(Map<String, dynamic> json) =>
-      _$AndroidAppInfoFromJson(json);
+  AndroidAppInfo({
+    required this.pid,
+    required this.name,
+    required this.packageName,
+    required this.active,
+    required this.hidden,
+    this.launchDate,
+    this.versionCode,
+    this.versionName,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'pid': pid,
+      'name': name,
+      'package_name': packageName,
+      'active': active,
+      'hidden': hidden,
+      if (launchDate != null) 'launch_date': launchDate,
+      if (versionCode != null) 'version_code': versionCode,
+      if (versionName != null) 'version_name': versionName,
+    };
+  }
 }
 
-@freezed
-class AndroidAppMonitoring with _$AndroidAppMonitoring {
-  const factory AndroidAppMonitoring({
-    required String deviceId,
-    required DateTime timestamp,
-    required List<AndroidAppInfo> runningApplications,
-  }) = _AndroidAppMonitoring;
+class AndroidAppMonitoring {
+  final String deviceId;
+  final DateTime timestamp;
+  final List<AndroidAppInfo> runningApplications;
 
-  factory AndroidAppMonitoring.fromJson(Map<String, dynamic> json) =>
-      _$AndroidAppMonitoringFromJson(json);
+  AndroidAppMonitoring({
+    required this.deviceId,
+    required this.timestamp,
+    required this.runningApplications,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'device_id': deviceId,
+      'timestamp': timestamp.toIso8601String(),
+      'running_applications': runningApplications.map((app) => app.toJson()).toList(),
+    };
+  }
 }

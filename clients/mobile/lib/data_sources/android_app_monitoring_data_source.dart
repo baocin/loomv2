@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/models/os_event_data.dart';
-import '../core/utils/content_hasher.dart';
 import '../core/api/loom_api_client.dart';
 
 class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring> {
@@ -85,7 +84,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       final List<dynamic>? runningApps = await platform.invokeMethod('getRunningApps');
       
       if (runningApps == null || runningApps.isEmpty) {
-        logger.d('No running apps detected');
+        print('No running apps detected');
         return;
       }
 
@@ -197,10 +196,8 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
   Future<void> _uploadDeviceMetadata(String packageName, String appName, Map<dynamic, dynamic> appInfo) async {
     try {
       // Upload app metadata to device metadata endpoint
-      await apiClient.post(
-        '/system/metadata',
-        data: {
-          'device_id': deviceId,
+      await _apiClient!.uploadDeviceMetadata({
+          'device_id': _deviceId,
           'recorded_at': DateTime.now().toIso8601String(),
           'metadata_type': 'android_app_info',
           'metadata': {
@@ -213,8 +210,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
             'permissions': appInfo['permissions'] ?? [],
             'is_system_app': appInfo['isSystemApp'] ?? false,
           },
-        },
-      );
+      });
       print('Uploaded metadata for app: $packageName');
     } catch (e) {
       print('Failed to upload app metadata: $e');
@@ -223,19 +219,16 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
 
   Future<void> _uploadUsageStats(Map<String, dynamic> stats) async {
     try {
-      final response = await apiClient.post(
-        '/system/apps/android/usage',
-        data: {
-          'device_id': deviceId,
+      final response = await _apiClient!.uploadAndroidUsageStats({
+          'device_id': _deviceId,
           'recorded_at': DateTime.now().toIso8601String(),
           ...stats,
-        },
-      );
+      });
 
-      if (response.statusCode == 201) {
+      if (response.isSuccess) {
         print('Usage stats uploaded successfully');
       } else {
-        print('Failed to upload usage stats: ${response.statusCode}');
+        print('Failed to upload usage stats: ${response.status}');
       }
     } catch (e) {
       print('Failed to upload usage stats: $e');

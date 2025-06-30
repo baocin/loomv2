@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/models/os_event_data.dart';
-import '../core/utils/content_hasher.dart';
 
 class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with WidgetsBindingObserver {
   static const String _sourceId = 'app_lifecycle';
@@ -135,7 +134,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
     final int timestamp = event['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
     final DateTime eventTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
 
-    logger.d('App lifecycle event: $packageName - $eventType at $eventTime');
+    print('App lifecycle event: $packageName - $eventType at $eventTime');
 
     // Calculate duration for foreground/background events
     int? durationSeconds;

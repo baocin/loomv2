@@ -151,14 +151,28 @@ make docker-run              # Run container locally
 - `POST /sensor/batch` - Batch upload multiple sensors
 
 #### OS Event Data
-- `POST /os-events/app-lifecycle` - Application lifecycle events (launch, foreground, background, terminate)
-- `POST /os-events/system` - System events (screen on/off, lock/unlock, power connected/disconnected)
-- `POST /os-events/notifications` - Notification events
+- `POST /os-events/app-lifecycle` - Application lifecycle events
+  - Event types: `launch`, `foreground`, `background`, `terminate`, `crash`
+  - Includes app identifier, name, event duration
+  - Tracks both Loom app and other apps on device
+- `POST /os-events/system` - System events  
+  - Event types: `screen_on`, `screen_off`, `device_lock`, `device_unlock`, `power_connected`, `power_disconnected`
+  - Categories: `screen`, `lock`, `power`, `system`
+  - Includes metadata about current device state
+- `POST /os-events/notifications` - Notification events (future use)
 
 #### System Monitoring
 - `POST /system/apps/android` - Android app monitoring data
+  - Lists currently running applications
+  - Includes PID, package name, version info
+  - Tracks foreground/background state
 - `POST /system/apps/android/usage` - Android app usage statistics
+  - Pre-aggregated usage data from Android UsageStats API
+  - Includes total foreground time, launch count
+  - Requires `PACKAGE_USAGE_STATS` permission
 - `POST /system/metadata` - Device metadata and capabilities
+  - Flexible endpoint for device-specific information
+  - Used for app info, hardware specs, capabilities
 
 ## Data Schemas
 

@@ -8,6 +8,7 @@ import '../core/config/data_collection_config.dart';
 import '../core/api/loom_api_client.dart';
 import '../core/models/sensor_data.dart';
 import '../core/models/audio_data.dart';
+import '../core/models/os_event_data.dart';
 import '../data_sources/gps_data_source.dart';
 import '../data_sources/accelerometer_data_source.dart';
 import '../data_sources/battery_data_source.dart';
@@ -383,6 +384,36 @@ class DataCollectionService {
           // Camera photos are uploaded immediately by the data source itself
           print('Camera data handled by data source directly');
           return;
+          
+        case 'screen_state':
+          endpoint = '/os-events/system';
+          final items = data.cast<OSSystemEvent>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
+            await _apiClient.uploadSystemEvent(jsonData);
+          }
+          break;
+          
+        case 'app_lifecycle':
+          endpoint = '/os-events/app-lifecycle';
+          final items = data.cast<OSAppLifecycleEvent>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
+            await _apiClient.uploadAppLifecycleEvent(jsonData);
+          }
+          break;
+          
+        case 'android_app_monitoring':
+          endpoint = '/system/apps/android';
+          final items = data.cast<AndroidAppMonitoring>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
+            await _apiClient.uploadAndroidAppMonitoring(jsonData);
+          }
+          break;
           
         default:
           print('Unknown data source: $sourceId');

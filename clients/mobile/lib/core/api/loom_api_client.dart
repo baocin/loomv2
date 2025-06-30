@@ -181,6 +181,33 @@ class LoomApiClient {
     return ApiResponse.fromJson(response.data);
   }
 
+  // OS Events
+  Future<ApiResponse> uploadSystemEvent(Map<String, dynamic> data) async {
+    final response = await _dio.post('/os-events/system', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
+  Future<ApiResponse> uploadAppLifecycleEvent(Map<String, dynamic> data) async {
+    final response = await _dio.post('/os-events/app-lifecycle', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
+  // System Monitoring
+  Future<ApiResponse> uploadAndroidAppMonitoring(Map<String, dynamic> data) async {
+    final response = await _dio.post('/system/apps/android', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
+  Future<ApiResponse> uploadAndroidUsageStats(Map<String, dynamic> data) async {
+    final response = await _dio.post('/system/apps/android/usage', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
+  Future<ApiResponse> uploadDeviceMetadata(Map<String, dynamic> data) async {
+    final response = await _dio.post('/system/metadata', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
   // Settings Management
   Future<void> saveApiSettings({
     required String baseUrl,

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import '../core/services/data_source_interface.dart';
 import '../core/models/os_event_data.dart';
-import '../core/utils/content_hasher.dart';
 
 class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
   static const String _sourceId = 'screen_state';
