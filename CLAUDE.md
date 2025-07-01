@@ -372,6 +372,7 @@ This table details the core data processing pipeline, showing how raw data flows
 | Model | Primary Task | Inference Strategy | Potential Use Case |
 |-------|-------------|-------------------|-------------------|
 | **geneing/Kokoro** | Text-to-Speech (TTS) | Hugging Face transformers TTS Pipeline. | Provide a "voice" for your system. A future service could consume from `analysis.inferred_context.mistral_results` (e.g., a daily summary) and use Kokoro to generate a spoken audio file, making the system interactive. |
+| **laion/BUD-E-Whisper** | Speech Emotion Recognition | Hugging Face Audio Classification Pipeline. | *Note: Currently disabled as the model appears to be missing from HuggingFace. Would be interesting to add in the future for detecting emotions in speech audio. The service container has been removed but the code remains in `services/bud-e-emotion/`.* |
 
 ### Model Links & Resources
 

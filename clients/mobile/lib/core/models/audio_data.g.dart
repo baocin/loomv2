@@ -18,7 +18,7 @@ AudioChunk _$AudioChunkFromJson(Map<String, dynamic> json) => AudioChunk(
       ?.map((e) => e as String)
       .toList(),
   contentHash: json['content_hash'] as String?,
-  chunkData: AudioChunk._fromBase64(json['chunk_data'] as String),
+  chunkData: AudioChunk._fromBase64(json['data'] as String),
   sampleRate: (json['sample_rate'] as num).toInt(),
   channels: (json['channels'] as num?)?.toInt() ?? 1,
   format: json['format'] as String? ?? 'wav',
@@ -35,7 +35,7 @@ Map<String, dynamic> _$AudioChunkToJson(AudioChunk instance) =>
       'trace_id': instance.traceId,
       'services_encountered': instance.servicesEncountered,
       'content_hash': instance.contentHash,
-      'chunk_data': AudioChunk._toBase64(instance.chunkData),
+      'data': AudioChunk._toBase64(instance.chunkData),
       'sample_rate': instance.sampleRate,
       'channels': instance.channels,
       'format': instance.format,
@@ -59,7 +59,7 @@ Map<String, dynamic> _$AudioStreamMessageToJson(AudioStreamMessage instance) =>
 
 AudioStreamData _$AudioStreamDataFromJson(Map<String, dynamic> json) =>
     AudioStreamData(
-      chunkData: AudioChunk._fromBase64(json['chunk_data'] as String),
+      chunkData: AudioChunk._fromBase64(json['data'] as String),
       sampleRate: (json['sample_rate'] as num).toInt(),
       channels: (json['channels'] as num).toInt(),
       format: json['format'] as String,
@@ -69,7 +69,7 @@ AudioStreamData _$AudioStreamDataFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$AudioStreamDataToJson(AudioStreamData instance) =>
     <String, dynamic>{
-      'chunk_data': AudioChunk._toBase64(instance.chunkData),
+      'data': AudioChunk._toBase64(instance.chunkData),
       'sample_rate': instance.sampleRate,
       'channels': instance.channels,
       'format': instance.format,

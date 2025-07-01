@@ -8,7 +8,7 @@ part 'audio_data.g.dart';
 
 @JsonSerializable()
 class AudioChunk extends BaseMessage {
-  @JsonKey(name: 'chunk_data', fromJson: _fromBase64, toJson: _toBase64)
+  @JsonKey(name: 'data', fromJson: _fromBase64, toJson: _toBase64)
   final Uint8List chunkData;
   @JsonKey(name: 'sample_rate')
   final int sampleRate;
@@ -110,7 +110,7 @@ class AudioStreamMessage {
 
 @JsonSerializable()
 class AudioStreamData {
-  @JsonKey(name: 'chunk_data', fromJson: AudioChunk._fromBase64, toJson: AudioChunk._toBase64)
+  @JsonKey(name: 'data', fromJson: AudioChunk._fromBase64, toJson: AudioChunk._toBase64)
   final Uint8List chunkData;
   @JsonKey(name: 'sample_rate')
   final int sampleRate;
