@@ -38,14 +38,17 @@ def fetch_calendar_events():
             calendar_index = event_data.get("calendar_index", 1)
             device_id = f"calendar-fetcher-{calendar_name.lower().replace(' ', '-')}"
 
+            # Handle timestamp - could be string or datetime
+            timestamp = event_data.get("start_time")
+            if timestamp:
+                if hasattr(timestamp, 'isoformat'):
+                    timestamp = timestamp.isoformat()
+                # else it's already a string from iCal fetcher
+            
             message = {
                 "schema_version": "v1",
                 "device_id": device_id,
-                "timestamp": (
-                    event_data["start_time"].isoformat()
-                    if event_data["start_time"]
-                    else None
-                ),
+                "timestamp": timestamp,
                 "data": event_data,
             }
 

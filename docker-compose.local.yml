@@ -175,7 +175,7 @@ services:
   kyutai-stt:
     build:
       context: ./services/kyutai-stt
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.cpu  # Use CPU version for faster builds in development
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_KAFKA_INPUT_TOPIC: device.audio.raw  # Process raw audio directly

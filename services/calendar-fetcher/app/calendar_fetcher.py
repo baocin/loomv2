@@ -27,28 +27,49 @@ class CalendarFetcher:
         # Support up to 10 calendar accounts
         max_accounts = int(os.getenv("LOOM_CALENDAR_MAX_ACCOUNTS", "10"))
         for i in range(1, max_accounts + 1):
-            url_env = f"LOOM_CALDAV_URL_{i}"
-            username_env = f"LOOM_CALDAV_USERNAME_{i}"
-            password_env = f"LOOM_CALDAV_PASSWORD_{i}"
-            disabled_env = f"LOOM_CALDAV_DISABLED_{i}"
-            name_env = f"LOOM_CALDAV_NAME_{i}"
+            # Check for iCal URL first
+            ical_url_env = f"LOOM_ICAL_URL_{i}"
+            ical_url = os.getenv(ical_url_env)
+            
+            if ical_url:
+                # iCal account (no auth needed)
+                account = {
+                    "type": "ical",
+                    "url": ical_url,
+                    "name": os.getenv(f"LOOM_ICAL_NAME_{i}", f"iCal Calendar {i}"),
+                    "disabled": os.getenv(f"LOOM_ICAL_DISABLED_{i}", "false").lower() == "true",
+                    "index": i
+                }
+                if not account["disabled"]:
+                    all_accounts.append(account)
+                    logging.info(f"Loaded iCal account: {account['name']}")
+            else:
+                # Check for CalDAV account
+                url_env = f"LOOM_CALDAV_URL_{i}"
+                username_env = f"LOOM_CALDAV_USERNAME_{i}"
+                password_env = f"LOOM_CALDAV_PASSWORD_{i}"
+                disabled_env = f"LOOM_CALDAV_DISABLED_{i}"
+                name_env = f"LOOM_CALDAV_NAME_{i}"
 
-            url = os.getenv(url_env)
-            if not url:
-                break
+                url = os.getenv(url_env)
+                if not url:
+                    continue
 
-            account = {
-                "url": url,
-                "username": os.getenv(username_env),
-                "password": os.getenv(password_env),
-                "disabled": os.getenv(disabled_env, "false").lower() == "true",
-                "name": os.getenv(name_env, f"Calendar {i}"),
-            }
+                account = {
+                    "type": "caldav",
+                    "url": url,
+                    "username": os.getenv(username_env),
+                    "password": os.getenv(password_env),
+                    "disabled": os.getenv(disabled_env, "false").lower() == "true",
+                    "name": os.getenv(name_env, f"Calendar {i}"),
+                    "index": i
+                }
 
-            if not account["disabled"] and account["username"] and account["password"]:
-                all_accounts.append(account)
+                if not account["disabled"] and account["username"] and account["password"]:
+                    all_accounts.append(account)
+                    logging.info(f"Loaded CalDAV account: {account['name']}")
 
-        logging.info(f"Loaded {len(all_accounts)} calendar accounts")
+        logging.info(f"Loaded {len(all_accounts)} total calendar accounts")
         return all_accounts
 
     def fetch_all_calendar_events(self) -> List[Dict[str, Any]]:
@@ -57,17 +78,62 @@ class CalendarFetcher:
 
         for account in self.accounts:
             try:
-                events = self._fetch_account_events(account)
+                if account["type"] == "ical":
+                    events = self._fetch_ical_events(account)
+                else:  # caldav
+                    events = self._fetch_caldav_events(account)
+                
+                # Add account info to each event
+                for event in events:
+                    event["calendar_index"] = account["index"]
+                    event["calendar_name"] = account["name"]
+                
                 all_events.extend(events)
             except Exception as e:
+                account_identifier = account.get('username', account.get('name', 'Unknown'))
                 logging.error(
-                    f"Error fetching calendar events for {account['username']}: {e}"
+                    f"Error fetching calendar events for {account_identifier}: {e}"
                 )
 
         return all_events
 
-    def _fetch_account_events(self, account: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Fetch events from a single calendar account"""
+    def _fetch_ical_events(self, account: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Fetch events from an iCal URL"""
+        try:
+            # Get time range from environment
+            days_past = int(os.getenv("LOOM_CALENDAR_DAYS_PAST", "30"))
+            days_future = int(os.getenv("LOOM_CALENDAR_DAYS_FUTURE", "365"))
+            
+            # Create iCal fetcher
+            fetcher = ICalFetcher(account["url"], account["name"])
+            
+            # Fetch events
+            events = fetcher.fetch_events(days_past, days_future)
+            
+            # Process events for Kafka
+            processed_events = []
+            for event in events:
+                # Add GPS lookup if enabled and location is present
+                if self.enable_gps_lookup and event.get("location"):
+                    gps_point = self._get_location_coordinates(event["location"])
+                    if gps_point:
+                        event["gps_point"] = gps_point
+                
+                # Add source account info
+                event["source_account"] = account["name"]
+                event["account_name"] = account["name"]
+                
+                processed_events.append(event)
+            
+            logging.info(f"Fetched {len(processed_events)} events from iCal: {account['name']}")
+            return processed_events
+            
+        except Exception as e:
+            logging.error(f"Error fetching iCal events from {account['name']}: {e}")
+            return []
+    
+    def _fetch_caldav_events(self, account: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Fetch events from a single CalDAV account"""
         events = []
 
         try:
