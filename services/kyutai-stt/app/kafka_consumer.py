@@ -47,7 +47,7 @@ class KafkaConsumer:
             self.producer = AIOKafkaProducer(
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-                compression_type="lz4",
+                compression_type="gzip",  # Changed from lz4 to gzip to avoid dependency issues
                 acks="all",
             )
 

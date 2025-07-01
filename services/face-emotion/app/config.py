@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     kafka_consumer_timeout_ms: int = 1000
 
     # Model settings
-    model_name: str = "laion/Empathic-Insight-Face"
+    model_name: str = "dima806/facial_emotions_image_detection"
     model_device: str = "cuda" if os.path.exists("/usr/local/cuda") else "cpu"
     model_cache_dir: Optional[str] = "/models"
     batch_size: int = 1
