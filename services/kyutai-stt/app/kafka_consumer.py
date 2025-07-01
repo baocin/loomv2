@@ -107,10 +107,10 @@ class KafkaConsumer:
 
                         logger.info(
                             "Received raw audio chunk for transcription",
-                            chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                            chunk_id=audio_chunk.get_chunk_id(),
                             device_id=audio_chunk.device_id,
                             sequence_number=getattr(audio_chunk, 'sequence_number', None),
-                            duration_ms=getattr(audio_chunk, 'duration_ms', None),
+                            duration_ms=audio_chunk.get_duration_ms(),
                             sample_rate=getattr(audio_chunk, 'sample_rate', None),
                             file_id=getattr(audio_chunk, 'file_id', None),
                             topic=msg.topic,
@@ -128,13 +128,13 @@ class KafkaConsumer:
                         if transcribed:
                             logger.info(
                                 "ASR processing completed",
-                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                                chunk_id=audio_chunk.get_chunk_id(),
                                 device_id=audio_chunk.device_id,
                                 word_count=len(transcribed.words) if hasattr(transcribed, 'words') else 0,
                                 text_length=len(transcribed.text) if hasattr(transcribed, 'text') else 0,
                                 confidence=getattr(transcribed, 'confidence', None),
                                 asr_processing_time_ms=round(asr_duration * 1000, 2),
-                                input_duration_ms=getattr(audio_chunk, 'duration_ms', None),
+                                input_duration_ms=audio_chunk.get_duration_ms(),
                             )
                             
                             # Send to output topic
@@ -145,7 +145,7 @@ class KafkaConsumer:
 
                             logger.info(
                                 "STT processing completed successfully",
-                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                                chunk_id=audio_chunk.get_chunk_id(),
                                 topic=msg.topic,
                                 partition=msg.partition,
                                 offset=msg.offset,
@@ -154,7 +154,7 @@ class KafkaConsumer:
                         else:
                             logger.warning(
                                 "ASR processing returned no results",
-                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                                chunk_id=audio_chunk.get_chunk_id(),
                                 device_id=audio_chunk.device_id,
                                 asr_processing_time_ms=round(asr_duration * 1000, 2),
                                 topic=msg.topic,

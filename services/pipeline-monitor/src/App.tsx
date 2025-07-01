@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import ReactFlow, {
   Background,
-  Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -338,30 +337,6 @@ function PipelineMonitor() {
     if (priorityNodes.length === 0) {
       console.log(`No nodes found with priority: ${priority}`)
       return
-    }
-    
-    // Calculate bounding box of all priority nodes
-    const bounds = priorityNodes.reduce((acc, node) => {
-      return {
-        minX: Math.min(acc.minX, node.position.x),
-        minY: Math.min(acc.minY, node.position.y),
-        maxX: Math.max(acc.maxX, node.position.x + (node.width || 200)),
-        maxY: Math.max(acc.maxY, node.position.y + (node.height || 100))
-      }
-    }, {
-      minX: Infinity,
-      minY: Infinity,
-      maxX: -Infinity,
-      maxY: -Infinity
-    })
-    
-    // Add padding
-    const padding = 100
-    const targetBounds = {
-      x: bounds.minX - padding,
-      y: bounds.minY - padding,
-      width: bounds.maxX - bounds.minX + 2 * padding,
-      height: bounds.maxY - bounds.minY + 2 * padding
     }
     
     // Fit view to show all nodes with that priority

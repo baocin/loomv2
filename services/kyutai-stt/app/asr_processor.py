@@ -206,24 +206,24 @@ class ASRProcessor:
         try:
             # Decode audio
             audio_array, sample_rate = self._decode_audio(
-                chunk.audio_data, chunk.format
+                chunk.get_audio_data(), chunk.format
             )
 
             logger.info(
                 "Raw audio decoded for STT",
-                chunk_id=chunk.chunk_id,
+                chunk_id=chunk.get_chunk_id(),
                 device_id=chunk.device_id,
                 duration=len(audio_array) / sample_rate,
                 sample_rate=sample_rate,
                 file_id=chunk.file_id,
-                duration_ms=chunk.duration_ms,
+                duration_ms=chunk.get_duration_ms(),
             )
 
             # Extract words with timestamps
             words = self._extract_word_timestamps(audio_array, sample_rate)
 
             if not words:
-                logger.warning("No words transcribed", chunk_id=chunk.chunk_id)
+                logger.warning("No words transcribed", chunk_id=chunk.get_chunk_id())
                 return None
 
             # Create full text from words
@@ -241,7 +241,7 @@ class ASRProcessor:
                 trace_id=chunk.trace_id,
                 services_encountered=(chunk.services_encountered or []) + ["kyutai-stt"],
                 content_hash=chunk.content_hash,
-                chunk_id=chunk.chunk_id,
+                chunk_id=chunk.get_chunk_id(),
                 words=words,
                 text=full_text,
                 processing_time_ms=processing_time_ms,
@@ -250,13 +250,13 @@ class ASRProcessor:
 
             logger.info(
                 "Raw audio chunk transcribed",
-                chunk_id=chunk.chunk_id,
+                chunk_id=chunk.get_chunk_id(),
                 device_id=chunk.device_id,
                 word_count=len(words),
                 text_length=len(full_text),
                 text_preview=full_text[:100] + '...' if len(full_text) > 100 else full_text,
                 processing_time_ms=processing_time_ms,
-                input_duration_ms=chunk.duration_ms,
+                input_duration_ms=chunk.get_duration_ms(),
                 device=self.device,
                 model=settings.model_name,
             )
@@ -266,10 +266,10 @@ class ASRProcessor:
         except Exception as e:
             logger.error(
                 "Failed to process audio chunk", 
-                chunk_id=chunk.chunk_id, 
+                chunk_id=chunk.get_chunk_id(), 
                 device_id=chunk.device_id,
                 error=str(e),
                 error_type=type(e).__name__,
-                duration_ms=getattr(chunk, 'duration_ms', None),
+                duration_ms=chunk.get_duration_ms(),
             )
             return None
