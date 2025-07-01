@@ -8,6 +8,7 @@ import ReactFlow, {
   Node,
   NodeChange,
   ReactFlowProvider,
+  useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import './App.css'
@@ -128,6 +129,8 @@ function PipelineMonitor() {
   const [useManualPositions, setUseManualPositions] = useState(true)
   const [pulsingTopics, setPulsingTopics] = useState<Set<string>>(new Set())
   const [lastMessageCounts, setLastMessageCounts] = useState<Map<string, number>>(new Map())
+  
+  const { fitView, getNodes } = useReactFlow()
   
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -323,6 +326,78 @@ function PipelineMonitor() {
     setSelectedTopic(null)
   }, [])
 
+  // Zoom to nodes with specific priority
+  const zoomToPriority = useCallback((priority: 'critical' | 'high' | 'medium' | 'low') => {
+    const allNodes = getNodes()
+    
+    // Find all processor nodes with the specified priority
+    const priorityNodes = allNodes.filter(node => 
+      node.type === 'processor' && node.data.priority === priority
+    )
+    
+    if (priorityNodes.length === 0) {
+      console.log(`No nodes found with priority: ${priority}`)
+      return
+    }
+    
+    // Calculate bounding box of all priority nodes
+    const bounds = priorityNodes.reduce((acc, node) => {
+      return {
+        minX: Math.min(acc.minX, node.position.x),
+        minY: Math.min(acc.minY, node.position.y),
+        maxX: Math.max(acc.maxX, node.position.x + (node.width || 200)),
+        maxY: Math.max(acc.maxY, node.position.y + (node.height || 100))
+      }
+    }, {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    })
+    
+    // Add padding
+    const padding = 100
+    const targetBounds = {
+      x: bounds.minX - padding,
+      y: bounds.minY - padding,
+      width: bounds.maxX - bounds.minX + 2 * padding,
+      height: bounds.maxY - bounds.minY + 2 * padding
+    }
+    
+    // Fit view to show all nodes with that priority
+    fitView({
+      nodes: priorityNodes,
+      padding: 0.2,
+      duration: 800,
+      minZoom: 0.1,
+      maxZoom: 1.5
+    })
+  }, [fitView, getNodes])
+
+  // Zoom to nodes with specific status
+  const zoomToStatus = useCallback((status: 'active' | 'idle' | 'error') => {
+    const allNodes = getNodes()
+    
+    // Find all nodes with the specified status
+    const statusNodes = allNodes.filter(node => 
+      node.data.status === status
+    )
+    
+    if (statusNodes.length === 0) {
+      console.log(`No nodes found with status: ${status}`)
+      return
+    }
+    
+    // Fit view to show all nodes with that status
+    fitView({
+      nodes: statusNodes,
+      padding: 0.2,
+      duration: 800,
+      minZoom: 0.1,
+      maxZoom: 1.5
+    })
+  }, [fitView, getNodes])
+
   const handleClearCache = useCallback(() => {
     if (window.confirm('Are you sure you want to clear all cached data? This will reset all metrics and force a refresh.')) {
       clearCacheMutation.mutate()
@@ -401,10 +476,34 @@ function PipelineMonitor() {
               <div className="text-xs space-y-1">
                 <div>Total: {pipelineDefinitions.summary.totalFlows}</div>
                 <div className="grid grid-cols-2 gap-1 mt-1">
-                  <span className="text-red-600">Critical: {pipelineDefinitions.summary.byPriority.critical}</span>
-                  <span className="text-orange-600">High: {pipelineDefinitions.summary.byPriority.high}</span>
-                  <span className="text-green-600">Medium: {pipelineDefinitions.summary.byPriority.medium}</span>
-                  <span className="text-blue-600">Low: {pipelineDefinitions.summary.byPriority.low}</span>
+                  <button 
+                    onClick={() => zoomToPriority('critical')}
+                    className="text-red-600 hover:bg-red-50 rounded px-1 py-0.5 transition-colors text-left"
+                    title="Click to zoom to critical priority flows"
+                  >
+                    Critical: {pipelineDefinitions.summary.byPriority.critical}
+                  </button>
+                  <button 
+                    onClick={() => zoomToPriority('high')}
+                    className="text-orange-600 hover:bg-orange-50 rounded px-1 py-0.5 transition-colors text-left"
+                    title="Click to zoom to high priority flows"
+                  >
+                    High: {pipelineDefinitions.summary.byPriority.high}
+                  </button>
+                  <button 
+                    onClick={() => zoomToPriority('medium')}
+                    className="text-green-600 hover:bg-green-50 rounded px-1 py-0.5 transition-colors text-left"
+                    title="Click to zoom to medium priority flows"
+                  >
+                    Medium: {pipelineDefinitions.summary.byPriority.medium}
+                  </button>
+                  <button 
+                    onClick={() => zoomToPriority('low')}
+                    className="text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors text-left"
+                    title="Click to zoom to low priority flows"
+                  >
+                    Low: {pipelineDefinitions.summary.byPriority.low}
+                  </button>
                 </div>
               </div>
             </div>
@@ -444,21 +543,33 @@ function PipelineMonitor() {
           )}
 
           <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-1">
+            <button 
+              onClick={() => zoomToStatus('active')}
+              className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
+              title="Click to zoom to active nodes"
+            >
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
               <span>Active</span>
-            </div>
-            <div className="flex items-center gap-1">
+            </button>
+            <button 
+              onClick={() => zoomToStatus('idle')}
+              className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
+              title="Click to zoom to idle nodes"
+            >
               <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
               <span>Idle</span>
-            </div>
-            <div className="flex items-center gap-1">
+            </button>
+            <button 
+              onClick={() => zoomToStatus('error')}
+              className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
+              title="Click to zoom to error nodes"
+            >
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
               <span>Error</span>
-            </div>
+            </button>
           </div>
           <div className="text-xs text-gray-500 mt-2">
-            Click on nodes to view raw data
+            Click nodes to view data • Click status/priority to zoom
           </div>
           <button
             onClick={() => {

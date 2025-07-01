@@ -12,11 +12,14 @@ import argparse
 
 async def generate_test_audio(duration_seconds=5, sample_rate=16000):
     """Generate test audio with speech-like patterns."""
+    import struct
+    import io
+    
     # Create audio with alternating silence and "speech" (sine waves)
     samples = int(duration_seconds * sample_rate)
     audio = np.zeros(samples, dtype=np.int16)
 
-    # Add some "speech" segments
+    # Add some "speech" segments with more realistic patterns
     speech_segments = [
         (0.5, 1.5),  # 1 second of speech starting at 0.5s
         (2.0, 3.5),  # 1.5 seconds of speech starting at 2s
@@ -26,13 +29,71 @@ async def generate_test_audio(duration_seconds=5, sample_rate=16000):
     for start, end in speech_segments:
         start_sample = int(start * sample_rate)
         end_sample = int(end * sample_rate)
-        # Generate sine wave to simulate speech
         t = np.arange(end_sample - start_sample) / sample_rate
-        frequency = 440 + np.random.randint(-100, 100)  # Vary frequency
-        segment = np.sin(2 * np.pi * frequency * t) * 16000
-        audio[start_sample:end_sample] = segment.astype(np.int16)
+        
+        # Create more complex waveform that resembles speech
+        # Mix multiple frequencies to simulate formants
+        signal = np.zeros_like(t)
+        
+        # Add fundamental frequency (100-200 Hz for speech)
+        f0 = 120 + np.random.randint(-20, 20)
+        signal += np.sin(2 * np.pi * f0 * t) * 0.3
+        
+        # Add formants (characteristic frequencies of speech)
+        # F1: 700-1220 Hz
+        f1 = 800 + np.random.randint(-100, 100)
+        signal += np.sin(2 * np.pi * f1 * t) * 0.2
+        
+        # F2: 1220-2600 Hz  
+        f2 = 1800 + np.random.randint(-200, 200)
+        signal += np.sin(2 * np.pi * f2 * t) * 0.15
+        
+        # F3: 2600-3200 Hz
+        f3 = 2800 + np.random.randint(-200, 200)
+        signal += np.sin(2 * np.pi * f3 * t) * 0.1
+        
+        # Add some amplitude modulation to simulate speech rhythm
+        envelope = 0.5 + 0.5 * np.sin(2 * np.pi * 4 * t)  # 4 Hz modulation
+        signal *= envelope
+        
+        # Add slight noise
+        signal += np.random.normal(0, 0.02, len(t))
+        
+        # Scale to int16 range
+        signal *= 25000
+        audio[start_sample:end_sample] = signal.astype(np.int16)
 
-    return audio.tobytes()
+    # Create WAV file in memory
+    wav_io = io.BytesIO()
+    
+    # WAV header
+    num_channels = 1
+    bits_per_sample = 16
+    byte_rate = sample_rate * num_channels * bits_per_sample // 8
+    block_align = num_channels * bits_per_sample // 8
+    data_size = len(audio) * 2  # 2 bytes per sample for int16
+    
+    # Write RIFF header
+    wav_io.write(b'RIFF')
+    wav_io.write(struct.pack('<I', 36 + data_size))  # File size - 8
+    wav_io.write(b'WAVE')
+    
+    # Write fmt chunk
+    wav_io.write(b'fmt ')
+    wav_io.write(struct.pack('<I', 16))  # Subchunk size
+    wav_io.write(struct.pack('<H', 1))   # Audio format (PCM)
+    wav_io.write(struct.pack('<H', num_channels))
+    wav_io.write(struct.pack('<I', sample_rate))
+    wav_io.write(struct.pack('<I', byte_rate))
+    wav_io.write(struct.pack('<H', block_align))
+    wav_io.write(struct.pack('<H', bits_per_sample))
+    
+    # Write data chunk
+    wav_io.write(b'data')
+    wav_io.write(struct.pack('<I', data_size))
+    wav_io.write(audio.tobytes())
+    
+    return wav_io.getvalue()
 
 
 async def send_test_audio(bootstrap_servers="localhost:9092"):
@@ -48,17 +109,21 @@ async def send_test_audio(bootstrap_servers="localhost:9092"):
         # Generate test audio
         audio_bytes = await generate_test_audio()
 
-        # Create audio chunk message
+        # Create audio chunk message with nested data structure
         message = {
             "device_id": "test-device-001",
             "timestamp": datetime.utcnow().isoformat(),
             "schema_version": "v1",
-            "chunk_number": 1,
-            "audio_data": base64.b64encode(audio_bytes).decode("utf-8"),
-            "format": "pcm16",
-            "sample_rate": 16000,
-            "channels": 1,
-            "duration_ms": 5000,
+            "trace_id": f"test-{datetime.utcnow().timestamp()}",
+            "data": {
+                "audio_data": base64.b64encode(audio_bytes).decode("utf-8"),
+                "format": "pcm",
+                "sample_rate": 16000,
+                "channels": 1,
+                "bits_per_sample": 16,
+                "duration_ms": 5000,
+                "device_info": {"microphone": "Test Microphone", "gain": 0.8},
+            },
             "metadata": {"test": True, "source": "test_vad_pipeline"},
         }
 
@@ -69,7 +134,7 @@ async def send_test_audio(bootstrap_servers="localhost:9092"):
 
         print("✅ Sent test audio chunk to Kafka")
         print(f"   Device ID: {message['device_id']}")
-        print(f"   Duration: {message['duration_ms']}ms")
+        print(f"   Duration: {message['data']['duration_ms']}ms")
         print(f"   Timestamp: {message['timestamp']}")
 
     finally:
@@ -81,7 +146,7 @@ async def monitor_vad_results(bootstrap_servers="localhost:9092", timeout=30):
     consumer = AIOKafkaConsumer(
         "media.audio.vad_filtered",
         bootstrap_servers=bootstrap_servers,
-        auto_offset_reset="latest",
+        auto_offset_reset="earliest",  # Changed to earliest to see all messages
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
     )
 
@@ -108,12 +173,11 @@ async def monitor_vad_results(bootstrap_servers="localhost:9092", timeout=30):
 
                 print("\n🎤 Speech segment detected:")
                 print(f"   Device ID: {result['device_id']}")
-                print(f"   Confidence: {result['confidence']:.2f}")
-                print(f"   Start: {result['segment_start_ms']}ms")
-                print(f"   Duration: {result['segment_duration_ms']}ms")
-                print(
-                    f"   Model: {result['processing_model']} v{result['processing_version']}"
-                )
+                print(f"   VAD Confidence: {result.get('vad_confidence', 'N/A')}")
+                print(f"   Speech Probability: {result.get('speech_probability', 'N/A')}")  
+                print(f"   Duration: {result.get('duration_ms', 'N/A')}ms")
+                print(f"   Sample Rate: {result.get('sample_rate', 'N/A')} Hz")
+                print(f"   Chunk Index: {result.get('chunk_index', 'N/A')}")
 
             except asyncio.TimeoutError:
                 continue
@@ -122,10 +186,12 @@ async def monitor_vad_results(bootstrap_servers="localhost:9092", timeout=30):
         print(f"   Total segments found: {len(results)}")
 
         if results:
-            total_speech_ms = sum(r["segment_duration_ms"] for r in results)
+            total_speech_ms = sum(r.get("duration_ms", 0) for r in results)
             print(f"   Total speech duration: {total_speech_ms}ms")
-            avg_confidence = sum(r["confidence"] for r in results) / len(results)
-            print(f"   Average confidence: {avg_confidence:.2f}")
+            confidences = [r.get("vad_confidence", 0) for r in results if "vad_confidence" in r]
+            if confidences:
+                avg_confidence = sum(confidences) / len(confidences)
+                print(f"   Average confidence: {avg_confidence:.2f}")
 
     finally:
         await consumer.stop()

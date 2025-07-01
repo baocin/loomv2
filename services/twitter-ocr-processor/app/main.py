@@ -282,11 +282,21 @@ class TwitterOCRProcessor:
                 "error": ocr_result.get("error"),
             }
 
+        except httpx.TimeoutException as e:
+            logger.error(
+                "OCR request timed out",
+                error=str(e),
+                trace_id=message_data.get("trace_id"),
+                timeout_seconds=60,
+            )
+            return None
         except Exception as e:
             logger.error(
                 "Error processing image with OCR",
-                error=str(e),
+                error=str(e) if str(e) else repr(e),
+                error_type=type(e).__name__,
                 trace_id=message_data.get("trace_id"),
+                traceback=True,
             )
             return None
 
@@ -371,10 +381,20 @@ class TwitterOCRProcessor:
 
                 except ValidationError as e:
                     messages_processed.labels(status="validation_error").inc()
-                    logger.error("Invalid message format", error=str(e))
+                    logger.error(
+                        "Invalid message format",
+                        error=str(e),
+                        error_details=e.errors() if hasattr(e, 'errors') else None,
+                        raw_message=str(message.value)[:200],  # First 200 chars
+                    )
                 except Exception as e:
                     messages_processed.labels(status="error").inc()
-                    logger.error("Error processing message", error=str(e))
+                    logger.error(
+                        "Error processing message",
+                        error=str(e) if str(e) else repr(e),
+                        error_type=type(e).__name__,
+                        traceback=True,
+                    )
 
         finally:
             consumer.close()
