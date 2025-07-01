@@ -66,13 +66,9 @@ export class PipelineBuilder {
           input: ['device.audio.raw'],
           output: ['media.audio.vad_filtered']
         },
-        'parakeet-tdt-consumer': {
-          input: ['media.audio.vad_filtered'],
-          output: ['media.text.transcribed.words', 'media.text.word_timestamps']
-        },
-        'bud-e-emotion-consumer': {
-          input: ['media.audio.vad_filtered'],
-          output: ['analysis.audio.emotion_scores']
+        'kyutai-stt-consumer': {
+          input: ['device.audio.raw'],  // Now processes raw audio directly
+          output: ['media.text.transcribed.words']
         },
 
         // Vision Processing Pipeline
@@ -593,7 +589,7 @@ export class PipelineBuilder {
     // Map consumer group names to their likely input topics
     const inputMappings: Record<string, string[]> = {
       'silero-vad-consumer': ['device.audio.raw'],
-      'parakeet-tdt-consumer': ['media.audio.vad_filtered'],
+      'kyutai-stt-consumer': ['device.audio.raw'],  // Changed from VAD-filtered to raw audio
       'minicpm-vision-consumer': ['device.image.camera.raw', 'device.video.screen.raw'],
       'kafka-to-db-consumer': topics.filter(t =>
         t.includes('.raw') || t.includes('.processed') || t.includes('.analysis')
@@ -609,8 +605,8 @@ export class PipelineBuilder {
     if (groupId.includes('vad')) {
       return topics.filter(t => t.includes('audio') && t.includes('raw'))
     }
-    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr')) {
-      return topics.filter(t => t.includes('vad_filtered'))
+    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr') || groupId.includes('stt') || groupId.includes('kyutai')) {
+      return topics.filter(t => t.includes('audio') && t.includes('raw'))  // Kyutai STT now processes raw audio
     }
     if (groupId.includes('vision') || groupId.includes('image')) {
       return topics.filter(t => (t.includes('image') || t.includes('video')) && t.includes('raw'))
@@ -627,7 +623,7 @@ export class PipelineBuilder {
     // Map consumer groups to their output topics
     const outputMappings: Record<string, string[]> = {
       'silero-vad-consumer': ['media.audio.vad_filtered'],
-      'parakeet-tdt-consumer': ['media.text.transcribed.words'],
+      'kyutai-stt-consumer': ['media.text.transcribed.words'],
       'minicpm-vision-consumer': ['media.image.analysis.minicpm_results'],
       'kafka-to-db-consumer': [] // Database consumer doesn't produce topics
     }
@@ -640,7 +636,7 @@ export class PipelineBuilder {
     if (groupId.includes('vad')) {
       return topics.filter(t => t.includes('vad_filtered'))
     }
-    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr')) {
+    if (groupId.includes('transcr') || groupId.includes('speech') || groupId.includes('asr') || groupId.includes('stt') || groupId.includes('kyutai')) {
       return topics.filter(t => t.includes('transcribed'))
     }
     if (groupId.includes('vision') || groupId.includes('image')) {
@@ -654,8 +650,7 @@ export class PipelineBuilder {
     const labelMappings: Record<string, string> = {
       // Audio Pipeline
       'silero-vad-consumer': 'VAD Processor',
-      'parakeet-tdt-consumer': 'Speech-to-Text',
-      'bud-e-emotion-consumer': 'Audio Emotion',
+      'kyutai-stt-consumer': 'Kyutai STT',  // Updated name
 
       // Vision Pipeline
       'minicpm-vision-consumer': 'Vision Analyzer',
@@ -700,8 +695,7 @@ export class PipelineBuilder {
     const descriptionMappings: Record<string, string> = {
       // Audio Pipeline
       'silero-vad-consumer': 'Voice Activity Detection',
-      'parakeet-tdt-consumer': 'Audio transcription',
-      'bud-e-emotion-consumer': 'Audio emotion analysis',
+      'kyutai-stt-consumer': 'Speech-to-Text (Kyutai 2.6B)',  // Updated description
 
       // Vision Pipeline
       'minicpm-vision-consumer': 'Image analysis & captioning',
@@ -739,8 +733,7 @@ export class PipelineBuilder {
     const knownServices = [
       // Audio Pipeline
       { groupId: 'silero-vad-consumer', required: ['device.audio.raw'] },
-      { groupId: 'parakeet-tdt-consumer', required: ['media.audio.vad_filtered'] },
-      { groupId: 'bud-e-emotion-consumer', required: ['media.audio.vad_filtered'] },
+      { groupId: 'kyutai-stt-consumer', required: ['device.audio.raw'] },  // Now requires raw audio
 
       // Vision Pipeline
       { groupId: 'minicpm-vision-consumer', required: ['device.image.camera.raw'] },
