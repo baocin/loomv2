@@ -502,68 +502,6 @@ async def ingest_barometer_data(
         ) from e
 
 
-@router.post("/generic", status_code=status.HTTP_201_CREATED)
-async def ingest_generic_sensor(
-    sensor_reading: SensorReading,
-    request: Request,
-    api_key: str = Depends(verify_api_key),
-) -> JSONResponse:
-    """Ingest generic sensor data.
-
-    Args:
-    ----
-        sensor_reading: Generic sensor reading data
-
-    Returns:
-    -------
-        Success response with message ID
-
-    """
-    try:
-        # Get trace context and add to message
-        trace_context = get_trace_context()
-        sensor_reading.trace_id = trace_context.get("trace_id")
-        sensor_reading.services_encountered = trace_context.get(
-            "services_encountered",
-            [],
-        )
-
-        await kafka_producer.send_sensor_data(
-            sensor_reading,
-            sensor_reading.sensor_type,
-        )
-
-        logger.info(
-            "Generic sensor data ingested",
-            device_id=sensor_reading.device_id,
-            message_id=sensor_reading.message_id,
-            sensor_type=sensor_reading.sensor_type,
-        )
-
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={
-                "status": "success",
-                "message_id": sensor_reading.message_id,
-                "topic": f"device.sensor.{sensor_reading.sensor_type}.raw",
-                "trace_id": trace_context.get("trace_id"),
-                "services_encountered": trace_context.get("services_encountered", []),
-            },
-        )
-
-    except Exception as e:
-        logger.error(
-            "Failed to ingest generic sensor data",
-            device_id=sensor_reading.device_id,
-            sensor_type=sensor_reading.sensor_type,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to ingest sensor data",
-        ) from e
-
-
 @router.post("/batch", status_code=status.HTTP_201_CREATED)
 async def ingest_sensor_batch(
     sensor_readings: list[SensorReading],

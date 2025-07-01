@@ -156,8 +156,6 @@ external.hackernews.embedded
 # Enriched data
 device.state.power.enriched
 device.state.power.patterns
-device.network.wifi.enriched
-device.network.location_correlated
 os.events.app_lifecycle.enriched
 
 # Error topics

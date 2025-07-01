@@ -212,7 +212,6 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 - `device.sensor.accelerometer.raw` - 3-axis motion data (30 days retention)
 - `device.sensor.barometer.raw` - Atmospheric pressure data
 - `device.sensor.temperature.raw` - Device temperature readings
-- `device.sensor.generic.raw` - Generic sensor readings
 
 **Device Health:**
 - `device.health.heartrate.raw` - Heart rate measurements (60 days retention)
@@ -290,8 +289,6 @@ Pattern: `<category>.<source>.<datatype>.<stage>` (all lowercase, dot-separated)
 **Device State Processing:**
 - `device.state.power.enriched` - Enriched power state with patterns
 - `device.state.power.patterns` - Detected charging patterns
-- `device.network.wifi.enriched` - Enriched WiFi connection data
-- `device.network.location_correlated` - WiFi networks correlated with locations
 - `os.events.app_lifecycle.enriched` - Enriched app lifecycle events
 
 **External Data Processing:**

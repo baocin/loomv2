@@ -284,6 +284,23 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            # Location Processing Topics
+            "location.address.geocoded": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
+            "location.georegion.detected": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
         }
 
     async def start(self) -> None:

@@ -47,10 +47,15 @@ consumer_thread = None
 def run_consumer():
     """Run the Kafka consumer in a separate thread"""
     global consumer
+    print("DEBUG: run_consumer() called", file=sys.stderr)
+    logger.info("run_consumer() called")
     try:
+        print("DEBUG: Creating GPSGeocodingConsumer", file=sys.stderr)
         consumer = GPSGeocodingConsumer()
+        print("DEBUG: Starting consumer", file=sys.stderr)
         consumer.start()
     except Exception as e:
+        print(f"DEBUG: Consumer failed: {e}", file=sys.stderr)
         logger.error("Consumer failed", error=str(e))
         sys.exit(1)
 
@@ -61,14 +66,18 @@ async def lifespan(app: FastAPI):
     global consumer_thread
     
     # Startup
+    print("DEBUG: lifespan startup called", file=sys.stderr)
     logger.info("Starting GPS geocoding consumer", 
                 kafka_servers=settings.kafka_bootstrap_servers,
                 input_topic=settings.kafka_input_topic,
                 output_topic=settings.kafka_output_topic)
     
     # Start consumer in background thread
+    print("DEBUG: Creating consumer thread", file=sys.stderr)
     consumer_thread = threading.Thread(target=run_consumer, daemon=True)
+    print("DEBUG: Starting consumer thread", file=sys.stderr)
     consumer_thread.start()
+    print(f"DEBUG: Consumer thread started, is_alive={consumer_thread.is_alive()}", file=sys.stderr)
     
     yield
     

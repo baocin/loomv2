@@ -54,8 +54,18 @@ class GPSGeocodingConsumer:
                        output_topic=settings.kafka_output_topic)
             
             # Process messages
+            logger.info("Starting message processing loop")
+            message_count = 0
             for message in self.consumer:
                 try:
+                    message_count += 1
+                    logger.info("Received message",
+                               count=message_count,
+                               topic=message.topic,
+                               partition=message.partition,
+                               offset=message.offset,
+                               key=message.key.decode('utf-8') if message.key else None,
+                               value_preview=str(message.value)[:100] if message.value else None)
                     self._process_message(message.value)
                 except Exception as e:
                     logger.error("Error processing message", 
@@ -72,6 +82,8 @@ class GPSGeocodingConsumer:
     
     def _process_message(self, message: Dict[str, Any]):
         """Process a single GPS message"""
+        logger.info("Entering _process_message", message_keys=list(message.keys()) if message else None)
+        
         # Extract GPS data
         latitude = message.get('latitude')
         longitude = message.get('longitude')
@@ -79,11 +91,18 @@ class GPSGeocodingConsumer:
         timestamp = message.get('timestamp')
         accuracy = message.get('accuracy')
         
+        logger.info("Extracted GPS data",
+                    latitude=latitude,
+                    longitude=longitude,
+                    device_id=device_id,
+                    timestamp=timestamp,
+                    accuracy=accuracy)
+        
         if latitude is None or longitude is None:
             logger.warning("Invalid GPS data - missing coordinates", message=message)
             return
         
-        logger.debug("Processing GPS location",
+        logger.info("Processing GPS location",
                     device_id=device_id,
                     latitude=latitude,
                     longitude=longitude,

@@ -345,17 +345,6 @@ pipeline_summary:
       outputs: ["os.events.notifications.enriched", "media.text.notifications_extracted"]
       
       
-  generic_sensor_processing:
-    priority: low
-    category: sensor
-    stages: 2
-    models: []
-    input_rate: "1 events/sec"
-    latency_target: "< 5s"
-    connections:
-      inputs: ["device.sensor.generic.raw"]
-      outputs: ["device.sensor.generic.enriched"]
-      
   macos_app_monitoring:
     priority: medium
     category: system
