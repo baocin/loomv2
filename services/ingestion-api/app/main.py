@@ -1,5 +1,6 @@
 """Main FastAPI application for the ingestion service."""
 
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -80,18 +81,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info("Starting ingestion API service", version="0.1.0")
 
-    try:
-        # Start Kafka topic manager first
-        await topic_manager.start()
-        logger.info("Kafka topic manager started successfully")
+    # Retry logic for Kafka connectivity
+    max_retries = 5
+    retry_delay = 5  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Start Kafka topic manager first
+            await topic_manager.start()
+            logger.info("Kafka topic manager started successfully")
 
-        # Start Kafka producer
-        await kafka_producer.start()
-        logger.info("Kafka producer started successfully")
-
-    except Exception as e:
-        logger.error("Failed to start dependencies", error=str(e))
-        raise
+            # Start Kafka producer
+            await kafka_producer.start()
+            logger.info("Kafka producer started successfully")
+            
+            break  # Success, exit retry loop
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.warning(
+                    f"Failed to connect to Kafka (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s",
+                    error=str(e)
+                )
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error("Failed to start dependencies after all retries", error=str(e))
+                raise
 
     yield
 

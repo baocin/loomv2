@@ -514,7 +514,7 @@ class OSEventAppLifecycle(BaseMessage):
     app_name: str | None = Field(default=None, description="Human-readable application name")
     event_type: str = Field(
         description="Event type",
-        regex="^(launch|foreground|background|terminate|crash)$",
+        pattern="^(launch|foreground|background|terminate|crash)$",
     )
     duration_seconds: int | None = Field(
         default=None,
@@ -539,7 +539,7 @@ class OSEventSystemRaw(BaseMessage):
     severity: str = Field(
         default="info",
         description="Event severity (info, warning, error)",
-        regex="^(info|warning|error)$",
+        pattern="^(info|warning|error)$",
     )
     description: str | None = Field(
         default=None,
