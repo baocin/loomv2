@@ -106,13 +106,13 @@ class KafkaConsumer:
                         audio_chunk = AudioChunk(**msg.value)
 
                         logger.info(
-                            "Received VAD-filtered audio chunk",
+                            "Received raw audio chunk for transcription",
                             chunk_id=getattr(audio_chunk, 'chunk_id', None),
                             device_id=audio_chunk.device_id,
                             sequence_number=getattr(audio_chunk, 'sequence_number', None),
                             duration_ms=getattr(audio_chunk, 'duration_ms', None),
                             sample_rate=getattr(audio_chunk, 'sample_rate', None),
-                            vad_confidence=getattr(audio_chunk, 'vad_confidence', None),
+                            file_id=getattr(audio_chunk, 'file_id', None),
                             topic=msg.topic,
                             partition=msg.partition,
                             offset=msg.offset,

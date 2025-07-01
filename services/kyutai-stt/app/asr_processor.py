@@ -210,14 +210,13 @@ class ASRProcessor:
             )
 
             logger.info(
-                "Audio decoded for STT",
+                "Raw audio decoded for STT",
                 chunk_id=chunk.chunk_id,
                 device_id=chunk.device_id,
                 duration=len(audio_array) / sample_rate,
                 sample_rate=sample_rate,
-                vad_confidence=chunk.confidence,
-                start_ms=chunk.start_ms,
-                end_ms=chunk.end_ms,
+                file_id=chunk.file_id,
+                duration_ms=chunk.duration_ms,
             )
 
             # Extract words with timestamps
@@ -250,14 +249,14 @@ class ASRProcessor:
             )
 
             logger.info(
-                "Audio chunk transcribed",
+                "Raw audio chunk transcribed",
                 chunk_id=chunk.chunk_id,
                 device_id=chunk.device_id,
                 word_count=len(words),
                 text_length=len(full_text),
                 text_preview=full_text[:100] + '...' if len(full_text) > 100 else full_text,
                 processing_time_ms=processing_time_ms,
-                vad_confidence=chunk.confidence,
+                input_duration_ms=chunk.duration_ms,
                 device=self.device,
                 model=settings.model_name,
             )
@@ -271,6 +270,6 @@ class ASRProcessor:
                 device_id=chunk.device_id,
                 error=str(e),
                 error_type=type(e).__name__,
-                vad_confidence=getattr(chunk, 'confidence', None),
+                duration_ms=getattr(chunk, 'duration_ms', None),
             )
             return None

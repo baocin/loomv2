@@ -17,7 +17,7 @@ class BaseMessage(BaseModel):
 
 
 class AudioChunk(BaseModel):
-    """Model for VAD-filtered audio chunks from Kafka (matches VADFilteredAudio)."""
+    """Model for raw audio chunks from Kafka (matches ingestion API AudioChunk)."""
 
     device_id: str = Field(..., description="Device ID")
     recorded_at: datetime = Field(..., description="UTC timestamp when recorded")
@@ -32,11 +32,6 @@ class AudioChunk(BaseModel):
     format: str = Field(default="wav", description="Audio format")
     duration_ms: int = Field(..., description="Chunk duration in milliseconds")
     file_id: str | None = Field(None, description="Associated file ID")
-    # VAD specific fields
-    start_ms: float = Field(..., description="Start time of speech segment in ms")
-    end_ms: float = Field(..., description="End time of speech segment in ms") 
-    confidence: float = Field(..., description="VAD confidence score (0-1)")
-    vad_threshold: float = Field(..., description="VAD threshold used")
     
     @property
     def chunk_id(self) -> str:

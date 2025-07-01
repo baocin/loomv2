@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Kafka settings
     kafka_bootstrap_servers: str = "kafka:29092"
     kafka_consumer_group: str = "kyutai-stt-consumer"
-    kafka_input_topic: str = "media.audio.vad_filtered"
+    kafka_input_topic: str = "device.audio.raw"  # Process raw audio directly
     kafka_output_topic: str = "media.text.transcribed.words"
     kafka_max_poll_records: int = 10
     kafka_session_timeout_ms: int = 30000

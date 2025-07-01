@@ -178,7 +178,7 @@ services:
       dockerfile: Dockerfile
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered
+      LOOM_KAFKA_INPUT_TOPIC: device.audio.raw  # Process raw audio directly
       LOOM_KAFKA_OUTPUT_TOPIC: media.text.transcribed.words
       LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
       LOOM_LOG_LEVEL: INFO
@@ -191,8 +191,6 @@ services:
       - "8002:8002"
     depends_on:
       kafka:
-        condition: service_healthy
-      silero-vad:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/healthz"]
