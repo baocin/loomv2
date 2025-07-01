@@ -679,6 +679,7 @@ services:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_KAFKA_INPUT_TOPIC: media.image.analysis.minicpm_results
       LOOM_KAFKA_OUTPUT_TOPIC: analysis.image.emotion_results
+      LOOM_MODEL_NAME: trpakov/vit-face-expression  # Public facial emotion model
       LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
       LOOM_LOG_LEVEL: INFO
       LOOM_HOST: 0.0.0.0

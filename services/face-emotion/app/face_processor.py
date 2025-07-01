@@ -69,7 +69,6 @@ class FaceEmotionProcessor:
                 "image-classification",
                 model=settings.model_name,
                 device=0 if self.device == "cuda" and torch.cuda.is_available() else -1,
-                cache_dir=settings.model_cache_dir,
             )
 
             # Also load model components for detailed analysis

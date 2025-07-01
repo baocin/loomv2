@@ -223,6 +223,10 @@ def kafka_consumer_thread():
             enable_auto_commit=True,
             group_id="moondream-ocr-consumer",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+            max_poll_records=1,  # Process one image at a time
+            max_poll_interval_ms=600000,  # 10 minutes timeout for processing
+            session_timeout_ms=60000,  # 1 minute session timeout
+            heartbeat_interval_ms=3000,  # Send heartbeat every 3 seconds
         )
 
         producer = KafkaProducer(
@@ -273,9 +277,11 @@ def kafka_consumer_thread():
                 # Send to output topic
                 producer.send(output_topic, value=output_message)
 
+                processing_time = (time.time() - start_time) * 1000
                 logging.info(
                     f"Processed image for tweet {data.get('tweet_id')} - "
-                    f"OCR length: {len(result['ocr_text'])} chars"
+                    f"OCR length: {len(result['ocr_text'])} chars - "
+                    f"Processing time: {processing_time:.0f}ms"
                 )
 
             except Exception as e:
