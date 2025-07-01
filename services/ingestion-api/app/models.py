@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator, validator
 
 # Python 3.10 compatibility
 try:
@@ -37,6 +37,15 @@ class BaseMessage(BaseModel):
         default_factory=list,
         description="List of services that have processed this message",
     )
+    
+    @model_validator(mode='before')
+    @classmethod
+    def handle_timestamp_alias(cls, data: Any) -> Any:
+        """Handle timestamp as an alias for recorded_at field."""
+        if isinstance(data, dict):
+            if 'timestamp' in data and 'recorded_at' not in data:
+                data['recorded_at'] = data['timestamp']
+        return data
 
     @validator("device_id")
     def validate_device_id(cls, v):
@@ -98,6 +107,15 @@ class AudioChunk(BaseMessage):
         default=None,
         description="Associated file ID for chunking",
     )
+    
+    @model_validator(mode='before')
+    @classmethod
+    def handle_chunk_data_alias(cls, data: Any) -> Any:
+        """Handle chunk_data as an alias for data field."""
+        if isinstance(data, dict):
+            if 'chunk_data' in data and 'data' not in data:
+                data['data'] = data.pop('chunk_data')
+        return data
 
 
 class SensorReading(BaseMessage):
