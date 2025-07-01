@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: georegion-detector
+  namespace: loom-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: georegion-detector
+  template:
+    metadata:
+      labels:
+        app: georegion-detector
+    spec:
+      containers:
+      - name: georegion-detector
+        image: loom/georegion-detector:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: LOOM_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: loom-secrets
+              key: database-url
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: georegion-detector
+  namespace: loom-dev
+spec:
+  selector:
+    app: georegion-detector
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
