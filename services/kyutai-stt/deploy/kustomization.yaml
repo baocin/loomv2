@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: loom-dev
+
+resources:
+- deployment.yaml  # Default GPU deployment
+
+# To use CPU deployment instead, comment out deployment.yaml above and uncomment:
+# - deployment-cpu.yaml
+
+commonLabels:
+  project: loom-v2
+  service: kyutai-stt
+
+# Optional: Add config maps or secrets here
+# configMapGenerator:
+# - name: kyutai-stt-config
+#   files:
+#   - config.yaml

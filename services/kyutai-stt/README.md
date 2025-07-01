@@ -1,22 +1,34 @@
-# Parakeet-TDT Speech-to-Text Service
+# Kyutai STT Speech-to-Text Service
 
-NVIDIA Parakeet-TDT (Transducer-based Decoder with Time-synchronous decoding) service for converting VAD-filtered audio to word-by-word transcripts with timestamps.
+Kyutai Mimi STT service for converting raw audio to word-by-word transcripts with timestamps, following the implementation from the Kyutai delayed-streams-modeling Colab example.
 
 ## Overview
 
 This service:
-- Consumes VAD-filtered audio chunks from Kafka topic `media.audio.vad_filtered`
-- Uses NVIDIA Parakeet-TDT-1.1B model for accurate speech recognition
+- Consumes raw audio chunks from Kafka topic `device.audio.raw`
+- Uses Kyutai Mimi model (stt-1b-en_fr) for accurate speech recognition
 - Produces word-level transcripts with timestamps to `media.text.transcribed.words`
 - Supports both CPU and GPU inference (GPU recommended for performance)
+- Implements deterministic decoding with zero temperature as per the Colab example
 
 ## Features
 
 - **Real-time Processing**: Processes audio chunks as they arrive from Kafka
-- **Word-level Timestamps**: Provides precise timing for each transcribed word
-- **High Accuracy**: Uses NVIDIA's state-of-the-art ASR model
+- **Word-level Timestamps**: Provides estimated timing for each transcribed word
+- **Mimi Model**: Uses Kyutai's Mimi encoder for audio processing
+- **Deterministic Decoding**: Zero temperature for consistent results (following Colab example)
+- **Multi-language**: Supports English and French transcription
 - **Scalable**: Containerized with support for horizontal scaling
 - **Monitoring**: Prometheus metrics and health check endpoints
+
+## Implementation Details
+
+This service follows the Kyutai delayed-streams-modeling Colab example:
+- Uses `moshi.models` for loading Mimi encoder and language model
+- Implements `InferenceState` class for managing transcription state
+- Processes raw audio at 24kHz (Mimi's native sample rate)
+- Uses deterministic decoding with `temp=0.0` and `temp_text=0.0`
+- No sampling (`use_sampling=False`) for consistent outputs
 
 ## Configuration
 
@@ -24,7 +36,7 @@ Environment variables (with LOOM_ prefix):
 
 ```bash
 LOOM_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-LOOM_KAFKA_INPUT_TOPIC=media.audio.vad_filtered
+LOOM_KAFKA_INPUT_TOPIC=device.audio.raw
 LOOM_KAFKA_OUTPUT_TOPIC=media.text.transcribed.words
 LOOM_MODEL_DEVICE=cpu  # or 'cuda' for GPU
 LOOM_MODEL_CACHE_DIR=/models
@@ -35,7 +47,7 @@ LOOM_PORT=8002
 
 ## Input Schema
 
-Expects VAD-filtered audio chunks with this structure:
+Expects raw audio chunks with this structure:
 
 ```json
 {
@@ -76,7 +88,7 @@ Produces word-by-word transcripts:
   "full_text": "hello world",
   "language": "en",
   "processing_time_ms": 150.5,
-  "model_version": "nvidia/parakeet-tdt_ctc-1.1b"
+  "model_version": "kyutai/stt-1b-en_fr"
 }
 ```
 
@@ -116,6 +128,6 @@ make docker-run-gpu
 ## Monitoring
 
 Prometheus metrics available:
-- `parakeet_audio_chunks_processed_total` - Total chunks processed
-- `parakeet_transcripts_produced_total` - Total transcripts generated
-- `parakeet_processing_duration_seconds` - Processing time histogram
+- `kyutai_stt_audio_chunks_processed_total` - Total chunks processed
+- `kyutai_stt_transcripts_produced_total` - Total transcripts generated
+- `kyutai_stt_processing_duration_seconds` - Processing time histogram

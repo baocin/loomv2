@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyutai-stt-cpu
+  namespace: loom-dev
+  labels:
+    app: kyutai-stt
+    component: ai-processing
+    variant: cpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kyutai-stt
+      variant: cpu
+  template:
+    metadata:
+      labels:
+        app: kyutai-stt
+        component: ai-processing
+        variant: cpu
+    spec:
+      containers:
+      - name: kyutai-stt
+        image: kyutai-stt:cpu
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: LOOM_ENVIRONMENT
+          value: "development"
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: LOOM_KAFKA_INPUT_TOPIC
+          value: "device.audio.raw"
+        - name: LOOM_KAFKA_OUTPUT_TOPIC
+          value: "media.text.transcribed.words"
+        - name: LOOM_MODEL_NAME
+          value: "kyutai/stt-1b-en_fr"
+        - name: LOOM_MODEL_DEVICE
+          value: "cpu"
+        - name: LOOM_MODEL_CACHE_DIR
+          value: "/models"
+        - name: HF_HOME
+          value: "/models/huggingface"
+        - name: TRANSFORMERS_CACHE
+          value: "/models/transformers"
+        - name: TORCH_HOME
+          value: "/models/torch"
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        volumeMounts:
+        - name: model-cache
+          mountPath: /models
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8002
+          initialDelaySeconds: 180  # More time for CPU
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8002
+          initialDelaySeconds: 120  # More time for CPU
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: kyutai-stt-model-cache-cpu
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyutai-stt-cpu
+  namespace: loom-dev
+  labels:
+    app: kyutai-stt
+    variant: cpu
+spec:
+  selector:
+    app: kyutai-stt
+    variant: cpu
+  ports:
+  - port: 8002
+    targetPort: 8002
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kyutai-stt-model-cache-cpu
+  namespace: loom-dev
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path  # For k3d, adjust for production

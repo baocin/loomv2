@@ -5,10 +5,10 @@ from typing import Any
 
 import structlog
 import torch
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, File, UploadFile
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
-from app.asr_processor import ASRProcessor
+from app.simple_kyutai_processor import SimpleKyutaiProcessor
 from app.config import settings
 from app.kafka_consumer import KafkaConsumer
 
@@ -49,7 +49,7 @@ processing_duration = Histogram(
 
 # Global instances
 kafka_consumer = KafkaConsumer()
-asr_processor: ASRProcessor = None
+asr_processor: SimpleKyutaiProcessor = None
 model_loaded = False
 
 
@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
     )
 
     # Initialize ASR processor (but don't load model yet)
-    asr_processor = ASRProcessor()
+    asr_processor = SimpleKyutaiProcessor()
 
     try:
         # Start Kafka consumer (this will initialize the ASR model)
@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Kyutai-STT Speech-to-Text Service",
-    description="Whisper-based ASR service for Loom v2",
+    description="Kyutai Mimi STT service for Loom v2",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -178,6 +178,52 @@ async def root():
         "model": settings.model_name,
         "device": settings.model_device,
     }
+
+
+@app.post("/transcribe")
+async def transcribe_audio(file: bytes = File(...)):
+    """Direct transcription endpoint for testing."""
+    import base64
+    from app.models import AudioChunk
+    from datetime import datetime
+    
+    global asr_processor
+    
+    if not asr_processor:
+        return {"error": "ASR processor not initialized"}
+    
+    try:
+        # Create a mock audio chunk
+        audio_b64 = base64.b64encode(file).decode('utf-8')
+        chunk = AudioChunk(
+            device_id="test-device",
+            recorded_at=datetime.utcnow().isoformat() + "Z",
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            audio_data=audio_b64,
+            format="mp3",
+            sample_rate=16000,
+            duration_seconds=5.0,  # Will be calculated properly by processor
+            channels=1,
+            chunk_number=1,
+            file_id="test-file"
+        )
+        
+        # Process the audio
+        result = await asr_processor.process_audio_chunk(chunk)
+        
+        if result:
+            return {
+                "success": True,
+                "text": result.text,
+                "words": [{"word": w.word, "start": w.start_time, "end": w.end_time} for w in result.words],
+                "processing_time_ms": result.processing_time_ms
+            }
+        else:
+            return {"success": False, "error": "No transcription result"}
+            
+    except Exception as e:
+        logger.error("Transcription failed", error=str(e))
+        return {"success": False, "error": str(e)}
 
 
 if __name__ == "__main__":

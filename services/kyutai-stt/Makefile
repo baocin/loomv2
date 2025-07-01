@@ -4,7 +4,7 @@
 .DEFAULT_GOAL := help
 
 # Service name
-SERVICE_NAME := parakeet-tdt
+SERVICE_NAME := kyutai-stt
 DOCKER_IMAGE := loomv2/$(SERVICE_NAME):latest
 
 help: ## Show this help message
@@ -33,6 +33,9 @@ test-coverage: ## Run tests with coverage report
 
 test-integration: ## Run integration tests
 	pytest tests/integration -v
+
+test-model: ## Test Kyutai model loading
+	python test_kyutai_model.py
 
 lint: ## Run linting tools
 	ruff check app tests

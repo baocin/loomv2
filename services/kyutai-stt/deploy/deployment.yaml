@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyutai-stt
+  namespace: loom-dev
+  labels:
+    app: kyutai-stt
+    component: ai-processing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kyutai-stt
+  template:
+    metadata:
+      labels:
+        app: kyutai-stt
+        component: ai-processing
+    spec:
+      containers:
+      - name: kyutai-stt
+        image: kyutai-stt:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: LOOM_ENVIRONMENT
+          value: "development"
+        - name: LOOM_LOG_LEVEL
+          value: "INFO"
+        - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: LOOM_KAFKA_INPUT_TOPIC
+          value: "device.audio.raw"
+        - name: LOOM_KAFKA_OUTPUT_TOPIC
+          value: "media.text.transcribed.words"
+        - name: LOOM_MODEL_NAME
+          value: "kyutai/stt-1b-en_fr"
+        - name: LOOM_MODEL_CACHE_DIR
+          value: "/models"
+        - name: HF_HOME
+          value: "/models/huggingface"
+        - name: TRANSFORMERS_CACHE
+          value: "/models/transformers"
+        - name: TORCH_HOME
+          value: "/models/torch"
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+            nvidia.com/gpu: "1"  # Request 1 GPU
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+            nvidia.com/gpu: "1"  # Limit to 1 GPU
+        volumeMounts:
+        - name: model-cache
+          mountPath: /models
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8002
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8002
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: kyutai-stt-model-cache
+      # GPU node selector (optional, uncomment if you have GPU nodes)
+      # nodeSelector:
+      #   nvidia.com/gpu.present: "true"
+      # tolerations:
+      # - key: nvidia.com/gpu
+      #   operator: Exists
+      #   effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyutai-stt
+  namespace: loom-dev
+  labels:
+    app: kyutai-stt
+spec:
+  selector:
+    app: kyutai-stt
+  ports:
+  - port: 8002
+    targetPort: 8002
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kyutai-stt-model-cache
+  namespace: loom-dev
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path  # For k3d, adjust for production
