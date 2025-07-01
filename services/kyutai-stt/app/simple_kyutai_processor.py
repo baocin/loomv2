@@ -9,7 +9,7 @@ import numpy as np
 import structlog
 import torch
 import torchaudio
-from transformers import pipeline
+from transformers import KyutaiSpeechToTextProcessor, KyutaiSpeechToTextForConditionalGeneration
 
 from app.config import settings
 from app.models import AudioChunk, TranscribedText, TranscribedWord
@@ -21,36 +21,49 @@ class SimpleKyutaiProcessor:
     """Simplified STT processor using Whisper until Kyutai Mimi is properly integrated."""
 
     def __init__(self):
-        self.pipe = None
+        self.processor = None
+        self.model = None
         self.device = settings.model_device
         logger.info(
-            "Initializing simplified Kyutai processor (using Whisper temporarily)",
-            device=self.device
+            "Initializing Kyutai STT processor",
+            device=self.device,
+            model=settings.model_name
         )
 
     async def initialize(self):
         """Initialize the model."""
         try:
-            logger.info("Loading Whisper model as placeholder for Kyutai")
+            logger.info("Loading Kyutai STT model", model=settings.model_name)
             
-            # Determine device
+            # Determine device and torch dtype
             if self.device == "cuda" and torch.cuda.is_available():
-                device = 0
                 torch_dtype = torch.float16
+                device_map = "cuda"
             else:
-                device = -1
                 torch_dtype = torch.float32
+                device_map = "cpu"
                 self.device = "cpu"
+                print(f"Device set to use {self.device}")
 
-            # Use Whisper for now
-            self.pipe = pipeline(
-                "automatic-speech-recognition",
-                model="openai/whisper-base",
-                device=device,
+            # Load Kyutai STT processor and model
+            self.processor = KyutaiSpeechToTextProcessor.from_pretrained(
+                settings.model_name,
+                cache_dir=settings.model_cache_dir,
+            )
+            
+            self.model = KyutaiSpeechToTextForConditionalGeneration.from_pretrained(
+                settings.model_name,
+                device_map=device_map,
                 torch_dtype=torch_dtype,
+                cache_dir=settings.model_cache_dir,
             )
 
-            logger.info(f"STT processor initialized successfully on {self.device}")
+            logger.info(
+                "Kyutai STT processor initialized successfully",
+                model=settings.model_name,
+                device=self.device,
+                cuda_available=torch.cuda.is_available(),
+            )
 
         except Exception as e:
             logger.error("Failed to initialize STT processor", error=str(e))
@@ -71,11 +84,11 @@ class SimpleKyutaiProcessor:
             if audio_tensor.shape[0] > 1:
                 audio_tensor = torch.mean(audio_tensor, dim=0, keepdim=True)
 
-            # Resample to 16kHz (Whisper's expected rate)
-            if sample_rate != 16000:
-                resampler = torchaudio.transforms.Resample(sample_rate, 16000)
+            # Resample to 24kHz (Kyutai's expected rate)
+            if sample_rate != 24000:
+                resampler = torchaudio.transforms.Resample(sample_rate, 24000)
                 audio_tensor = resampler(audio_tensor)
-                sample_rate = 16000
+                sample_rate = 24000
 
             # Convert to numpy
             audio_array = audio_tensor.squeeze().numpy()
@@ -147,14 +160,22 @@ class SimpleKyutaiProcessor:
                 duration_ms=chunk.get_duration_ms(),
             )
 
-            # Transcribe
-            result = self.pipe(audio_array)
+            # Transcribe using Kyutai processor and model
+            inputs = self.processor(audio_array)
             
-            if not result or "text" not in result:
+            # Move inputs to device if needed
+            if self.device == "cuda" and torch.cuda.is_available():
+                inputs = {k: v.to("cuda") if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+            
+            # Generate transcription
+            output_tokens = self.model.generate(**inputs)
+            transcription_result = self.processor.batch_decode(output_tokens, skip_special_tokens=True)
+            
+            if not transcription_result or len(transcription_result) == 0:
                 logger.warning("No text transcribed", chunk_id=chunk.get_chunk_id())
                 return None
 
-            transcribed_text = result["text"].strip()
+            transcribed_text = transcription_result[0].strip()
             if not transcribed_text:
                 logger.warning("Empty transcription", chunk_id=chunk.get_chunk_id())
                 return None
@@ -179,20 +200,23 @@ class SimpleKyutaiProcessor:
                 words=words,
                 text=transcribed_text,
                 processing_time_ms=processing_time_ms,
-                model_version="whisper-base (placeholder for Kyutai)",
+                model_version=settings.model_name,
             )
 
             logger.info(
-                "Raw audio chunk transcribed",
+                "🎤 TRANSCRIPTION COMPLETE",
                 chunk_id=chunk.get_chunk_id(),
                 device_id=chunk.device_id,
                 word_count=len(words),
                 text_length=len(transcribed_text),
+                full_text=transcribed_text,
                 text_preview=transcribed_text[:100] + '...' if len(transcribed_text) > 100 else transcribed_text,
-                processing_time_ms=processing_time_ms,
+                processing_time_ms=round(processing_time_ms, 2),
                 input_duration_ms=chunk.get_duration_ms(),
+                realtime_factor=round(processing_time_ms / max(chunk.get_duration_ms(), 1), 2),
                 device=self.device,
-                model="whisper-base (placeholder)",
+                model=settings.model_name,
+                word_details=[{"word": w.word, "start": w.start_time, "end": w.end_time, "confidence": w.confidence} for w in words[:5]] if words else [],
             )
 
             return transcribed
