@@ -5,6 +5,7 @@ import logging
 import requests
 from typing import List, Dict, Any
 from shared.deduplication import content_hasher
+from ical_fetcher import ICalFetcher
 
 
 class CalendarFetcher:

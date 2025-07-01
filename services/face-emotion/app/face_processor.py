@@ -64,20 +64,22 @@ class FaceEmotionProcessor:
     def _load_model(self) -> None:
         """Load the Empathic-Insight-Face model and components."""
         try:
-            # Create image classification pipeline
-            self.pipeline = pipeline(
-                "image-classification",
-                model=settings.model_name,
-                device=0 if self.device == "cuda" and torch.cuda.is_available() else -1,
-            )
-
-            # Also load model components for detailed analysis
+            # Load model components with cache_dir for detailed analysis
             self.processor = AutoImageProcessor.from_pretrained(
                 settings.model_name, cache_dir=settings.model_cache_dir
             )
 
             self.model = AutoModelForImageClassification.from_pretrained(
                 settings.model_name, cache_dir=settings.model_cache_dir
+            )
+
+            # Create image classification pipeline using the loaded model
+            # Note: pipeline doesn't accept cache_dir, but will use the already cached model
+            self.pipeline = pipeline(
+                "image-classification",
+                model=self.model,
+                image_processor=self.processor,
+                device=0 if self.device == "cuda" and torch.cuda.is_available() else -1,
             )
 
             # Move to device if available
