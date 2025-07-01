@@ -115,7 +115,6 @@ export class PipelineBuilder {
           input: [
             'media.text.word_timestamps',
             'task.url.processed.content',
-            'analysis.audio.emotion_scores',
             'analysis.image.face_emotions'
           ],
           output: ['analysis.context.reasoning_chains']
@@ -175,7 +174,6 @@ export class PipelineBuilder {
             'media.text.transcribed.words',
             'media.image.vision_annotations',
             // Analysis results
-            'analysis.audio.emotion_scores',
             'analysis.image.face_emotions',
             'analysis.context.reasoning_chains',
             'analysis.text.embedded.emails',
