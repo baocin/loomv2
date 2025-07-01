@@ -18,6 +18,7 @@ import { DataModal } from './components/DataModal'
 import { LogViewer } from './components/LogViewer'
 import { TestMessagePanel } from './components/TestMessagePanel'
 import { StructureViewEnhanced } from './components/StructureViewEnhanced'
+import { ZoomControls } from './components/ZoomControls'
 import { useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
 import { usePipelineDefinitions } from './hooks/usePipelineDefinitions'
 import { usePipelineGraph } from './hooks/usePipelineGraph'
@@ -637,13 +638,27 @@ function PipelineMonitor() {
           onNodeDragStop={handleNodeDragStop}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{
+            padding: 0.3,
+            minZoom: 0.05,
+            maxZoom: 2,
+            duration: 800
+          }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+          minZoom={0.05}
+          maxZoom={3}
           attributionPosition="bottom-left"
           multiSelectionKeyCode="Shift"
           selectionKeyCode="Shift"
           deleteKeyCode="Delete"
           selectNodesOnDrag={false}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          panOnScroll={false}
+          panOnDrag={true}
+          preventScrolling={true}
         >
-        <Controls />
+        <ZoomControls />
         <MiniMap
           nodeStrokeColor={(n) => {
             if (n.data?.status === 'active') return '#10b981'
