@@ -125,6 +125,14 @@ def signal_handler(sig, frame):
 
 
 if __name__ == "__main__":
+    # Configure Python logging
+    import logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stderr
+    )
+    
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -134,5 +142,6 @@ if __name__ == "__main__":
         app,
         host=settings.host,
         port=settings.port,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
+        log_config=None  # Don't let uvicorn override logging config
     )
