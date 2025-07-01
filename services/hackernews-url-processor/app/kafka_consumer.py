@@ -10,9 +10,9 @@ class KafkaConsumer:
     def __init__(self):
         """Initialize Kafka consumer"""
         self.bootstrap_servers = os.getenv(
-            "LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+            "KAFKA_BOOTSTRAP_SERVERS", os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         )
-        self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
+        self.topic_prefix = os.getenv("KAFKA_TOPIC_PREFIX", os.getenv("LOOM_KAFKA_TOPIC_PREFIX", ""))
         self.group_id = os.getenv(
             "LOOM_KAFKA_CONSUMER_GROUP", "hackernews-url-processor"
         )

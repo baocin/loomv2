@@ -89,7 +89,7 @@ class BaseMessage(BaseModel):
 class AudioChunk(BaseMessage):
     """Audio chunk data from microphone."""
 
-    chunk_data: bytes = Field(description="Raw audio chunk data")
+    data: bytes = Field(description="Raw audio chunk data")
     sample_rate: int = Field(description="Audio sample rate in Hz")
     channels: int = Field(default=1, description="Number of audio channels")
     format: str = Field(default="wav", description="Audio format")

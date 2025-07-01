@@ -85,15 +85,15 @@ async def audio_stream_websocket(websocket: WebSocket, device_id: str) -> None:
                     audio_data = ws_message.data.copy()
                     audio_data["device_id"] = device_id
 
-                    # Convert base64 chunk_data back to bytes if needed
-                    if "chunk_data" in audio_data and isinstance(
-                        audio_data["chunk_data"],
+                    # Convert base64 data back to bytes if needed
+                    if "data" in audio_data and isinstance(
+                        audio_data["data"],
                         str,
                     ):
                         import base64
 
-                        audio_data["chunk_data"] = base64.b64decode(
-                            audio_data["chunk_data"],
+                        audio_data["data"] = base64.b64decode(
+                            audio_data["data"],
                         )
 
                     audio_chunk = AudioChunk(**audio_data)
