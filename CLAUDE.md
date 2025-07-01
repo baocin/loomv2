@@ -361,7 +361,7 @@ This table details the core data processing pipeline, showing how raw data flows
 | Model / Tool | Primary Task | Inference Strategy | Input Kafka Topic(s) | Output Kafka Topic |
 |-------------|-------------|-------------------|---------------------|-------------------|
 | **Silero VAD** | Voice Activity Detection | `torch.hub` in a Python service. CPU-optimized. | `device.audio.raw` | `media.audio.vad_filtered` |
-| **NVIDIA Parakeet-TDT** | Speech-to-Text (ASR) | Hugging Face transformers ASR Pipeline. GPU Recommended. | `media.audio.vad_filtered` | `media.text.transcribed.words` |
+| **Kyutai Mimi STT** | Speech-to-Text (ASR) | Kyutai Moshi framework with Mimi model. GPU Recommended, CPU viable. | `device.audio.raw` | `media.text.transcribed.words` |
 | **Laion BUD-E-Whisper** | Speech Emotion Recognition | Hugging Face Audio Classification Pipeline. GPU Recommended. | `media.audio.vad_filtered` | `analysis.audio.emotion_results` |
 | **MiniCPM-Llama3-V 2.5** | Vision-Language Analysis & OCR | Hugging Face transformers + outlines. GPU-preferred, CPU-viable. | `device.image.camera.raw`<br>`device.video.screen.raw` | `media.image.analysis.minicpm_results` |
 | **Laion Empathic-Insight-Face** | Face Emotion Recognition | Hugging Face Image Classification Pipeline. GPU Strongly Recommended. | `media.image.analysis.minicpm_results` (Requires face detection first) | `analysis.image.emotion_results` |
@@ -378,7 +378,7 @@ This table details the core data processing pipeline, showing how raw data flows
 
 **Core Models:**
 - [Silero VAD](https://github.com/snakers4/silero-vad) - Voice Activity Detection
-- [NVIDIA Parakeet-TDT](https://huggingface.co/nvidia/parakeet-tdt_ctc-1.1b) - Speech-to-Text
+- [Kyutai Mimi STT](https://huggingface.co/kyutai/stt-1b-en_fr) - Speech-to-Text (Mimi model)
 - [Laion BUD-E-Whisper](https://huggingface.co/laion/BUD-E_Whisper) - Speech Emotion Recognition
 - [MiniCPM-Llama3-V 2.5](https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5) - Vision-Language Model
 - [Laion Empathic-Insight-Face](https://huggingface.co/laion/Empathic-Insight-Face) - Face Emotion Recognition

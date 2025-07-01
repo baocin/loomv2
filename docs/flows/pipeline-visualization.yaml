@@ -26,11 +26,11 @@ pipeline_summary:
     priority: critical
     category: media
     stages: 4
-    models: ["Silero VAD", "NVIDIA Parakeet-TDT"]
+    models: ["Silero VAD", "Kyutai Mimi STT"]
     input_rate: "10 events/sec"
     latency_target: "< 3s"
-    service_name: "silero-vad"
-    container_name: "loomv2-silero-vad-1"
+    service_names: ["silero-vad", "kyutai-stt"]
+    container_names: ["loomv2-silero-vad-1", "loomv2-kyutai-stt-1"]
     connections:
       inputs: ["device.audio.raw"]
       outputs: ["media.audio.vad_filtered", "media.text.transcribed.words", "media.audio.environment_classified"]
@@ -72,17 +72,6 @@ pipeline_summary:
     connections:
       inputs: ["device.image.camera.raw", "device.video.screen.raw", "external.twitter.images.raw"]
       outputs: ["media.image.analysis.minicpm_results", "media.image.vision_annotations"]
-      
-  speech_emotion_recognition:
-    priority: high
-    category: analysis
-    stages: 2
-    models: ["BUD-E-Whisper"]
-    input_rate: "1 events/sec"
-    latency_target: "< 2s"
-    connections:
-      inputs: ["media.audio.vad_filtered"]
-      outputs: ["analysis.audio.emotion_results", "analysis.audio.emotion_scores"]
       
   face_emotion_recognition:
     priority: high
@@ -128,7 +117,7 @@ pipeline_summary:
     input_rate: "0.1 events/sec"
     latency_target: "< 10s"
     connections:
-      inputs: ["media.text.transcribed.words", "media.image.analysis.minicpm_results", "media.image.analysis.moondream_results", "analysis.audio.emotion_results"]
+      inputs: ["media.text.transcribed.words", "media.image.analysis.minicpm_results", "media.image.analysis.moondream_results"]
       outputs: ["analysis.inferred_context.qwen_results", "analysis.context.reasoning_chains"]
       
   text_embedding:
@@ -476,13 +465,13 @@ graph_nodes:
 
 # Aggregated metrics for dashboard
 dashboard_metrics:
-  total_pipelines: 26  # Updated after removing reddit and duplicate embedding flows
-  total_kafka_topics: 91  # Updated count after removing reddit topics
-  total_ai_models: 16  # Updated model count
+  total_pipelines: 25  # Updated after removing speech emotion recognition
+  total_kafka_topics: 89  # Updated count after removing emotion topics
+  total_ai_models: 15  # Updated model count (removed BUD-E-Whisper)
   
   by_priority:
     critical: 2
-    high: 7
+    high: 6  # Reduced from 7 after removing speech emotion recognition
     medium: 10
     low: 7
     
@@ -493,13 +482,13 @@ dashboard_metrics:
     system: 7
     external: 4
     health: 1
-    analysis: 2
+    analysis: 1  # Reduced from 2 after removing speech emotion recognition
     spatial: 1
     
   volume_summary:
     highest_volume: "motion_classification (50 events/sec)"
     lowest_volume: "hackernews_processing (0.0001 events/sec)"
-    total_events_per_second: 62.2111  # Sum of all input rates
+    total_events_per_second: 61.2111  # Sum of all input rates (reduced by 1 after removing speech emotion)
     
   latency_targets:
     real_time: 5      # < 5s

@@ -38,21 +38,24 @@ stages:
 
   - name: speech_to_text
     service:
-      name: stt-processor
-      image: loom/stt-processor:latest
+      name: kyutai-stt
+      image: loom/kyutai-stt:latest
       replicas: 3
     input_topics:
-      - media.audio.vad_filtered
+      - device.audio.raw  # Kyutai STT processes raw audio directly
     output_topics:
       - media.text.transcribed.words
     error_topic: processing.errors.stt
     configuration:
-      model: nvidia/parakeet-tdt-1.1b
-      language: en
+      model: kyutai/stt-1b-en_fr
+      language: en_fr  # Supports English and French
       enable_timestamps: true
       enable_speaker_diarization: false
+      use_sampling: false  # Deterministic decoding
+      temp: 0.0
+      temp_text: 0.0
     schema_mappings:
-      input_schema: shared/schemas/media/audio/vad_filtered/v1.json
+      input_schema: shared/schemas/device/audio/raw/v1.json  # Kyutai processes raw audio
       output_schema: shared/schemas/media/text/transcribed/v1.json
     processing:
       batch_size: 5  # Batch for GPU efficiency
