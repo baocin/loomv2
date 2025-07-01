@@ -642,35 +642,8 @@ services:
     restart: unless-stopped
 
   # Additional AI Services
-  bud-e-emotion:
-    build:
-      context: ./services/bud-e-emotion
-      dockerfile: Dockerfile
-    environment:
-      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered
-      LOOM_KAFKA_OUTPUT_TOPIC: analysis.audio.emotion_results
-      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
-      LOOM_LOG_LEVEL: INFO
-      LOOM_HOST: 0.0.0.0
-      LOOM_PORT: 8004
-      # Set timezone
-      TZ: UTC
-      DEBIAN_FRONTEND: noninteractive
-    ports:
-      - "8004:8004"
-    depends_on:
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ~/loom-data/models:/home/loom/.cache  # Model cache directory
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s  # Allow time for model download
-    restart: unless-stopped
+  # bud-e-emotion service removed - can be re-added in future for emotion analysis
+  # Reference: https://huggingface.co/laion/BUD-E-Whisper
 
   face-emotion:
     build:

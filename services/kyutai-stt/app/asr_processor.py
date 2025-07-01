@@ -209,11 +209,15 @@ class ASRProcessor:
                 chunk.audio_data, chunk.format
             )
 
-            logger.debug(
-                "Audio decoded",
+            logger.info(
+                "Audio decoded for STT",
                 chunk_id=chunk.chunk_id,
+                device_id=chunk.device_id,
                 duration=len(audio_array) / sample_rate,
                 sample_rate=sample_rate,
+                vad_confidence=chunk.confidence,
+                start_ms=chunk.start_ms,
+                end_ms=chunk.end_ms,
             )
 
             # Extract words with timestamps
@@ -233,9 +237,14 @@ class ASRProcessor:
             transcribed = TranscribedText(
                 device_id=chunk.device_id,
                 recorded_at=chunk.recorded_at,
+                timestamp=chunk.timestamp,
+                message_id=f"{chunk.message_id or 'stt'}_transcribed",
+                trace_id=chunk.trace_id,
+                services_encountered=(chunk.services_encountered or []) + ["kyutai-stt"],
+                content_hash=chunk.content_hash,
                 chunk_id=chunk.chunk_id,
                 words=words,
-                full_text=full_text,
+                text=full_text,
                 processing_time_ms=processing_time_ms,
                 model_version=settings.model_name,
             )
@@ -243,15 +252,25 @@ class ASRProcessor:
             logger.info(
                 "Audio chunk transcribed",
                 chunk_id=chunk.chunk_id,
+                device_id=chunk.device_id,
                 word_count=len(words),
+                text_length=len(full_text),
+                text_preview=full_text[:100] + '...' if len(full_text) > 100 else full_text,
                 processing_time_ms=processing_time_ms,
+                vad_confidence=chunk.confidence,
                 device=self.device,
+                model=settings.model_name,
             )
 
             return transcribed
 
         except Exception as e:
             logger.error(
-                "Failed to process audio chunk", chunk_id=chunk.chunk_id, error=str(e)
+                "Failed to process audio chunk", 
+                chunk_id=chunk.chunk_id, 
+                device_id=chunk.device_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                vad_confidence=getattr(chunk, 'confidence', None),
             )
             return None

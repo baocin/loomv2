@@ -16,8 +16,9 @@ class BaseMessage(BaseModel):
     )
 
 
+# Legacy AudioData model - kept for backward compatibility
 class AudioData(BaseModel):
-    """Nested audio data structure."""
+    """Legacy nested audio data structure."""
     audio_data: str = Field(..., description="Base64 encoded audio data")
     format: str = Field(..., description="Audio format")
     sample_rate: int = Field(..., description="Audio sample rate in Hz")
@@ -38,35 +39,49 @@ class AudioData(BaseModel):
 
 
 class AudioChunk(BaseModel):
-    """Audio chunk model matching device.audio.raw schema."""
+    """Audio chunk model matching device.audio.raw schema from ingestion API."""
 
-    schema_version: str = Field(..., description="Schema version")
     device_id: str = Field(..., description="Device ID")
-    timestamp: datetime = Field(..., description="UTC timestamp when the chunk was captured")
-    trace_id: str = Field(..., description="Trace ID for correlation")
-    data: AudioData = Field(..., description="Nested audio data")
-    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+    recorded_at: datetime = Field(..., description="UTC timestamp when recorded")
+    timestamp: datetime | None = Field(None, description="Processing timestamp")
+    message_id: str | None = Field(None, description="Message ID")
+    trace_id: str | None = Field(None, description="Trace ID for correlation")
+    services_encountered: list[str] | None = Field(None, description="Services that processed this")
+    content_hash: str | None = Field(None, description="Content hash")
+    data: str = Field(..., description="Base64 encoded audio data")
+    sample_rate: int = Field(..., description="Audio sample rate in Hz")
+    channels: int = Field(default=1, description="Number of audio channels")
+    format: str = Field(default="wav", description="Audio format")
+    duration_ms: int = Field(..., description="Chunk duration in milliseconds")
+    file_id: str | None = Field(None, description="Associated file ID")
 
     def decode_audio(self) -> bytes:
         """Decode base64 audio data to bytes."""
-        return base64.b64decode(self.data.audio_data)
+        return base64.b64decode(self.data)
 
 
 class VADFilteredAudio(BaseModel):
     """VAD filtered audio chunk for media.audio.vad_filtered topic."""
 
-    schema_version: str = Field(default="1.0.0", description="Schema version")
-    timestamp: datetime = Field(..., description="ISO 8601 timestamp when the audio was captured")
-    device_id: str = Field(..., description="Unique identifier for the device")
-    file_id: str = Field(..., description="Unique identifier for the audio file/stream")
-    chunk_index: int = Field(..., description="Sequential index of this chunk within the file")
-    audio_data: str = Field(..., description="Base64 encoded audio data")
+    device_id: str = Field(..., description="Device ID")
+    recorded_at: datetime = Field(..., description="UTC timestamp when recorded")
+    timestamp: datetime | None = Field(None, description="Processing timestamp")
+    message_id: str | None = Field(None, description="Message ID")
+    trace_id: str | None = Field(None, description="Trace ID for correlation")
+    services_encountered: list[str] | None = Field(None, description="Services that processed this")
+    content_hash: str | None = Field(None, description="Content hash")
+    data: str = Field(..., description="Base64 encoded audio data")
     sample_rate: int = Field(..., description="Audio sample rate in Hz")
-    channels: int = Field(..., description="Number of audio channels")
-    duration_ms: int = Field(..., description="Duration of audio chunk in milliseconds")
-    vad_confidence: float = Field(..., description="VAD confidence score (0-1)")
-    speech_probability: float | None = Field(None, description="Probability that chunk contains speech")
+    channels: int = Field(default=1, description="Number of audio channels")
+    format: str = Field(default="wav", description="Audio format")
+    duration_ms: int = Field(..., description="Chunk duration in milliseconds")
+    file_id: str | None = Field(None, description="Associated file ID")
+    # VAD specific fields
+    start_ms: float = Field(..., description="Start time of speech segment in ms")
+    end_ms: float = Field(..., description="End time of speech segment in ms") 
+    confidence: float = Field(..., description="VAD confidence score (0-1)")
+    vad_threshold: float = Field(..., description="VAD threshold used")
 
     def encode_audio(self, audio_bytes: bytes) -> None:
         """Encode audio bytes to base64."""
-        self.audio_data = base64.b64encode(audio_bytes).decode("utf-8")
+        self.data = base64.b64encode(audio_bytes).decode("utf-8")

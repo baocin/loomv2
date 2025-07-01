@@ -16,17 +16,37 @@ class BaseMessage(BaseModel):
     schema_version: str = Field(default="1.0", description="Schema version")
 
 
-class AudioChunk(BaseMessage):
-    """Model for VAD-filtered audio chunks from Kafka."""
+class AudioChunk(BaseModel):
+    """Model for VAD-filtered audio chunks from Kafka (matches VADFilteredAudio)."""
 
-    audio_data: str = Field(..., description="Base64-encoded audio data")
-    sample_rate: int = Field(default=16000, description="Audio sample rate in Hz")
+    device_id: str = Field(..., description="Device ID")
+    recorded_at: datetime = Field(..., description="UTC timestamp when recorded")
+    timestamp: datetime | None = Field(None, description="Processing timestamp")
+    message_id: str | None = Field(None, description="Message ID")
+    trace_id: str | None = Field(None, description="Trace ID for correlation")
+    services_encountered: list[str] | None = Field(None, description="Services that processed this")
+    content_hash: str | None = Field(None, description="Content hash")
+    data: str = Field(..., description="Base64 encoded audio data")
+    sample_rate: int = Field(..., description="Audio sample rate in Hz")
+    channels: int = Field(default=1, description="Number of audio channels")
     format: str = Field(default="wav", description="Audio format")
-    duration_seconds: float = Field(
-        ..., description="Duration of audio chunk in seconds"
-    )
-    chunk_id: str = Field(..., description="Unique identifier for this chunk")
-    sequence_number: int = Field(..., description="Sequence number for ordering chunks")
+    duration_ms: int = Field(..., description="Chunk duration in milliseconds")
+    file_id: str | None = Field(None, description="Associated file ID")
+    # VAD specific fields
+    start_ms: float = Field(..., description="Start time of speech segment in ms")
+    end_ms: float = Field(..., description="End time of speech segment in ms") 
+    confidence: float = Field(..., description="VAD confidence score (0-1)")
+    vad_threshold: float = Field(..., description="VAD threshold used")
+    
+    @property
+    def chunk_id(self) -> str:
+        """Get chunk ID from message_id for compatibility."""
+        return self.message_id or f"{self.device_id}_{int(self.recorded_at.timestamp())}"
+    
+    @property
+    def audio_data(self) -> str:
+        """Get audio data for compatibility."""
+        return self.data
 
 
 class TranscribedWord(BaseModel):
@@ -44,21 +64,34 @@ class TranscribedWord(BaseModel):
     )
 
 
-class TranscribedText(BaseMessage):
+class TranscribedText(BaseModel):
     """Model for word-by-word transcription output."""
 
+    device_id: str = Field(..., description="Device ID")
+    recorded_at: datetime = Field(..., description="UTC timestamp when recorded")
+    timestamp: datetime | None = Field(None, description="Processing timestamp")
+    message_id: str | None = Field(None, description="Message ID")
+    trace_id: str | None = Field(None, description="Trace ID for correlation")
+    services_encountered: list[str] | None = Field(None, description="Services that processed this")
+    content_hash: str | None = Field(None, description="Content hash")
+    
     chunk_id: str = Field(
         ..., description="ID of the audio chunk this transcript is from"
     )
     words: list[TranscribedWord] = Field(
         ..., description="List of transcribed words with timing"
     )
-    full_text: str = Field(..., description="Full transcribed text")
+    text: str = Field(..., description="Full transcribed text")
     language: str = Field(default="en", description="Detected or specified language")
     processing_time_ms: float = Field(
         ..., description="Time taken to process in milliseconds"
     )
     model_version: str = Field(
-        default="nvidia/parakeet-tdt_ctc-1.1b",
+        default="kyutai/stt-2.6b-en",
         description="Model used for transcription",
     )
+    
+    @property
+    def full_text(self) -> str:
+        """Get full text for compatibility."""
+        return self.text

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -104,36 +105,58 @@ class KafkaConsumer:
                         # Parse message
                         audio_chunk = AudioChunk(**msg.value)
 
-                        logger.debug(
-                            "Received audio chunk",
-                            chunk_id=audio_chunk.chunk_id,
+                        logger.info(
+                            "Received VAD-filtered audio chunk",
+                            chunk_id=getattr(audio_chunk, 'chunk_id', None),
                             device_id=audio_chunk.device_id,
-                            sequence_number=audio_chunk.sequence_number,
+                            sequence_number=getattr(audio_chunk, 'sequence_number', None),
+                            duration_ms=getattr(audio_chunk, 'duration_ms', None),
+                            sample_rate=getattr(audio_chunk, 'sample_rate', None),
+                            vad_confidence=getattr(audio_chunk, 'vad_confidence', None),
+                            topic=msg.topic,
+                            partition=msg.partition,
+                            offset=msg.offset,
                         )
 
                         # Process audio
+                        asr_start = time.time()
                         transcribed = await self.asr_processor.process_audio_chunk(
                             audio_chunk
                         )
+                        asr_duration = time.time() - asr_start
 
                         if transcribed:
+                            logger.info(
+                                "ASR processing completed",
+                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                                device_id=audio_chunk.device_id,
+                                word_count=len(transcribed.words) if hasattr(transcribed, 'words') else 0,
+                                text_length=len(transcribed.text) if hasattr(transcribed, 'text') else 0,
+                                confidence=getattr(transcribed, 'confidence', None),
+                                asr_processing_time_ms=round(asr_duration * 1000, 2),
+                                input_duration_ms=getattr(audio_chunk, 'duration_ms', None),
+                            )
+                            
                             # Send to output topic
                             await self._send_transcript(transcribed)
 
                             # Commit offset after successful processing
                             await self.consumer.commit()
 
-                            logger.debug(
-                                "Offset committed after successful processing",
-                                chunk_id=audio_chunk.chunk_id,
+                            logger.info(
+                                "STT processing completed successfully",
+                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
                                 topic=msg.topic,
                                 partition=msg.partition,
                                 offset=msg.offset,
+                                total_processing_time_ms=round((time.time() - asr_start + asr_duration) * 1000, 2),
                             )
                         else:
                             logger.warning(
-                                "Audio processing failed, not committing offset",
-                                chunk_id=audio_chunk.chunk_id,
+                                "ASR processing returned no results",
+                                chunk_id=getattr(audio_chunk, 'chunk_id', None),
+                                device_id=audio_chunk.device_id,
+                                asr_processing_time_ms=round(asr_duration * 1000, 2),
                                 topic=msg.topic,
                                 partition=msg.partition,
                                 offset=msg.offset,
@@ -141,11 +164,13 @@ class KafkaConsumer:
 
                     except Exception as e:
                         logger.error(
-                            "Failed to process message",
+                            "Failed to process STT message",
                             error=str(e),
+                            error_type=type(e).__name__,
                             topic=msg.topic,
                             partition=msg.partition,
                             offset=msg.offset,
+                            message_size=len(str(msg.value)) if msg.value else 0,
                         )
                         continue
 
@@ -173,16 +198,21 @@ class KafkaConsumer:
 
             logger.info(
                 "Transcript sent to Kafka",
-                chunk_id=transcript.chunk_id,
+                chunk_id=getattr(transcript, 'chunk_id', None),
                 device_id=transcript.device_id,
-                word_count=len(transcript.words),
+                word_count=len(transcript.words) if hasattr(transcript, 'words') else 0,
+                text_preview=transcript.text[:100] + '...' if hasattr(transcript, 'text') and len(transcript.text) > 100 else getattr(transcript, 'text', ''),
+                confidence=getattr(transcript, 'confidence', None),
                 topic=settings.kafka_output_topic,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to send transcript to Kafka",
-                chunk_id=transcript.chunk_id,
+                chunk_id=getattr(transcript, 'chunk_id', None),
+                device_id=transcript.device_id,
                 error=str(e),
+                error_type=type(e).__name__,
+                topic=settings.kafka_output_topic,
             )
             raise

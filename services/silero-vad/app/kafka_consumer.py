@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from typing import Any
 
 import structlog
@@ -141,10 +142,12 @@ class KafkaVADConsumer:
             logger.error(
                 "Message processing failed",
                 error=str(e),
+                error_type=type(e).__name__,
                 topic=message.topic,
                 partition=message.partition,
                 offset=message.offset,
                 retry_count=retry_count,
+                message_key=message_key,
             )
 
             # Check if we should retry or send to DLQ
@@ -186,35 +189,59 @@ class KafkaVADConsumer:
             # Parse the message
             audio_chunk = AudioChunk(**message.value)
 
-            logger.debug(
+            logger.info(
                 "Processing audio chunk",
                 device_id=audio_chunk.device_id,
-                sample_rate=audio_chunk.data.sample_rate,
-                channels=audio_chunk.data.channels,
-                duration_ms=audio_chunk.data.duration_ms,
+                sample_rate=audio_chunk.sample_rate,
+                channels=audio_chunk.channels,
+                duration_ms=audio_chunk.duration_ms,
+                message_id=audio_chunk.message_id,
+                trace_id=audio_chunk.trace_id,
+                audio_data_size=len(audio_chunk.data),
+                topic=message.topic,
+                partition=message.partition,
+                offset=message.offset,
             )
 
             # Decode audio data
             audio_bytes = audio_chunk.decode_audio()
 
             # Process through VAD
+            vad_start = time.time()
             segments = await self.vad_processor.process_audio(
-                audio_bytes, audio_chunk.data.sample_rate, audio_chunk.data.channels
+                audio_bytes, audio_chunk.sample_rate, audio_chunk.channels
+            )
+            vad_duration = time.time() - vad_start
+            
+            logger.info(
+                "VAD processing completed",
+                device_id=audio_chunk.device_id,
+                segments_found=len(segments),
+                vad_processing_time_ms=round(vad_duration * 1000, 2),
+                input_duration_ms=audio_chunk.duration_ms,
+                vad_threshold=settings.vad_threshold,
             )
 
             # Send each speech segment to output topic
             for idx, segment in enumerate(segments):
                 filtered_audio = VADFilteredAudio(
-                    timestamp=audio_chunk.timestamp,
                     device_id=audio_chunk.device_id,
-                    file_id=audio_chunk.trace_id,  # Use trace_id as file_id
-                    chunk_index=idx,
-                    audio_data="",  # Will be set below
+                    recorded_at=audio_chunk.recorded_at,
+                    timestamp=audio_chunk.timestamp,
+                    message_id=f"{audio_chunk.message_id or 'vad'}_segment_{idx}",
+                    trace_id=audio_chunk.trace_id,
+                    services_encountered=(audio_chunk.services_encountered or []) + ["silero-vad"],
+                    content_hash=audio_chunk.content_hash,
+                    data="",  # Will be set below
                     sample_rate=segment["sample_rate"],
                     channels=1,  # Always mono after processing
+                    format="wav",
                     duration_ms=int(segment["duration_ms"]),
-                    vad_confidence=segment["confidence"],
-                    speech_probability=segment.get("speech_probability", segment["confidence"]),
+                    file_id=audio_chunk.file_id,
+                    start_ms=segment["start_ms"],
+                    end_ms=segment["end_ms"],
+                    confidence=segment["confidence"],
+                    vad_threshold=settings.vad_threshold,
                 )
 
                 # Encode the audio data
@@ -228,19 +255,27 @@ class KafkaVADConsumer:
                 )
 
                 logger.info(
-                    "Sent filtered audio segment",
+                    "VAD segment sent to Kafka",
                     device_id=audio_chunk.device_id,
+                    segment_index=idx,
                     duration_ms=segment["duration_ms"],
                     confidence=segment["confidence"],
+                    start_ms=segment["start_ms"],
+                    end_ms=segment["end_ms"],
+                    output_topic=settings.kafka_output_topic,
+                    message_id=filtered_audio.message_id,
+                    trace_id=audio_chunk.trace_id,
                 )
 
         except Exception as e:
             logger.error(
                 "Error processing message",
                 error=str(e),
+                error_type=type(e).__name__,
                 topic=message.topic,
                 partition=message.partition,
                 offset=message.offset,
+                message_size=len(str(message.value)) if message.value else 0,
             )
             # Re-raise the exception to be handled by retry logic
             raise

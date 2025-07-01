@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     kafka_heartbeat_interval_ms: int = 10000
 
     # Model settings
-    model_name: str = "openai/whisper-base"  # Using Whisper base model for reliability
+    model_name: str = "kyutai/stt-2.6b-en"  # Kyutai's 2.6B English STT model
     model_device: str = "cuda" if os.path.exists("/usr/local/cuda") else "cpu"
     model_cache_dir: str | None = "/models"
     batch_size: int = 1
