@@ -220,13 +220,13 @@ def kafka_consumer_thread():
             input_topic,
             bootstrap_servers=bootstrap_servers.split(","),
             auto_offset_reset="earliest",
-            enable_auto_commit=True,
+            enable_auto_commit=False,
             group_id="moondream-ocr-consumer",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             max_poll_records=1,  # Process one image at a time
-            max_poll_interval_ms=600000,  # 10 minutes timeout for processing
-            session_timeout_ms=60000,  # 1 minute session timeout
-            heartbeat_interval_ms=3000,  # Send heartbeat every 3 seconds
+            max_poll_interval_ms=3600000,  # 60 minutes timeout for processing
+            session_timeout_ms=300000,  # 5 minute session timeout
+            heartbeat_interval_ms=10000,  # Send heartbeat every 10 seconds
         )
 
         producer = KafkaProducer(
@@ -283,6 +283,9 @@ def kafka_consumer_thread():
                     f"OCR length: {len(result['ocr_text'])} chars - "
                     f"Processing time: {processing_time:.0f}ms"
                 )
+                
+                # Manually commit offset after successful processing
+                consumer.commit()
 
             except Exception as e:
                 logging.error(f"Error processing Kafka message: {e}")
