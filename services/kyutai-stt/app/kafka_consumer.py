@@ -132,10 +132,12 @@ class KafkaConsumer:
                             transcribed = TranscribedText(
                                 chunk_id=audio_chunk.get_chunk_id(),
                                 device_id=audio_chunk.device_id,
+                                recorded_at=audio_chunk.recorded_at,
                                 timestamp=audio_chunk.timestamp,
                                 words=words,
                                 text=" ".join(w.word for w in words),
-                                confidence=sum(w.confidence for w in words) / len(words) if words else 0.0
+                                processing_time_ms=asr_duration * 1000,
+                                model_version="openai/whisper-large-v3"
                             )
                         else:
                             transcribed = None

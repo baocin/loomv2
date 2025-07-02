@@ -82,8 +82,21 @@ class KyutaiStreamingProcessor:
         start_time = time.time()
         
         try:
-            # Convert base64 audio to numpy array
-            audio_np = chunk.get_audio_array()
+            # Get base64 audio data
+            audio_base64 = chunk.get_audio_data()
+            
+            # Decode base64 to bytes
+            import base64
+            audio_bytes = base64.b64decode(audio_base64)
+            
+            # Convert to numpy array based on format
+            if chunk.format == "wav":
+                import io
+                import soundfile as sf
+                audio_np, _ = sf.read(io.BytesIO(audio_bytes))
+            else:
+                # Assume raw PCM data
+                audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
             
             # Process with model
             inputs = self.processor(
