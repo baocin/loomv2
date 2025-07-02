@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     kafka_heartbeat_interval_ms: int = 10000
 
     # Model settings
-    model_name: str = "kyutai/stt-1b-en_fr-trfs"  # Kyutai Mimi STT model (transformers version)
+    model_name: str = "kyutai/stt-1b-en_fr"  # Kyutai Moshi STT model
     model_device: str = "cuda" if os.path.exists("/usr/local/cuda") else "cpu"
     model_cache_dir: str | None = "/models"
     batch_size: int = 1

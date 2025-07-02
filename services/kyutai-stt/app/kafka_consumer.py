@@ -8,7 +8,7 @@ import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
-from app.simple_kyutai_processor import SimpleKyutaiProcessor
+from app.moshi_processor import MoshiProcessor
 from app.config import settings
 from app.models import AudioChunk, TranscribedText
 
@@ -21,15 +21,14 @@ class KafkaConsumer:
     def __init__(self):
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
-        self.asr_processor = SimpleKyutaiProcessor()
+        self.asr_processor = MoshiProcessor()
         self.running = False
         self._consumer_task = None
 
     async def start(self):
         """Start the Kafka consumer and producer."""
         try:
-            # Initialize ASR processor
-            await self.asr_processor.initialize()
+            # ASR processor will lazy-load on first use
 
             # Create consumer
             self.consumer = AIOKafkaConsumer(
@@ -120,10 +119,26 @@ class KafkaConsumer:
 
                         # Process audio
                         asr_start = time.time()
-                        transcribed = await self.asr_processor.process_audio_chunk(
+                        # Run sync processor in thread pool to not block async loop
+                        words = await asyncio.get_event_loop().run_in_executor(
+                            None, 
+                            self.asr_processor.process_audio_chunk,
                             audio_chunk
                         )
                         asr_duration = time.time() - asr_start
+                        
+                        # Create TranscribedText from words
+                        if words:
+                            transcribed = TranscribedText(
+                                chunk_id=audio_chunk.get_chunk_id(),
+                                device_id=audio_chunk.device_id,
+                                timestamp=audio_chunk.timestamp,
+                                words=words,
+                                text=" ".join(w.word for w in words),
+                                confidence=sum(w.confidence for w in words) / len(words) if words else 0.0
+                            )
+                        else:
+                            transcribed = None
 
                         if transcribed:
                             logger.info(
