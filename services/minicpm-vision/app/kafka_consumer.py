@@ -59,7 +59,7 @@ class KafkaImageConsumer:
                 *self.input_topics,
                 bootstrap_servers=self.bootstrap_servers,
                 group_id=self.consumer_group,
-                auto_offset_reset="latest",
+                auto_offset_reset="earliest",
                 enable_auto_commit=False,  # Manual commit for better reliability
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             )

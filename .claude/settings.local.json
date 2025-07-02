@@ -69,7 +69,11 @@
       "Bash(flutter build:*)",
       "Bash(bun add:*)",
       "Bash(kubectl get pods:*)",
-      "Bash(kubectl config:*)"
+      "Bash(kubectl config:*)",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(sed:*)",
+      "Bash(done)"
     ]
   },
   "enableAllProjectMcpServers": false

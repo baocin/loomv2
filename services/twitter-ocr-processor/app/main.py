@@ -341,7 +341,7 @@ class TwitterOCRProcessor:
         consumer = KafkaConsumer(
             self.input_topic,
             bootstrap_servers=self.kafka_bootstrap_servers.split(","),
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
             group_id=self.consumer_group,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),

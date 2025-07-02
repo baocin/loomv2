@@ -58,7 +58,7 @@ class VADProcessor:
             settings.kafka_input_topic,
             bootstrap_servers=settings.kafka_bootstrap_servers,
             group_id=settings.kafka_consumer_group,
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
             enable_auto_commit=False,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         )

@@ -36,7 +36,7 @@ class KafkaConsumer:
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group,
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-                auto_offset_reset="latest",
+                auto_offset_reset="earliest",
                 enable_auto_commit=False,  # Manual commit for better reliability
                 session_timeout_ms=settings.kafka_session_timeout_ms,
                 heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,

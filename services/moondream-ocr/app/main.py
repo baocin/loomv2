@@ -219,7 +219,7 @@ def kafka_consumer_thread():
         consumer = KafkaConsumer(
             input_topic,
             bootstrap_servers=bootstrap_servers.split(","),
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
             group_id="moondream-ocr-consumer",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),

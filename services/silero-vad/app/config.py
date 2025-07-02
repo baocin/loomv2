@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     kafka_consumer_group: str = "silero-vad-consumer"
     kafka_input_topic: str = "device.audio.raw"
     kafka_output_topic: str = "media.audio.vad_filtered"
-    kafka_auto_offset_reset: str = "latest"
+    kafka_auto_offset_reset: str = "earliest"
     kafka_enable_auto_commit: bool = False
     kafka_max_poll_records: int = 10
     kafka_consumer_timeout_ms: int = 1000

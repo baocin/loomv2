@@ -73,7 +73,7 @@ class GenericKafkaToDBConsumer:
             *self.supported_topics,
             bootstrap_servers=self.kafka_bootstrap_servers,
             group_id=self.group_id,
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         )

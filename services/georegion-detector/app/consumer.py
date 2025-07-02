@@ -40,7 +40,7 @@ class GeoregionDetectionConsumer:
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group_id,
                 value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-                auto_offset_reset='latest',
+                auto_offset_reset='earliest',
                 enable_auto_commit=True,
                 max_poll_records=50
             )

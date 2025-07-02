@@ -81,7 +81,7 @@ class KafkaToDBConsumer:
             *TOPIC_TABLE_MAPPINGS.keys(),
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
             group_id=KAFKA_GROUP_ID,
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
             enable_auto_commit=True,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         )

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         "analysis.image.face_emotions",
     ]
     kafka_output_topic: str = "analysis.context.reasoning_chains"
-    kafka_auto_offset_reset: str = "latest"
+    kafka_auto_offset_reset: str = "earliest"
     kafka_enable_auto_commit: bool = False
     kafka_max_poll_records: int = 10
     kafka_consumer_timeout_ms: int = 5000  # Longer timeout for reasoning

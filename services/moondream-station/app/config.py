@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     ]
     kafka_output_topic: str = "media.image.analysis.moondream_results"
     kafka_consumer_group: str = "moondream-station-consumer"
-    kafka_auto_offset_reset: str = "latest"
+    kafka_auto_offset_reset: str = "earliest"
     kafka_compression_type: str = "lz4"
 
     # Moondream Station configuration
