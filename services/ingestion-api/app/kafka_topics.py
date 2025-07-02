@@ -284,6 +284,31 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            # OS Event Topics (Sprint 5)
+            "os.events.app_lifecycle.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "os.events.system.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "os.events.notifications.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
             # Location Processing Topics
             "location.address.geocoded": {
                 "partitions": settings.kafka_default_partitions,

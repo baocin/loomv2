@@ -342,6 +342,9 @@ services:
       LOOM_EMAIL_IMAP_SERVER_1: ${LOOM_EMAIL_IMAP_SERVER_1:-imap.gmail.com}
       LOOM_EMAIL_IMAP_PORT_1: ${LOOM_EMAIL_PORT_1:-993}
       LOOM_EMAIL_NAME_1: ${LOOM_EMAIL_NAME_1:-Gmail}
+      # Fetch ALL emails instead of just UNSEEN
+      LOOM_EMAIL_SEARCH_CRITERIA: ALL
+      LOOM_EMAIL_MAX_FETCH_PER_ACCOUNT: 1000
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -373,6 +376,9 @@ services:
       LOOM_EMAIL_IMAP_SERVER_1: ${LOOM_EMAIL_IMAP_SERVER_2:-imap.fastmail.com}
       LOOM_EMAIL_IMAP_PORT_1: ${LOOM_EMAIL_PORT_2:-993}
       LOOM_EMAIL_NAME_1: ${LOOM_EMAIL_NAME_2:-Fastmail}
+      # Fetch ALL emails instead of just UNSEEN
+      LOOM_EMAIL_SEARCH_CRITERIA: ALL
+      LOOM_EMAIL_MAX_FETCH_PER_ACCOUNT: 1000
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -404,6 +410,11 @@ services:
       LOOM_CALDAV_PASSWORD_1: ${LOOM_CALDAV_PASSWORD_1:-}
       LOOM_CALDAV_NAME_1: ${LOOM_CALDAV_NAME_1:-}
       LOOM_CALDAV_DISABLED_1: ${LOOM_CALDAV_DISABLED_1:-false}
+      # Calendar fetching configuration
+      LOOM_CALENDAR_DAYS_PAST: "365"  # Fetch events from the past year (increased from default 30)
+      LOOM_CALENDAR_DAYS_FUTURE: "365"  # Fetch events up to 1 year in the future
+      LOOM_CALENDAR_MAX_ACCOUNTS: "10"  # Support up to 10 calendar accounts
+      LOOM_CALENDAR_ENABLE_GPS_LOOKUP: "true"  # Enable GPS coordinate lookup for locations
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -485,6 +496,113 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Significant Motion Detection Consumer
+  significant-motion-detector:
+    build:
+      context: ./services/significant-motion-detector
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_CONSUMER_GROUP_ID: significant-motion-detector
+      LOOM_KAFKA_INPUT_TOPIC: device.sensor.accelerometer.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: motion.events.significant
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_LOG_LEVEL: INFO
+      # Motion detection settings
+      LOOM_MOTION_WINDOW_SECONDS: "2.0"
+      LOOM_MOTION_THRESHOLD_MS2: "2.0"
+      LOOM_MOTION_MIN_DURATION_SECONDS: "0.5"
+      LOOM_MOTION_COOLDOWN_SECONDS: "5.0"
+      # Activity thresholds
+      LOOM_ACTIVITY_WALKING_THRESHOLD: "2.0"
+      LOOM_ACTIVITY_RUNNING_THRESHOLD: "5.0"
+      LOOM_ACTIVITY_VEHICLE_THRESHOLD: "1.0"
+      LOOM_ACTIVITY_STATIONARY_THRESHOLD: "0.5"
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8013:8013"  # Health check and metrics endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8013/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Step Counter Consumer
+  step-counter:
+    build:
+      context: ./services/step-counter
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_CONSUMER_GROUP_ID: step-counter
+      LOOM_KAFKA_INPUT_TOPIC: device.sensor.accelerometer.raw
+      LOOM_KAFKA_OUTPUT_TOPIC: device.health.steps.raw
+      LOOM_LOG_LEVEL: INFO
+      # Step detection settings
+      LOOM_STEP_WINDOW_SECONDS: "5.0"
+      LOOM_STEP_THRESHOLD_MS2: "1.5"
+      LOOM_STEP_FREQUENCY_MIN_HZ: "0.5"
+      LOOM_STEP_FREQUENCY_MAX_HZ: "3.0"
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8014:8014"  # Health check endpoint
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Activity Classifier Consumer
+  activity-classifier:
+    build:
+      context: ./services/activity-classifier
+      dockerfile: Dockerfile
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_KAFKA_CONSUMER_GROUP_ID: activity-classifier
+      LOOM_KAFKA_INPUT_TOPICS: "motion.events.significant,device.sensor.gps.raw,device.health.steps.raw"
+      LOOM_KAFKA_OUTPUT_TOPIC: motion.classification.activity
+      LOOM_LOG_LEVEL: INFO
+      # Classification settings
+      LOOM_CLASSIFICATION_WINDOW_SECONDS: "60.0"
+      LOOM_LOCATION_RADIUS_METERS: "100.0"
+      # Activity thresholds
+      LOOM_ACTIVITY_MIN_STEPS_PER_MINUTE: "30"
+      LOOM_ACTIVITY_RUNNING_STEPS_PER_MINUTE: "120"
+      LOOM_ACTIVITY_VEHICLE_SPEED_MS: "5.0"
+      LOOM_ACTIVITY_STATIONARY_SPEED_MS: "0.5"
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8015:8015"  # Health check endpoint
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8015/healthz', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

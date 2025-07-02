@@ -162,7 +162,7 @@ pipeline_summary:
     latency_target: "< 1s"
     connections:
       inputs: ["device.sensor.accelerometer.raw"]
-      outputs: ["device.sensor.accelerometer.windowed", "motion.events.significant", "motion.classification.activity"]
+      outputs: ["motion.events.significant", "motion.classification.activity"]
       
   email_processing:
     priority: medium
@@ -320,7 +320,7 @@ pipeline_summary:
     latency_target: "< 10s"
     connections:
       inputs: ["device.health.steps.raw"]
-      outputs: ["device.health.steps.enriched", "motion.classification.activity"]
+      outputs: ["motion.classification.activity"]
       
   system_notification_processing:
     priority: low

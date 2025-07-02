@@ -617,11 +617,9 @@ export class PipelineBuilder {
 
       // Text Pipeline
       { groupId: 'text-embedder-consumer', required: ['external.email.events.raw'] },
-      { groupId: 'nomic-embed-consumer', required: ['device.text.notes.raw'] },
 
       // Reasoning Pipeline
       { groupId: 'mistral-reasoning-consumer', required: ['media.text.word_timestamps'] },
-      { groupId: 'onefilellm-consumer', required: ['device.text.notes.raw'] },
 
       // External Data
       { groupId: 'x-url-processor-consumer', required: ['task.url.ingest'] },
@@ -726,15 +724,6 @@ export class PipelineBuilder {
       })
     }
 
-    if (topics.some(t => t.startsWith('external.reddit'))) {
-      producers.push({
-        id: 'reddit-fetcher',
-        type: 'external',
-        label: 'Reddit Fetcher',
-        description: 'Reddit activity tracking',
-        outputTopics: topics.filter(t => t.includes('reddit'))
-      })
-    }
 
     if (topics.some(t => t.startsWith('external.web'))) {
       producers.push({
@@ -809,7 +798,6 @@ export class PipelineBuilder {
       'x-likes-fetcher': ['external.twitter.liked.raw'],
       'calendar-fetcher': ['external.calendar.events.raw'],
       'email-fetcher': ['external.email.events.raw'],
-      'reddit-fetcher': ['external.reddit.activity.raw'],
       'web-analytics': ['external.web.visits.raw'],
       'macos-client': ['device.system.apps.macos.raw'],
       'android-client': ['device.system.apps.android.raw']

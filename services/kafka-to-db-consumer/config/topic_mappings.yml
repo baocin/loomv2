@@ -917,6 +917,88 @@ topics:
       - data.longitude
       - data.formatted_address
 
+  # Motion and Activity Topics
+  motion.events.significant:
+    table: "motion_events_significant"
+    description: "Significant motion events detected from accelerometer"
+    field_mappings:
+      trace_id: event_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.start_time: start_time
+      data.end_time: end_time
+      data.duration_seconds: duration_seconds
+      data.motion_type: motion_type
+      data.confidence: confidence
+      data.max_acceleration: max_acceleration
+      data.avg_acceleration: avg_acceleration
+      data.dominant_axis: dominant_axis
+      data.activity_type: activity_type
+      data.activity_confidence: activity_confidence
+      data.sample_count: sample_count
+      data.raw_data_summary: raw_data_summary
+    data_types:
+      duration_seconds: float
+      confidence: float
+      max_acceleration: float
+      avg_acceleration: float
+      activity_confidence: float
+      sample_count: integer
+      raw_data_summary: json
+      start_time: timestamp
+      end_time: timestamp
+      timestamp: timestamp
+    required_fields:
+      - device_id
+      - timestamp
+      - data.motion_type
+      - data.confidence
+
+  motion.classification.activity:
+    table: "motion_classification_activity"
+    description: "Classified user activities from combined sensor data"
+    field_mappings:
+      trace_id: message_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      data.activity_type: activity_type
+      data.confidence: confidence
+      data.location_context: location_context
+      data.start_time: start_time
+      data.end_time: end_time
+      data.duration_seconds: duration_seconds
+      data.motion_events_count: motion_events_count
+      data.step_count: step_count
+      data.distance_meters: distance_meters
+      data.avg_speed_ms: avg_speed_ms
+      data.max_speed_ms: max_speed_ms
+      data.start_location: start_location
+      data.end_location: end_location
+      data.metrics: metrics
+      data.source_events: source_events
+    data_types:
+      confidence: float
+      duration_seconds: float
+      motion_events_count: integer
+      step_count: integer
+      distance_meters: float
+      avg_speed_ms: float
+      max_speed_ms: float
+      start_location: json
+      end_location: json
+      metrics: json
+      source_events: array
+      start_time: timestamp
+      end_time: timestamp
+      timestamp: timestamp
+    required_fields:
+      - device_id
+      - timestamp
+      - data.activity_type
+      - data.confidence
+
   location.georegion.detected:
     table: "location_georegion_detected"
     description: "Detected presence in saved georegions"

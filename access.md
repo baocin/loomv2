@@ -843,9 +843,6 @@ All Kafka messages follow this base structure:
 | `/sensor/power` | `device.state.power.raw` | Battery/power state |
 | `/system/apps/macos` | `device.system.apps.macos.raw` | Running applications |
 | `/system/metadata` | `device.metadata.raw` | Device capabilities |
-| `/notes/upload` | `device.text.notes.raw` | Text notes/memos |
-| `/github/ingest` | `task.github.ingest` | GitHub repository processing |
-| `/documents/upload` | `task.document.ingest` | Document processing |
 
 ## 🔬 AI Processing Pipeline Topics
 
