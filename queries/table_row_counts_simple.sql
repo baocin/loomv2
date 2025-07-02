@@ -3,11 +3,17 @@
 
 SELECT 
     schemaname AS schema,
-    tablename AS table_name,
+    relname AS table_name,
     n_live_tup AS approximate_rows,
-    pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) AS size,
-    last_vacuum,
-    last_analyze
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) AS total_size,
+    CASE 
+        WHEN last_vacuum IS NULL THEN 'Never'
+        ELSE age(now(), last_vacuum)::text
+    END AS last_vacuum_age,
+    CASE 
+        WHEN last_analyze IS NULL THEN 'Never'
+        ELSE age(now(), last_analyze)::text
+    END AS last_analyze_age
 FROM pg_stat_user_tables
 WHERE schemaname = 'public'
 ORDER BY n_live_tup DESC;

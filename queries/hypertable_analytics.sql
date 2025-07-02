@@ -1,34 +1,26 @@
 -- TimescaleDB Hypertable Analytics
 -- Provides detailed analysis of hypertables including data distribution over time
 
--- Hypertable overview with chunk distribution
-WITH hypertable_stats AS (
-    SELECT 
-        ht.schema_name,
-        ht.table_name,
-        ht.schema_name || '.' || ht.table_name AS full_name,
-        count(DISTINCT ch.chunk_name) AS num_chunks,
-        min(ch.range_start) AS oldest_data,
-        max(ch.range_end) AS newest_data,
-        sum(pg_relation_size(format('%I.%I', ch.chunk_schema, ch.chunk_name)::regclass)) AS total_bytes
-    FROM _timescaledb_catalog.hypertable ht
-    LEFT JOIN _timescaledb_catalog.chunk ch ON ht.id = ch.hypertable_id
-    LEFT JOIN _timescaledb_catalog.dimension d ON ht.id = d.hypertable_id
-    WHERE d.column_name = 'timestamp'
-    GROUP BY ht.schema_name, ht.table_name
-)
+-- Check if TimescaleDB is installed
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
+        RAISE NOTICE 'TimescaleDB extension not installed. Hypertable analytics not available.';
+    END IF;
+END $$;
+
+-- Hypertable overview (only runs if TimescaleDB is installed)
 SELECT 
-    schema_name,
-    table_name,
-    num_chunks,
-    pg_size_pretty(total_bytes) AS total_size,
-    oldest_data::timestamp AS oldest_record,
-    newest_data::timestamp AS newest_record,
-    age(newest_data::timestamp, oldest_data::timestamp) AS data_span,
-    ROUND(total_bytes::numeric / NULLIF(num_chunks, 0), 0) AS avg_chunk_bytes,
-    pg_size_pretty(ROUND(total_bytes::numeric / NULLIF(num_chunks, 0), 0)::bigint) AS avg_chunk_size
-FROM hypertable_stats
-ORDER BY total_bytes DESC;
+    h.schema_name,
+    h.table_name,
+    h.num_dimensions,
+    count(DISTINCT c.chunk_name) AS num_chunks,
+    pg_size_pretty(sum(pg_relation_size(format('%I.%I', c.chunk_schema, c.chunk_name)::regclass))) AS total_size
+FROM _timescaledb_catalog.hypertable h
+LEFT JOIN _timescaledb_catalog.chunk c ON h.id = c.hypertable_id
+WHERE EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')
+GROUP BY h.schema_name, h.table_name, h.num_dimensions
+ORDER BY sum(pg_relation_size(format('%I.%I', c.chunk_schema, c.chunk_name)::regclass)) DESC;
 
 -- Data ingestion rate analysis (last 24 hours)
 SELECT 
