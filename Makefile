@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-refresh dev-compose-hot dev-compose-down dev-compose-logs topics-create base-images
+.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-refresh dev-compose-hot dev-compose-down dev-compose-logs topics-create base-images db-connect db-connect-compose db-stats db-stats-detailed db-recent db-hypertables
 
 # Default target
 help: ## Show this help message
@@ -294,6 +294,26 @@ clean-monitor-consumers: ## Clean up orphaned monitor consumer groups
 # Database
 db-connect: ## Connect to local PostgreSQL database
 	@kubectl exec -n loom-dev -it deployment/postgres -- psql -U loom -d loom
+
+db-connect-compose: ## Connect to PostgreSQL via Docker Compose
+	@echo "Connecting to PostgreSQL..."
+	@docker compose -f docker-compose.local.yml exec postgres psql -U loom -d loom
+
+db-stats: ## Show database table row counts and statistics
+	@echo "📊 Database Statistics..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/table_row_counts_simple.sql
+
+db-stats-detailed: ## Show detailed database statistics with exact counts
+	@echo "📊 Detailed Database Statistics (this may take a moment)..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/table_row_counts.sql
+
+db-recent: ## Check recent data ingestion (last hour)
+	@echo "🔄 Recent Data Check..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/recent_data_check.sql
+
+db-hypertables: ## Analyze TimescaleDB hypertables
+	@echo "📈 Hypertable Analysis..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/hypertable_analytics.sql
 
 # Monitoring
 logs: ## Show logs for all services
