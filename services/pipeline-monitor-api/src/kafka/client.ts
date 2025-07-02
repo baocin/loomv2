@@ -312,27 +312,34 @@ export class KafkaClient {
 
       for (const group of groups.groups) {
         try {
-          const description = await this.admin.describeGroups([group.groupId])
-          if (description.groups[0] && description.groups[0].members) {
+          // Get the consumer group offsets which will tell us which topics they're subscribed to
+          const offsets = await this.admin.fetchOffsets({ groupId: group.groupId })
+          
+          if (offsets && offsets.length > 0) {
+            // Extract unique topics from the offsets
             const topics = new Set<string>()
-            for (const member of description.groups[0].members) {
-              const assignment = member.memberAssignment
-              if (assignment) {
-                // Parse the member assignment to extract topics
-                // This is a simplified version - actual parsing might be more complex
-                // For now, we'll just add a placeholder
-                logger.debug(`Member ${member.memberId} assignment parsing not implemented`)
-              }
+            for (const topicOffset of offsets) {
+              topics.add(topicOffset.topic)
             }
+            
             if (topics.size > 0) {
               subscriptions.set(group.groupId, Array.from(topics))
+              logger.debug(`Group ${group.groupId} is subscribed to topics: ${Array.from(topics).join(', ')}`)
+            }
+          } else {
+            // Try to get topics from group description as fallback
+            const description = await this.admin.describeGroups([group.groupId])
+            if (description.groups[0] && description.groups[0].state === 'Stable') {
+              // For stable groups without offsets, we might not have subscription info
+              logger.debug(`Group ${group.groupId} is stable but has no offset data`)
             }
           }
         } catch (error) {
-          logger.debug(`Failed to describe group ${group.groupId}`, error)
+          logger.debug(`Failed to get subscription info for group ${group.groupId}`, error)
         }
       }
 
+      logger.info(`Found ${subscriptions.size} consumer groups with subscriptions`)
       return subscriptions
     } catch (error) {
       logger.error('Failed to get consumer group subscriptions', error)
