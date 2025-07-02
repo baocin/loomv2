@@ -59,136 +59,13 @@ export class PipelineBuilder {
       // Get consumer group subscriptions
       const subscriptions = await this.kafkaClient.getConsumerGroupSubscriptions()
 
-      // Comprehensive processor mappings for all workflows
-      const processorMappings: Record<string, { input: string[], output: string[] }> = {
-        // Audio Processing Pipeline
-        'silero-vad-consumer': {
-          input: ['device.audio.raw'],
-          output: ['media.audio.vad_filtered']
-        },
-        'kyutai-stt-consumer': {
-          input: ['device.audio.raw'],  // Now processes raw audio directly
-          output: ['media.text.transcribed.words']
-        },
+      // Build processor mappings from environment variables
+      const processorMappings: Record<string, { input: string[], output: string[] }> = this.buildProcessorMappingsFromEnv()
 
-        // Vision Processing Pipeline
-        'minicpm-vision-consumer': {
-          input: ['device.image.camera.raw', 'device.video.screen.raw'],
-          output: ['media.image.vision_annotations']
-        },
-        'face-emotion-consumer': {
-          input: ['media.image.vision_annotations'],
-          output: ['analysis.image.face_emotions']
-        },
-        'moondream-ocr-consumer': {
-          input: ['device.image.camera.raw', 'task.url.screenshot'],
-          output: ['media.image.analysis.moondream_results']
-        },
-
-        // Text Processing Pipeline
-        'text-embedder-consumer': {
-          input: [
-            'external.email.events.raw',
-            'external.twitter.liked.raw',
-            'media.text.transcribed.words',
-            'task.url.processed.content'
-          ],
-          output: [
-            'analysis.text.embedded.emails',
-            'analysis.text.embedded.twitter',
-            'analysis.text.embedded.general'
-          ]
-        },
-        'nomic-embed-consumer': {
-          input: [
-            'device.text.notes.raw',
-            'media.text.transcribed.words',
-            'task.url.processed.content',
-            'task.github.processed.content',
-            'task.document.processed.content'
-          ],
-          output: ['analysis.embeddings.nomic']
-        },
-
-        // High-Level Reasoning Pipeline
-        'mistral-reasoning-consumer': {
-          input: [
-            'media.text.word_timestamps',
-            'task.url.processed.content',
-            'analysis.image.face_emotions'
-          ],
-          output: ['analysis.context.reasoning_chains']
-        },
-        'onefilellm-consumer': {
-          input: ['device.text.notes.raw', 'media.text.transcribed.words'],
-          output: ['analysis.text.summaries']
-        },
-
-        // External Data Processing
-        'x-url-processor-consumer': {
-          input: ['task.url.ingest'],
-          output: ['task.url.processed.twitter_archived']
-        },
-        'hackernews-url-processor-consumer': {
-          input: ['task.url.ingest'],
-          output: ['task.url.processed.hackernews_archived']
-        },
-        'twitter-ocr-processor-consumer': {
-          input: ['external.twitter.liked.raw'],
-          output: ['task.url.screenshot', 'media.text.ocr_extracted']
-        },
-
-        // Data Fetchers (Scheduled Services)
-        'x-likes-fetcher': {
-          input: [],
-          output: ['external.twitter.liked.raw']
-        },
-        'hackernews-fetcher': {
-          input: [],
-          output: ['external.hackernews.activity.raw']
-        },
-        'email-fetcher': {
-          input: [],
-          output: ['external.email.events.raw']
-        },
-        'calendar-fetcher': {
-          input: [],
-          output: ['external.calendar.events.raw']
-        },
-
-        // Database Consumer (consumes everything for storage)
-        'kafka-to-db-consumer': {
-          input: [
-            // Raw device data
-            'device.audio.raw',
-            'device.image.camera.raw',
-            'device.video.screen.raw',
-            'device.sensor.gps.raw',
-            'device.sensor.accelerometer.raw',
-            'device.health.heartrate.raw',
-            'device.state.power.raw',
-            'device.system.apps.macos.raw',
-            'device.system.apps.android.raw',
-            // Processed media
-            'media.audio.vad_filtered',
-            'media.text.transcribed.words',
-            'media.image.vision_annotations',
-            // Analysis results
-            'analysis.image.face_emotions',
-            'analysis.context.reasoning_chains',
-            'analysis.text.embedded.emails',
-            'analysis.text.embedded.twitter',
-            // External data
-            'external.twitter.liked.raw',
-            'external.hackernews.activity.raw',
-            'external.email.events.raw',
-            'external.calendar.events.raw',
-            // Task results
-            'task.url.processed.twitter_archived',
-            'task.url.processed.hackernews_archived'
-          ],
-          output: [] // Database consumer doesn't produce topics
-        }
+      // Fallback to hardcoded mappings if env vars not available
+      if (Object.keys(processorMappings).length === 0) {
+        logger.warn('No environment variable mappings found, using hardcoded fallbacks')
+        Object.assign(processorMappings, this.getHardcodedMappings())
       }
 
       // Add discovered subscriptions to mappings
@@ -984,5 +861,189 @@ export class PipelineBuilder {
     const detailLabel = detail.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
     return `${typeLabel} ${detailLabel}`.trim()
+  }
+
+  private buildProcessorMappingsFromEnv(): Record<string, { input: string[], output: string[] }> {
+    const mappings: Record<string, { input: string[], output: string[] }> = {}
+
+    try {
+      // Audio Processing Pipeline
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_VAD && process.env.LOOM_KAFKA_OUTPUT_TOPIC_VAD) {
+        mappings['silero-vad-consumer'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_VAD],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_VAD]
+        }
+      }
+
+      // Kyutai STT - reads raw audio directly
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_VAD && process.env.LOOM_KAFKA_OUTPUT_TOPIC_PARAKEET) {
+        mappings['kyutai-stt-consumer'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_VAD], // device.audio.raw
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_PARAKEET] // media.text.transcribed.words
+        }
+      }
+
+      // MiniCPM Vision
+      if (process.env.LOOM_KAFKA_INPUT_TOPICS_MINICPM && process.env.LOOM_KAFKA_OUTPUT_TOPIC_MINICPM) {
+        try {
+          const inputTopics = JSON.parse(process.env.LOOM_KAFKA_INPUT_TOPICS_MINICPM)
+          mappings['minicpm-vision-consumer'] = {
+            input: inputTopics,
+            output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_MINICPM]
+          }
+        } catch (e) {
+          logger.warn('Failed to parse LOOM_KAFKA_INPUT_TOPICS_MINICPM as JSON')
+        }
+      }
+
+      // Face Emotion Recognition
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_FACE && process.env.LOOM_KAFKA_OUTPUT_TOPIC_FACE) {
+        mappings['face-emotion-consumer'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_FACE],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_FACE]
+        }
+      }
+
+      // BUD-E Audio Emotion
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_BUDE && process.env.LOOM_KAFKA_OUTPUT_TOPIC_BUDE) {
+        mappings['bud-e-emotion-consumer'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_BUDE],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_BUDE]
+        }
+      }
+
+      // External Data Services
+      if (process.env.LOOM_KAFKA_OUTPUT_TOPIC_X) {
+        mappings['x-likes-fetcher'] = {
+          input: [],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_X]
+        }
+      }
+
+      if (process.env.LOOM_KAFKA_OUTPUT_TOPIC_EMAIL) {
+        mappings['email-fetcher'] = {
+          input: [],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_EMAIL]
+        }
+      }
+
+      if (process.env.LOOM_KAFKA_OUTPUT_TOPIC_CALENDAR) {
+        mappings['calendar-fetcher'] = {
+          input: [],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_CALENDAR]
+        }
+      }
+
+      if (process.env.LOOM_KAFKA_OUTPUT_TOPIC_HACKERNEWS) {
+        mappings['hackernews-fetcher'] = {
+          input: [],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_HACKERNEWS]
+        }
+      }
+
+      // URL Processors
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_X_PROCESSOR && process.env.LOOM_KAFKA_OUTPUT_TOPIC_X_PROCESSOR) {
+        mappings['x-url-processor'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_X_PROCESSOR],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_X_PROCESSOR]
+        }
+      }
+
+      if (process.env.LOOM_KAFKA_INPUT_TOPIC_HACKERNEWS_PROCESSOR && process.env.LOOM_KAFKA_OUTPUT_TOPIC_HACKERNEWS_PROCESSOR) {
+        mappings['hackernews-url-processor'] = {
+          input: [process.env.LOOM_KAFKA_INPUT_TOPIC_HACKERNEWS_PROCESSOR],
+          output: [process.env.LOOM_KAFKA_OUTPUT_TOPIC_HACKERNEWS_PROCESSOR]
+        }
+      }
+
+      // Database Consumer
+      if (process.env.LOOM_KAFKA_CONSUMER_TOPICS) {
+        try {
+          const consumerTopics = JSON.parse(process.env.LOOM_KAFKA_CONSUMER_TOPICS)
+          mappings['kafka-to-db-consumer'] = {
+            input: consumerTopics,
+            output: [] // Database consumer doesn't produce topics
+          }
+        } catch (e) {
+          logger.warn('Failed to parse LOOM_KAFKA_CONSUMER_TOPICS as JSON')
+        }
+      }
+
+      logger.info(`Built ${Object.keys(mappings).length} processor mappings from environment variables`)
+      return mappings
+
+    } catch (error) {
+      logger.error('Error building processor mappings from environment:', error)
+      return {}
+    }
+  }
+
+  private getHardcodedMappings(): Record<string, { input: string[], output: string[] }> {
+    return {
+      // Audio Processing Pipeline
+      'silero-vad-consumer': {
+        input: ['device.audio.raw'],
+        output: ['media.audio.vad_filtered']
+      },
+      'kyutai-stt-consumer': {
+        input: ['device.audio.raw'],
+        output: ['media.text.transcribed.words']
+      },
+
+      // Vision Processing Pipeline
+      'minicpm-vision-consumer': {
+        input: ['device.image.camera.raw', 'device.video.screen.raw'],
+        output: ['media.image.analysis.minicpm_results']
+      },
+      'face-emotion-consumer': {
+        input: ['media.image.analysis.minicpm_results'],
+        output: ['analysis.image.emotion_results']
+      },
+
+      // External Data Services
+      'x-likes-fetcher': {
+        input: [],
+        output: ['external.twitter.liked.raw']
+      },
+      'email-fetcher': {
+        input: [],
+        output: ['external.email.events.raw']
+      },
+      'calendar-fetcher': {
+        input: [],
+        output: ['external.calendar.events.raw']
+      },
+      'hackernews-fetcher': {
+        input: [],
+        output: ['external.hackernews.favorites.raw']
+      },
+
+      // URL Processors
+      'x-url-processor': {
+        input: ['task.url.ingest'],
+        output: ['task.url.processed.twitter_archived']
+      },
+      'hackernews-url-processor': {
+        input: ['external.hackernews.favorites.raw'],
+        output: ['task.url.processed.hackernews_archived']
+      },
+
+      // Database Consumer
+      'kafka-to-db-consumer': {
+        input: [
+          'device.audio.raw',
+          'device.sensor.gps.raw',
+          'device.sensor.accelerometer.raw',
+          'media.text.transcribed.words',
+          'analysis.audio.emotion_results',
+          'analysis.image.emotion_results',
+          'external.email.events.raw',
+          'external.calendar.events.raw',
+          'external.twitter.liked.raw',
+          'external.hackernews.favorites.raw'
+        ],
+        output: []
+      }
+    }
   }
 }
