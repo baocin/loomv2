@@ -8,7 +8,7 @@ import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
-from app.moshi_processor import MoshiProcessor
+from app.kyutai_streaming_processor import KyutaiStreamingProcessor
 from app.config import settings
 from app.models import AudioChunk, TranscribedText
 
@@ -21,7 +21,7 @@ class KafkaConsumer:
     def __init__(self):
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
-        self.asr_processor = MoshiProcessor()
+        self.asr_processor = KyutaiStreamingProcessor()
         self.running = False
         self._consumer_task = None
 

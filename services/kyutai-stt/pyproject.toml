@@ -17,9 +17,8 @@ dependencies = [
     "scipy>=1.11.0",
     "soundfile>=0.12.0",
     "python-multipart>=0.0.5",
-    "sentencepiece>=0.1.99",
-    "sphn>=0.1.3",
-    "moshi @ git+https://github.com/kyutai-labs/moshi.git",
+    "transformers>=4.40.0",
+    "huggingface-hub>=0.23.0",
 ]
 
 [project.optional-dependencies]
