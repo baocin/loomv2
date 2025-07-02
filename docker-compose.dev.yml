@@ -1,0 +1,95 @@
+# Development override file for hot-reloading
+# Use with: docker compose -f docker-compose.local.yml -f docker-compose.dev.yml up
+
+services:
+  ingestion-api:
+    volumes:
+      - ./services/ingestion-api/app:/app/app:ro
+    environment:
+      LOOM_ENVIRONMENT: development
+      LOOM_DEBUG: "true"
+      # Enable auto-reload for FastAPI
+      RELOAD: "true"
+
+  pipeline-monitor-api:
+    volumes:
+      - ./services/pipeline-monitor-api/src:/app/src:ro
+    environment:
+      NODE_ENV: development
+      # Nodemon would need to be added to the image for hot-reload
+
+  pipeline-monitor:
+    volumes:
+      - ./services/pipeline-monitor/src:/app/src:ro
+    environment:
+      NODE_ENV: development
+
+  # Python services with potential hot-reload
+  silero-vad:
+    volumes:
+      - ./services/silero-vad/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  kyutai-stt:
+    volumes:
+      - ./services/kyutai-stt/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  minicpm-vision:
+    volumes:
+      - ./services/minicpm-vision/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  face-emotion:
+    volumes:
+      - ./services/face-emotion/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  # Data fetchers
+  hackernews-fetcher:
+    volumes:
+      - ./services/hackernews-fetcher/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  email-fetcher:
+    volumes:
+      - ./services/email-fetcher/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  calendar-fetcher:
+    volumes:
+      - ./services/calendar-fetcher/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  x-likes-fetcher:
+    volumes:
+      - ./services/x-likes-fetcher/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  # URL processors
+  hackernews-url-processor:
+    volumes:
+      - ./services/hackernews-url-processor/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  x-url-processor:
+    volumes:
+      - ./services/x-url-processor/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"
+
+  # Database consumer
+  kafka-to-db:
+    volumes:
+      - ./services/kafka-to-db/app:/app/app:ro
+    environment:
+      LOOM_DEBUG: "true"

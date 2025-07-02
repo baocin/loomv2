@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-down dev-compose-logs topics-create base-images
+.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-refresh dev-compose-hot dev-compose-down dev-compose-logs topics-create base-images
 
 # Default target
 help: ## Show this help message
@@ -77,6 +77,52 @@ dev-compose-build: ## Build specific service(s) with Docker Compose - force recr
 		docker compose -f docker-compose.local.yml rm -f $(SERVICE); \
 		docker compose -f docker-compose.local.yml up -d $(SERVICE); \
 	fi
+
+dev-compose-refresh: ## Refresh containers with minimal rebuild - uses cache for faster updates (use SERVICE=<name> for specific service)
+	@echo "🔄 Refreshing Loom v2 services with minimal rebuild..."
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "📦 Building all services (using cache for unchanged layers)..."; \
+		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
+		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
+		docker compose -f docker-compose.local.yml build; \
+		echo "🔄 Recreating containers with updated code..."; \
+		docker compose -f docker-compose.local.yml up -d --force-recreate; \
+		echo "✅ All services refreshed with latest code changes"; \
+	else \
+		echo "📦 Building service: $(SERVICE) (using cache)..."; \
+		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
+		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
+		docker compose -f docker-compose.local.yml build $(SERVICE); \
+		echo "🔄 Recreating $(SERVICE) container..."; \
+		docker compose -f docker-compose.local.yml stop $(SERVICE) 2>/dev/null || true; \
+		docker compose -f docker-compose.local.yml rm -f $(SERVICE) 2>/dev/null || true; \
+		docker compose -f docker-compose.local.yml up -d --no-deps $(SERVICE); \
+		echo "✅ Service $(SERVICE) refreshed with latest code changes"; \
+	fi
+	@echo ""
+	@echo "📊 View logs with: make dev-compose-logs"
+	@echo "🔍 Check specific service: make dev-compose-logs SERVICE=<name>"
+
+dev-compose-hot: ## Start development with hot-reload volume mounts (experimental)
+	@echo "🔥 Starting Loom v2 with hot-reload development mode..."
+	@echo "⚠️  Note: Hot-reload requires services to support file watching"
+	@echo ""
+	@export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+	export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
+	export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+	export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
+	docker compose -f docker-compose.local.yml -f docker-compose.dev.yml up -d
+	@echo ""
+	@echo "✅ Services started with volume mounts for hot-reloading"
+	@echo "📂 Code changes in ./services/*/app will be reflected in containers"
+	@echo "⚠️  Note: Some services may require restart for changes to take effect"
+	@echo ""
+	@echo "📊 View logs: make dev-compose-logs"
+	@echo "🔄 Refresh a service: make dev-compose-refresh SERVICE=<name>"
 	@echo "✅ Build and recreate complete"
 
 dev-compose-down: ## Stop Docker Compose environment
