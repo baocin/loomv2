@@ -1,14 +1,6 @@
 -- Get row counts for all tables in the Loom TimescaleDB database
 -- This query provides a simpler approach that works with standard PostgreSQL
 
--- First, let's check if TimescaleDB is installed
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
-        RAISE NOTICE 'TimescaleDB extension not found. Showing standard PostgreSQL stats.';
-    END IF;
-END $$;
-
 -- Table row counts and sizes
 SELECT 
     n.nspname AS schema,
@@ -54,13 +46,7 @@ ORDER BY
         ELSE 3
     END,
     c.reltuples DESC,
-    c.relname;
-
--- Summary by schema
-SELECT 
-    '=== SUMMARY BY SCHEMA ===' AS info;
-
-SELECT 
+    c.relname; 
     n.nspname AS schema,
     count(*) AS table_count,
     TO_CHAR(sum(c.reltuples), 'FM999,999,999,999') AS total_rows_estimate,
@@ -71,14 +57,7 @@ WHERE c.relkind IN ('r', 'p')
     AND n.nspname NOT IN ('pg_catalog', 'information_schema')
     AND n.nspname NOT LIKE 'pg_toast%'
 GROUP BY n.nspname
-ORDER BY sum(c.reltuples) DESC;
-
--- Hypertable information (if TimescaleDB is installed)
-SELECT 
-    '=== HYPERTABLE INFORMATION ===' AS info
-WHERE EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb');
-
-SELECT 
+ORDER BY sum(c.reltuples) DESC; 
     h.schema_name,
     h.table_name,
     h.num_dimensions,
@@ -88,6 +67,5 @@ SELECT
 FROM _timescaledb_catalog.hypertable h
 JOIN _timescaledb_catalog.dimension d ON h.id = d.hypertable_id
 LEFT JOIN _timescaledb_catalog.chunk c ON h.id = c.hypertable_id
-WHERE EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')
 GROUP BY h.schema_name, h.table_name, h.num_dimensions, d.column_name, d.interval_length
 ORDER BY h.schema_name, h.table_name;
