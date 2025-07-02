@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-refresh dev-compose-hot dev-compose-down dev-compose-logs topics-create base-images db-connect db-connect-compose db-stats db-stats-detailed db-recent db-hypertables
+.PHONY: help setup test lint format docker clean dev-up dev-down dev-compose-up dev-compose-up-rebuild dev-compose-build dev-compose-refresh dev-compose-hot dev-compose-down dev-compose-logs topics-create base-images db-connect db-connect-compose db-stats db-stats-detailed db-recent db-hypertables db-table-sizes db-hypertable-overview db-chunks db-compression db-active-devices
 
 # Default target
 help: ## Show this help message
@@ -314,6 +314,26 @@ db-recent: ## Check recent data ingestion (last hour)
 db-hypertables: ## Analyze TimescaleDB hypertables
 	@echo "📈 Hypertable Analysis..."
 	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/hypertable_analytics.sql
+
+db-table-sizes: ## Show table sizes
+	@echo "📊 Table Sizes..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/table_sizes.sql
+
+db-hypertable-overview: ## Show hypertable overview
+	@echo "📈 Hypertable Overview..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/hypertable_overview.sql
+
+db-chunks: ## Show chunk details
+	@echo "📦 Chunk Details..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/chunk_details.sql
+
+db-compression: ## Show compression statistics
+	@echo "🗜️ Compression Statistics..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/compression_stats.sql
+
+db-active-devices: ## Show active devices (last hour)
+	@echo "📱 Active Devices..."
+	@docker compose -f docker-compose.local.yml exec -T postgres psql -U loom -d loom < queries/active_devices.sql
 
 # Monitoring
 logs: ## Show logs for all services
