@@ -14,13 +14,13 @@ SELECT
     h.schema_name,
     h.table_name,
     h.num_dimensions,
-    count(DISTINCT c.chunk_name) AS num_chunks,
-    pg_size_pretty(sum(pg_relation_size(format('%I.%I', c.chunk_schema, c.chunk_name)::regclass))) AS total_size
+    count(c.id) AS num_chunks,
+    pg_size_pretty(pg_total_relation_size(format('%I.%I', h.schema_name, h.table_name)::regclass)) AS total_size
 FROM _timescaledb_catalog.hypertable h
 LEFT JOIN _timescaledb_catalog.chunk c ON h.id = c.hypertable_id
 WHERE EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')
 GROUP BY h.schema_name, h.table_name, h.num_dimensions
-ORDER BY sum(pg_relation_size(format('%I.%I', c.chunk_schema, c.chunk_name)::regclass)) DESC;
+ORDER BY pg_total_relation_size(format('%I.%I', h.schema_name, h.table_name)::regclass) DESC;
 
 -- Data ingestion rate analysis (last 24 hours)
 SELECT 
