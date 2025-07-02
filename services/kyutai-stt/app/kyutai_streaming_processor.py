@@ -18,7 +18,7 @@ logger = structlog.get_logger()
 class KyutaiStreamingProcessor:
     """Kyutai STT processor with streaming support using transformers."""
     
-    def __init__(self, model_name: str = "kyutai/whisper-v3", device: str = "cuda"):
+    def __init__(self, model_name: str = "openai/whisper-large-v3", device: str = "cuda"):
         """Initialize the processor.
         
         Note: Using Whisper v3 as a high-quality alternative since Moshi package
