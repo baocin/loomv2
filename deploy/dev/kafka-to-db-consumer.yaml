@@ -33,6 +33,8 @@ spec:
           value: "kafka-to-db-consumer"
         - name: LOG_LEVEL
           value: "INFO"
+        - name: USE_DATABASE_CONFIG
+          value: "true"
         resources:
           requests:
             memory: "256Mi"

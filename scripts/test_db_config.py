@@ -6,11 +6,12 @@ import os
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add service directory to path
+service_path = Path(__file__).parent.parent / "services" / "kafka-to-db-consumer"
+sys.path.append(str(service_path))
 
 import asyncpg
-from services.kafka_to_db_consumer.app.db_mapping_engine import DatabaseMappingEngine
+from app.db_mapping_engine import DatabaseMappingEngine
 
 
 async def test_db_config():
