@@ -28,9 +28,9 @@ spec:
           name: http
         env:
         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka-infra-chart:9092"
+          value: "kafka:9092"
         - name: DATABASE_URL
-          value: "postgresql://loom:loom@postgres-chart:5432/loom"
+          value: "postgresql://loom:loom@timescaledb:5432/loom"
         - name: MOONDREAM_OCR_URL
           value: "http://moondream-ocr:8007"
         - name: LOG_LEVEL

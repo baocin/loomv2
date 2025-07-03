@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: postgres-secret
+  name: timescaledb-secret
   namespace: loom-dev
   labels:
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: loom
 type: Opaque
@@ -13,16 +13,17 @@ stringData:
   POSTGRES_PASSWORD: loom
   POSTGRES_USER: loom
   POSTGRES_DB: loom
+  TIMESCALEDB_TELEMETRY: 'off'
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgres
+  name: timescaledb
   namespace: loom-dev
   labels:
-    app: postgres
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
     app.kubernetes.io/version: "15"
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: loom
@@ -30,15 +31,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgres
-      app.kubernetes.io/name: postgres
-      app.kubernetes.io/instance: postgres-dev
+      app: timescaledb
+      app.kubernetes.io/name: timescaledb
+      app.kubernetes.io/instance: timescaledb-dev
   template:
     metadata:
       labels:
-        app: postgres
-        app.kubernetes.io/name: postgres
-        app.kubernetes.io/instance: postgres-dev
+        app: timescaledb
+        app.kubernetes.io/name: timescaledb
+        app.kubernetes.io/instance: timescaledb-dev
         app.kubernetes.io/version: "15"
         app.kubernetes.io/component: database
         app.kubernetes.io/part-of: loom
@@ -48,8 +49,8 @@ spec:
         runAsUser: 999
         runAsNonRoot: true
       containers:
-        - name: postgres
-          image: postgres:15-alpine
+        - name: timescaledb
+          image: timescale/timescaledb:latest-pg15
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -63,23 +64,28 @@ spec:
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret
+                  name: timescaledb-secret
                   key: POSTGRES_DB
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret
+                  name: timescaledb-secret
                   key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret
+                  name: timescaledb-secret
                   key: POSTGRES_PASSWORD
+            - name: TIMESCALEDB_TELEMETRY
+              valueFrom:
+                secretKeyRef:
+                  name: timescaledb-secret
+                  key: TIMESCALEDB_TELEMETRY
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           ports:
             - containerPort: 5432
-              name: postgres
+              name: timescaledb
               protocol: TCP
           readinessProbe:
             exec:
@@ -109,32 +115,34 @@ spec:
               cpu: "500m"
               memory: "1Gi"
           volumeMounts:
-            - name: postgres-data
+            - name: timescaledb-data
               mountPath: /var/lib/postgresql/data
-            - name: postgres-config
+            - name: timescaledb-config
               mountPath: /etc/postgresql/postgresql.conf
               subPath: postgresql.conf
               readOnly: true
       volumes:
-        - name: postgres-data
+        - name: timescaledb-data
           emptyDir: {}
-        - name: postgres-config
+        - name: timescaledb-config
           configMap:
-            name: postgres-config
+            name: timescaledb-config
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: postgres-config
+  name: timescaledb-config
   namespace: loom-dev
   labels:
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: loom
 data:
   postgresql.conf: |
-    # PostgreSQL configuration for development
+    # TimescaleDB configuration for development
+    # Load TimescaleDB extension
+    shared_preload_libraries = 'timescaledb'
     listen_addresses = '*'
     port = 5432
     max_connections = 100
@@ -157,22 +165,24 @@ data:
     log_duration = off
     log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
 
+    # TimescaleDB optimizations
+    timescaledb.telemetry_level = 'off'
+    
     # Development settings
     fsync = off
     synchronous_commit = off
     full_page_writes = off
-    checkpoint_segments = 32
     checkpoint_completion_target = 0.9
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres
+  name: timescaledb
   namespace: loom-dev
   labels:
-    app: postgres
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: loom
 spec:
@@ -180,22 +190,22 @@ spec:
     - port: 5432
       targetPort: 5432
       protocol: TCP
-      name: postgres
+      name: timescaledb
   selector:
-    app: postgres
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
   type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-headless
+  name: timescaledb-headless
   namespace: loom-dev
   labels:
-    app: postgres
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: loom
 spec:
@@ -204,8 +214,8 @@ spec:
     - port: 5432
       targetPort: 5432
       protocol: TCP
-      name: postgres
+      name: timescaledb
   selector:
-    app: postgres
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/instance: postgres-dev
+    app: timescaledb
+    app.kubernetes.io/name: timescaledb
+    app.kubernetes.io/instance: timescaledb-dev

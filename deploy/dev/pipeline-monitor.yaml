@@ -35,7 +35,7 @@ spec:
         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:29092"
         - name: LOOM_DATABASE_HOST
-          value: "postgres"
+          value: "timescaledb"
         - name: LOOM_DATABASE_PORT
           value: "5432"
         - name: LOOM_DATABASE_NAME
