@@ -43,6 +43,15 @@ interface PipelineFlow {
   }
 }
 
+// Legacy interface for compatibility
+interface TopicFlow {
+  source: string
+  processor: string
+  destination: string
+  health?: 'healthy' | 'warning' | 'error' | 'unknown'
+  lag?: number
+}
+
 export class PipelineBuilder {
   private kafkaClient: KafkaClient
   private metricsCollector: KafkaMetricsCollector
@@ -54,362 +63,456 @@ export class PipelineBuilder {
     this.databaseClient = databaseClient
   }
 
-  async detectFlows(): Promise<TopicFlow[]> {
-    // This method is deprecated - all flow information comes from database
-    // Keeping for backwards compatibility but returns empty array
-    return []
-  }
-
-  async buildPipelineFromDatabase(): Promise<PipelineFlow> {
+  async buildPipeline(): Promise<PipelineFlow> {
     try {
+      // Get pipeline structure from database
       const topology = await this.databaseClient.getPipelineTopology()
       const { flows, stages, topics } = topology
+
+      // Get health metrics from Kafka
+      const topicMetrics = await this.metricsCollector.collectTopicMetrics()
+      const consumerMetrics = await this.metricsCollector.collectConsumerMetrics()
+
+      // Create maps for quick metric lookups
+      const topicMetricsMap = new Map(topicMetrics.map(m => [m.topic, m]))
+      const consumerLagByTopic = new Map<string, number>()
+
+      // Calculate total lag per topic
+      consumerMetrics.forEach(cm => {
+        const currentLag = consumerLagByTopic.get(cm.topic) || 0
+        consumerLagByTopic.set(cm.topic, currentLag + cm.lag)
+      })
 
       const nodes: PipelineNode[] = []
       const edges: PipelineEdge[] = []
       const nodePositions = new Map<string, { x: number; y: number }>()
 
-      // Create nodes for API endpoints and external producers
-      let xPos = 0
-      let yPos = 50
-      const apiEndpoints = new Set<string>()
-      const externalProducers = new Map<string, { topics: string[], description: string }>()
-
-      // Collect API endpoints
-      topics.forEach((topic: any) => {
-        if (topic.primary_endpoints) {
-          topic.primary_endpoints.forEach((endpoint: string) => {
-            apiEndpoints.add(endpoint)
-          })
-        }
-      })
-
-      // Find topics that have no producers (neither API endpoints nor pipeline stages)
-      const topicsWithNoProducers = topics.filter((topic: any) => {
-        const hasApiEndpoint = topic.primary_endpoints && topic.primary_endpoints.length > 0
-        const hasStageProducer = topic.producer_count > 0
-        return !hasApiEndpoint && !hasStageProducer && topic.topic_name.endsWith('.raw')
-      })
-
-      // Group orphaned topics by category to create logical external producers
-      if (topicsWithNoProducers.length > 0) {
-        const mobileTopics = topicsWithNoProducers.filter((t: any) =>
-          t.category === 'device' || t.category === 'os' || t.category === 'digital'
-        ).map((t: any) => t.topic_name)
-
-        const externalTopics = topicsWithNoProducers.filter((t: any) =>
-          t.category === 'external'
-        ).map((t: any) => t.topic_name)
-
-        if (mobileTopics.length > 0) {
-          externalProducers.set('mobile-clients', {
-            topics: mobileTopics,
-            description: 'Mobile device clients'
-          })
-        }
-
-        if (externalTopics.length > 0) {
-          // Group by source for external topics
-          const bySource = externalTopics.reduce((acc: any, topic: string) => {
-            const source = topic.split('.')[1] // e.g., 'twitter', 'calendar', 'email'
-            if (!acc[source]) acc[source] = []
-            acc[source].push(topic)
-            return acc
-          }, {})
-
-          Object.entries(bySource).forEach(([source, sourceTopics]: [string, any]) => {
-            externalProducers.set(`${source}-fetcher`, {
-              topics: sourceTopics,
-              description: `${source.charAt(0).toUpperCase() + source.slice(1)} data fetcher`
-            })
-          })
-        }
+      // Layout configuration
+      const layout = {
+        columnWidth: 300,
+        nodeHeight: 80,
+        nodeSpacing: 20,
+        startX: 50,
+        startY: 50
       }
 
-      // Create API endpoint nodes
-      let nodeIdx = 0
-      Array.from(apiEndpoints).forEach((endpoint) => {
+      // Step 1: Create External Producer nodes (API endpoints and external sources)
+      let currentX = layout.startX
+      let currentY = layout.startY
+
+      // API endpoints from database
+      const apiEndpoints = new Set<string>()
+      topics.forEach((topic: any) => {
+        if (topic.primary_endpoints) {
+          topic.primary_endpoints.forEach((endpoint: string) => apiEndpoints.add(endpoint))
+        }
+      })
+
+      Array.from(apiEndpoints).forEach((endpoint, idx) => {
         const nodeId = `api-${endpoint}`
         nodes.push({
           id: nodeId,
           type: 'external',
-          position: { x: xPos, y: yPos + nodeIdx * 80 },
+          position: { x: currentX, y: currentY + idx * (layout.nodeHeight + layout.nodeSpacing) },
           data: {
             label: endpoint,
             status: 'active',
             description: 'API Endpoint'
           }
         })
-        nodePositions.set(nodeId, { x: xPos, y: yPos + nodeIdx * 80 })
-        nodeIdx++
+        nodePositions.set(nodeId, { x: currentX, y: currentY + idx * (layout.nodeHeight + layout.nodeSpacing) })
       })
 
-      // Create external producer nodes
-      Array.from(externalProducers.entries()).forEach(([producerId, config]) => {
+      // External producers for topics without API endpoints
+      const orphanedTopics = topics.filter((t: any) =>
+        t.topic_name.endsWith('.raw') &&
+        (!t.primary_endpoints || t.primary_endpoints.length === 0) &&
+        t.producer_count === 0
+      )
+
+      const externalProducers = this.groupExternalProducers(orphanedTopics)
+      let producerY = currentY + apiEndpoints.size * (layout.nodeHeight + layout.nodeSpacing) + layout.nodeSpacing
+
+      externalProducers.forEach((config, producerId) => {
         const nodeId = `external-${producerId}`
         nodes.push({
           id: nodeId,
           type: 'external',
-          position: { x: xPos, y: yPos + nodeIdx * 80 },
+          position: { x: currentX, y: producerY },
           data: {
-            label: producerId.split('-').map(word =>
-              word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' '),
+            label: config.label,
             status: 'active',
             description: config.description
           }
         })
-        nodePositions.set(nodeId, { x: xPos, y: yPos + nodeIdx * 80 })
-        nodeIdx++
+        nodePositions.set(nodeId, { x: currentX, y: producerY })
+        producerY += layout.nodeHeight + layout.nodeSpacing
       })
 
-      // Create topic nodes grouped by stage
-      xPos = 300
-      const rawTopics = topics.filter((t: any) => t.topic_name.endsWith('.raw'))
-      const processedTopics = topics.filter((t: any) =>
-        t.topic_name.includes('.filtered') ||
-        t.topic_name.includes('.processed') ||
-        t.topic_name.includes('.transcribed') ||
-        t.topic_name.includes('.classified') ||
-        t.topic_name.includes('.enriched') ||
-        t.topic_name.includes('.geocoded') ||
-        t.topic_name.includes('.detected') ||
-        t.topic_name.includes('.embedded') ||
-        t.topic_name.includes('.parsed') ||
-        t.topic_name.includes('.archived') ||
-        t.topic_name.includes('.fetched') ||
-        t.topic_name.includes('.events')
-      )
-      const analysisTopics = topics.filter((t: any) =>
-        t.topic_name.includes('.analysis') ||
-        t.topic_name.includes('.results') ||
-        t.topic_name.includes('motion.') ||
-        t.topic_name.includes('location.')
-      )
+      // Step 2: Create Topic nodes with health metrics
+      currentX += layout.columnWidth
 
-      // Also get error topics and task topics
-      const errorTopics = topics.filter((t: any) => t.topic_name.includes('processing.errors'))
-      const taskTopics = topics.filter((t: any) => t.topic_name.startsWith('task.'))
+      // Group topics by processing stage
+      const topicGroups = this.categorizeTopics(topics)
 
-      // Raw topics
-      rawTopics.forEach((topic: any, idx: number) => {
-        const nodeId = topic.topic_name
-        nodes.push({
-          id: nodeId,
-          type: 'kafka-topic',
-          position: { x: xPos, y: 50 + idx * 80 },
-          data: {
-            label: this.getTopicLabel(topic.topic_name),
-            status: 'active',
-            description: topic.description
-          }
-        })
-        nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
+      Object.entries(topicGroups).forEach(([groupName, groupTopics], groupIdx) => {
+        let groupY = layout.startY + groupIdx * 200
 
-        // Connect API endpoints to topics
-        if (topic.primary_endpoints) {
-          topic.primary_endpoints.forEach((endpoint: string) => {
-            const sourceId = `api-${endpoint}`
-            edges.push({
-              id: `e-${sourceId}-${nodeId}`,
-              source: sourceId,
-              target: nodeId,
-              animated: true
-            })
+        groupTopics.forEach((topic: any, idx: number) => {
+          const metrics = topicMetricsMap.get(topic.topic_name)
+          const lag = consumerLagByTopic.get(topic.topic_name) || 0
+
+          // Determine health status based on metrics
+          const status = this.determineTopicHealth(metrics, lag)
+
+          nodes.push({
+            id: topic.topic_name,
+            type: 'kafka-topic',
+            position: { x: currentX, y: groupY + idx * (layout.nodeHeight + layout.nodeSpacing) },
+            data: {
+              label: this.getTopicLabel(topic.topic_name),
+              status,
+              description: topic.description,
+              metrics: metrics ? {
+                messageCount: metrics.messageCount,
+                lag,
+                lastActivity: metrics.lastMessageTime
+              } : undefined
+            }
           })
-        }
+          nodePositions.set(topic.topic_name, { x: currentX, y: groupY + idx * (layout.nodeHeight + layout.nodeSpacing) })
 
-        // Connect external producers to topics
-        externalProducers.forEach((config, producerId) => {
-          if (config.topics.includes(topic.topic_name)) {
-            const sourceId = `external-${producerId}`
-            edges.push({
-              id: `e-${sourceId}-${nodeId}`,
-              source: sourceId,
-              target: nodeId,
-              animated: true
+          // Connect producers to topics
+          if (topic.primary_endpoints) {
+            topic.primary_endpoints.forEach((endpoint: string) => {
+              edges.push({
+                id: `e-api-${endpoint}-${topic.topic_name}`,
+                source: `api-${endpoint}`,
+                target: topic.topic_name,
+                animated: status === 'active'
+              })
             })
           }
+
+          // Connect external producers
+          externalProducers.forEach((config, producerId) => {
+            if (config.topics.includes(topic.topic_name)) {
+              edges.push({
+                id: `e-external-${producerId}-${topic.topic_name}`,
+                source: `external-${producerId}`,
+                target: topic.topic_name,
+                animated: status === 'active'
+              })
+            }
+          })
         })
       })
 
-      // Processing nodes (from pipeline stages)
-      xPos = 600
-      const processors = new Map<string, ProcessorInfo>()
+      // Step 3: Create Processor nodes from pipeline stages
+      currentX += layout.columnWidth
+      const processors = this.consolidateProcessors(stages)
 
-      stages.forEach((stage: any) => {
-        const processorId = `${stage.flow_name}-${stage.service_name}`
+      let processorY = layout.startY
+      processors.forEach(processor => {
+        // Calculate processor health based on consumer lag
+        let totalLag = 0
+        processor.inputTopics.forEach((topic: string) => {
+          totalLag += consumerLagByTopic.get(topic) || 0
+        })
 
-        if (!processors.has(processorId)) {
-          processors.set(processorId, {
-            id: processorId,
-            label: stage.service_name,
-            description: stage.flow_name,
-            inputTopics: [],
-            outputTopics: []
-          })
-        }
+        const status = totalLag > 10000 ? 'error' : totalLag > 1000 ? 'idle' : 'active'
 
-        const processor = processors.get(processorId)!
-        if (stage.input_topics) {
-          processor.inputTopics.push(...stage.input_topics)
-        }
-        if (stage.output_topics) {
-          processor.outputTopics.push(...stage.output_topics)
-        }
-      })
-
-
-      Array.from(processors.values()).forEach((processor, idx) => {
-        const nodeId = processor.id
         nodes.push({
-          id: nodeId,
+          id: processor.id,
           type: 'processor',
-          position: { x: xPos, y: 100 + idx * 120 },
+          position: { x: currentX, y: processorY },
           data: {
             label: processor.label,
-            status: 'active',
-            description: processor.description
+            status,
+            description: processor.description,
+            metrics: {
+              lag: totalLag
+            }
           }
         })
-        nodePositions.set(nodeId, { x: xPos, y: 100 + idx * 120 })
+        nodePositions.set(processor.id, { x: currentX, y: processorY })
+        processorY += layout.nodeHeight + layout.nodeSpacing * 2
 
-        // Connect input topics to processors
-        processor.inputTopics.forEach(topic => {
+        // Connect topics to processors
+        processor.inputTopics.forEach((topic: string) => {
           if (nodePositions.has(topic)) {
             edges.push({
-              id: `e-${topic}-${nodeId}`,
+              id: `e-${topic}-${processor.id}`,
               source: topic,
-              target: nodeId,
-              animated: true
+              target: processor.id,
+              animated: status === 'active',
+              data: {
+                lag: consumerLagByTopic.get(topic) || 0
+              }
             })
           }
         })
-      })
-
-      // Processed topics
-      xPos = 900
-      processedTopics.forEach((topic: any, idx: number) => {
-        const nodeId = topic.topic_name
-        nodes.push({
-          id: nodeId,
-          type: 'kafka-topic',
-          position: { x: xPos, y: 50 + idx * 80 },
-          data: {
-            label: this.getTopicLabel(topic.topic_name),
-            status: 'active',
-            description: topic.description
-          }
-        })
-        nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
 
         // Connect processors to output topics
-        processors.forEach(processor => {
-          if (processor.outputTopics.includes(topic.topic_name)) {
+        processor.outputTopics.forEach((topic: string) => {
+          // We'll connect these after creating output topic nodes
+        })
+      })
+
+      // Step 4: Create output/processed topic nodes
+      currentX += layout.columnWidth
+      const processedTopics = topics.filter((t: any) =>
+        !t.topic_name.endsWith('.raw') && nodePositions.has(t.topic_name) === false
+      )
+
+      processedTopics.forEach((topic: any, idx: number) => {
+        const metrics = topicMetricsMap.get(topic.topic_name)
+        const status = this.determineTopicHealth(metrics, 0)
+
+        nodes.push({
+          id: topic.topic_name,
+          type: 'kafka-topic',
+          position: { x: currentX, y: layout.startY + idx * (layout.nodeHeight + layout.nodeSpacing) },
+          data: {
+            label: this.getTopicLabel(topic.topic_name),
+            status,
+            description: topic.description,
+            metrics: metrics ? {
+              messageCount: metrics.messageCount,
+              lastActivity: metrics.lastMessageTime
+            } : undefined
+          }
+        })
+        nodePositions.set(topic.topic_name, { x: currentX, y: layout.startY + idx * (layout.nodeHeight + layout.nodeSpacing) })
+      })
+
+      // Connect processors to their output topics
+      processors.forEach(processor => {
+        processor.outputTopics.forEach((topic: string) => {
+          if (nodePositions.has(topic)) {
+            const metrics = topicMetricsMap.get(topic)
             edges.push({
-              id: `e-${processor.id}-${nodeId}`,
+              id: `e-${processor.id}-${topic}`,
               source: processor.id,
-              target: nodeId,
-              animated: true
+              target: topic,
+              animated: metrics?.isActive || false
             })
           }
         })
       })
 
-      // Analysis topics
-      xPos = 1200
-      analysisTopics.forEach((topic: any, idx: number) => {
-        const nodeId = topic.topic_name
-        nodes.push({
-          id: nodeId,
-          type: 'kafka-topic',
-          position: { x: xPos, y: 100 + idx * 100 },
-          data: {
-            label: this.getTopicLabel(topic.topic_name),
-            status: 'active',
-            description: topic.description
-          }
-        })
-        nodePositions.set(nodeId, { x: xPos, y: 100 + idx * 100 })
-      })
-
-      // Kafka-to-DB Consumer node (special processor that writes to database)
-      const kafkaToDbConsumerId = 'kafka-to-db-consumer'
+      // Step 5: Add kafka-to-db consumer and database
       const topicsWithTables = topics.filter((t: any) => t.table_name)
-
       if (topicsWithTables.length > 0) {
-        // Position the kafka-to-db consumer between the last topics and database
-        const kafkaToDbXPos = 1350
+        currentX += layout.columnWidth
+        const kafkaToDbId = 'kafka-to-db-consumer'
+
         nodes.push({
-          id: kafkaToDbConsumerId,
+          id: kafkaToDbId,
           type: 'processor',
-          position: { x: kafkaToDbXPos, y: 200 },
+          position: { x: currentX, y: layout.startY + 200 },
           data: {
             label: 'Kafka to DB Consumer',
             status: 'active',
-            description: `Persists data from ${topicsWithTables.length} topics to TimescaleDB`
+            description: `Persists ${topicsWithTables.length} topics to TimescaleDB`
           }
         })
-        nodePositions.set(kafkaToDbConsumerId, { x: kafkaToDbXPos, y: 200 })
 
-        // Connect all topics with table mappings to kafka-to-db consumer
+        // Connect topics to kafka-to-db
         topicsWithTables.forEach((topic: any) => {
           if (nodePositions.has(topic.topic_name)) {
             edges.push({
-              id: `e-${topic.topic_name}-${kafkaToDbConsumerId}`,
+              id: `e-${topic.topic_name}-${kafkaToDbId}`,
               source: topic.topic_name,
-              target: kafkaToDbConsumerId,
+              target: kafkaToDbId,
               animated: true
             })
           }
         })
-      }
 
-      // Database node
-      nodes.push({
-        id: 'timescaledb',
-        type: 'database',
-        position: { x: 1500, y: 200 },
-        data: {
-          label: 'TimescaleDB',
-          status: 'active',
-          description: 'Time-series storage'
-        }
-      })
+        // Add database node
+        currentX += layout.columnWidth
+        nodes.push({
+          id: 'timescaledb',
+          type: 'database',
+          position: { x: currentX, y: layout.startY + 200 },
+          data: {
+            label: 'TimescaleDB',
+            status: 'active',
+            description: 'Time-series storage'
+          }
+        })
 
-      // Connect kafka-to-db consumer to database
-      if (topicsWithTables.length > 0) {
         edges.push({
-          id: `e-${kafkaToDbConsumerId}-timescaledb`,
-          source: kafkaToDbConsumerId,
+          id: 'e-kafka-to-db-consumer-timescaledb',
+          source: kafkaToDbId,
           target: 'timescaledb',
-          animated: false
+          animated: true
         })
       }
 
-      return { nodes, edges }
+      // Calculate summary statistics
+      const activeFlows = flows.filter((f: any) => f.is_active).length
+      const totalLag = Array.from(consumerLagByTopic.values()).reduce((sum, lag) => sum + lag, 0)
+      const healthStatus = totalLag > 100000 ? 'error' : totalLag > 10000 ? 'warning' : 'healthy'
+
+      return {
+        nodes,
+        edges,
+        summary: {
+          totalFlows: flows.length,
+          activeFlows,
+          totalTopics: topics.length,
+          totalProcessors: processors.size,
+          healthStatus
+        }
+      }
     } catch (error) {
-      logger.error('Failed to build pipeline from database', error)
+      logger.error('Failed to build pipeline', error)
       return { nodes: [], edges: [] }
     }
   }
 
-  async buildPipeline(): Promise<PipelineFlow> {
-    // Always use database-driven pipeline
-    return this.buildPipelineFromDatabase()
+  private groupExternalProducers(orphanedTopics: any[]): Map<string, { label: string, description: string, topics: string[] }> {
+    const producers = new Map<string, { label: string, description: string, topics: string[] }>()
+
+    // Group mobile device topics
+    const mobileTopics = orphanedTopics
+      .filter(t => ['device', 'os', 'digital'].includes(t.category))
+      .map(t => t.topic_name)
+
+    if (mobileTopics.length > 0) {
+      producers.set('mobile-clients', {
+        label: 'Mobile Clients',
+        description: 'Android/iOS device clients',
+        topics: mobileTopics
+      })
+    }
+
+    // Group external source topics by source
+    const externalTopics = orphanedTopics.filter(t => t.category === 'external')
+    const bySource = new Map<string, string[]>()
+
+    externalTopics.forEach(t => {
+      const source = t.source || t.topic_name.split('.')[1]
+      if (!bySource.has(source)) {
+        bySource.set(source, [])
+      }
+      bySource.get(source)!.push(t.topic_name)
+    })
+
+    bySource.forEach((topics, source) => {
+      const label = source.charAt(0).toUpperCase() + source.slice(1) + ' Fetcher'
+      producers.set(`${source}-fetcher`, {
+        label,
+        description: `Fetches data from ${source}`,
+        topics
+      })
+    })
+
+    return producers
   }
 
-  // Removed buildPipelineFromDiscovery - all pipeline info comes from database
+  private categorizeTopics(topics: any[]): Record<string, any[]> {
+    const groups: Record<string, any[]> = {
+      raw: [],
+      processed: [],
+      analysis: [],
+      other: []
+    }
 
-  // Removed categorizeTopics and groupTopicsByStage - all categorization comes from database
+    topics.forEach(topic => {
+      if (topic.topic_name.endsWith('.raw')) {
+        groups.raw.push(topic)
+      } else if (
+        topic.topic_name.includes('.filtered') ||
+        topic.topic_name.includes('.processed') ||
+        topic.topic_name.includes('.enriched') ||
+        topic.topic_name.includes('.transcribed') ||
+        topic.topic_name.includes('.classified') ||
+        topic.topic_name.includes('.detected') ||
+        topic.topic_name.includes('.parsed') ||
+        topic.topic_name.includes('.embedded')
+      ) {
+        groups.processed.push(topic)
+      } else if (
+        topic.topic_name.includes('.analysis') ||
+        topic.topic_name.includes('.results') ||
+        topic.topic_name.includes('motion.') ||
+        topic.topic_name.includes('location.')
+      ) {
+        groups.analysis.push(topic)
+      } else {
+        groups.other.push(topic)
+      }
+    })
 
-  // Removed getExternalSources and getTopicSourceType - all source info comes from database
+    // Remove empty groups
+    Object.keys(groups).forEach(key => {
+      if (groups[key].length === 0) {
+        delete groups[key]
+      }
+    })
 
-  // Removed processor identification methods - all processor info comes from database
+    return groups
+  }
 
-  // Removed consumer labeling methods - all labels and descriptions come from database
+  private consolidateProcessors(stages: any[]): Map<string, any> {
+    const processors = new Map<string, any>()
 
-  // Removed producer identification methods - all producer info comes from database
+    stages.forEach(stage => {
+      const processorId = `${stage.flow_name}-${stage.service_name}`
+
+      if (!processors.has(processorId)) {
+        processors.set(processorId, {
+          id: processorId,
+          label: stage.service_name,
+          description: stage.flow_name,
+          inputTopics: new Set<string>(),
+          outputTopics: new Set<string>(),
+          configuration: stage.configuration,
+          replicas: stage.replicas
+        })
+      }
+
+      const processor = processors.get(processorId)!
+
+      // Add topics to sets to avoid duplicates
+      if (stage.input_topics) {
+        stage.input_topics.forEach((t: string) => processor.inputTopics.add(t))
+      }
+      if (stage.output_topics) {
+        stage.output_topics.forEach((t: string) => processor.outputTopics.add(t))
+      }
+    })
+
+    // Convert sets back to arrays
+    processors.forEach(processor => {
+      processor.inputTopics = Array.from(processor.inputTopics)
+      processor.outputTopics = Array.from(processor.outputTopics)
+    })
+
+    return processors
+  }
+
+  private determineTopicHealth(metrics: any, lag: number): 'active' | 'idle' | 'error' | 'unknown' {
+    if (!metrics) return 'unknown'
+
+    // Error if significant lag
+    if (lag > 10000) return 'error'
+
+    // Check if topic has recent activity
+    if (metrics.lastMessageTime) {
+      const ageMs = Date.now() - new Date(metrics.lastMessageTime).getTime()
+      if (ageMs < 60000) return 'active' // Active if message in last minute
+      if (ageMs < 300000) return 'idle'   // Idle if message in last 5 minutes
+    }
+
+    // If no messages at all
+    if (metrics.messageCount === 0) return 'idle'
+
+    return metrics.isActive ? 'active' : 'idle'
+  }
 
   getTopicLabel(topic: string): string {
     const parts = topic.split('.')
@@ -427,5 +530,27 @@ export class PipelineBuilder {
     return `${typeLabel} ${detailLabel}`.trim()
   }
 
-  // Remove all hardcoded mappings - everything comes from database
+  // Compatibility methods for existing routes
+  identifyProducers(topics: string[]): string[] {
+    // This is now handled by the database topology
+    return []
+  }
+
+  getConsumerLabel(consumerId: string): string {
+    return consumerId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  getConsumerDescription(consumerId: string): string {
+    return `Consumer group: ${consumerId}`
+  }
+
+  determineOutputTopics(consumerId: string, topics: string[]): string[] {
+    // This information now comes from the database
+    return []
+  }
+
+  async detectFlows(): Promise<any[]> {
+    // Deprecated - flows come from database
+    return []
+  }
 }

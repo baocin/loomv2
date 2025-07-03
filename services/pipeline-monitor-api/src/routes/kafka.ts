@@ -36,7 +36,7 @@ export function createKafkaRoutes(
   // Get pipeline structure from database
   router.get('/pipeline/database', async (req, res) => {
     try {
-      const pipeline = await pipelineBuilder.buildPipelineFromDatabase()
+      const pipeline = await pipelineBuilder.buildPipeline()
       res.json(pipeline)
     } catch (error) {
       logger.error('Failed to build pipeline from database', error)
