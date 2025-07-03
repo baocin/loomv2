@@ -91,8 +91,8 @@ tolerations: []
 affinity: {}
 
 env:
-  DATABASE_URL: "postgresql://loom:loom@postgres:5432/loom"
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-infra:9092"
+  DATABASE_URL: "postgresql://loom:loom@timescaledb:5432/loom"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
   KAFKA_GROUP_ID: "kafka-to-db-consumer"
   LOG_LEVEL: "INFO"
 

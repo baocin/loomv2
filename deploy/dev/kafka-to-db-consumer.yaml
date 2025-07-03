@@ -26,9 +26,9 @@ spec:
           name: http
         env:
         - name: DATABASE_URL
-          value: "postgresql://loom:loom@postgres:5432/loom"
+          value: "postgresql://loom:loom@timescaledb:5432/loom"
         - name: KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka-infra:9092"
+          value: "kafka:9092"
         - name: KAFKA_GROUP_ID
           value: "kafka-to-db-consumer"
         - name: LOG_LEVEL
