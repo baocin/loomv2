@@ -6,9 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -679,10 +677,11 @@ class OSEventAppLifecycle(BaseMessage):
     """OS application lifecycle event."""
 
     app_identifier: str = Field(
-        description="Application identifier (package name or bundle ID)"
+        description="Application identifier (package name or bundle ID)",
     )
     app_name: str | None = Field(
-        default=None, description="Human-readable application name"
+        default=None,
+        description="Human-readable application name",
     )
     event_type: str = Field(
         description="Event type",
@@ -735,7 +734,7 @@ class OSEventNotification(BaseMessage):
 
     notification_id: str = Field(description="Unique notification identifier")
     app_identifier: str = Field(
-        description="Application identifier that sent the notification"
+        description="Application identifier that sent the notification",
     )
     title: str | None = Field(default=None, description="Notification title")
     body: str | None = Field(default=None, description="Notification body text")

@@ -41,7 +41,8 @@ async def ingest_steps_data(
         trace_context = get_trace_context()
         steps_reading.trace_id = trace_context.get("trace_id")
         steps_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_health_data(steps_reading, "steps")
@@ -99,7 +100,8 @@ async def ingest_sleep_data(
         trace_context = get_trace_context()
         sleep_reading.trace_id = trace_context.get("trace_id")
         sleep_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_health_data(sleep_reading, "sleep")
@@ -158,7 +160,8 @@ async def ingest_blood_oxygen_data(
         trace_context = get_trace_context()
         blood_oxygen_reading.trace_id = trace_context.get("trace_id")
         blood_oxygen_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_health_data(blood_oxygen_reading, "blood_oxygen")
@@ -216,7 +219,8 @@ async def ingest_blood_pressure_data(
         trace_context = get_trace_context()
         blood_pressure_reading.trace_id = trace_context.get("trace_id")
         blood_pressure_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_health_data(blood_pressure_reading, "blood_pressure")

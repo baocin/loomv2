@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .mapping_engine import MappingEngine
+from .db_mapping_engine import DatabaseMappingEngine
 
 logger = structlog.get_logger(__name__)
 
@@ -24,37 +25,30 @@ class GenericKafkaToDBConsumer:
         database_url: str,
         kafka_bootstrap_servers: str,
         group_id: str = "generic-kafka-to-db-consumer",
+        use_database_config: bool = False,
     ):
         """Initialize the generic consumer."""
         self.database_url = database_url
         self.kafka_bootstrap_servers = kafka_bootstrap_servers
         self.group_id = group_id
+        self.use_database_config = use_database_config
 
         self.consumer: Optional[AIOKafkaConsumer] = None
         self.db_pool: Optional[asyncpg.Pool] = None
         self.running = False
 
-        # Initialize mapping engine
-        self.mapping_engine = MappingEngine()
-
-        # Get supported topics from configuration
-        self.supported_topics = self.mapping_engine.get_supported_topics()
+        # Initialize mapping engine (will be set in start())
+        self.mapping_engine = None
+        self.supported_topics = []
 
         logger.info(
             "Initialized generic consumer",
-            supported_topics=len(self.supported_topics),
-            topics=self.supported_topics[:5],
-        )  # Log first 5 topics
+            use_database_config=use_database_config,
+        )
 
     async def start(self):
         """Start the consumer service."""
         logger.info("Starting generic Kafka to DB consumer")
-
-        # Validate mapping configuration
-        config_errors = self.mapping_engine.validate_config()
-        if config_errors:
-            logger.error("Invalid mapping configuration", errors=config_errors)
-            raise ValueError(f"Configuration errors: {config_errors}")
 
         # Initialize database connection pool
         self.db_pool = await asyncpg.create_pool(
@@ -63,6 +57,25 @@ class GenericKafkaToDBConsumer:
             max_size=10,
             command_timeout=60,
         )
+
+        # Initialize mapping engine based on configuration
+        if self.use_database_config:
+            logger.info("Using database-driven configuration")
+            self.mapping_engine = DatabaseMappingEngine(self.db_pool)
+            await self.mapping_engine.load_config()
+        else:
+            logger.info("Using YAML-based configuration")
+            self.mapping_engine = MappingEngine()
+
+        # Get supported topics from configuration
+        self.supported_topics = self.mapping_engine.get_supported_topics()
+
+        # Validate mapping configuration (only for YAML-based)
+        if not self.use_database_config:
+            config_errors = self.mapping_engine.validate_config()
+            if config_errors:
+                logger.error("Invalid mapping configuration", errors=config_errors)
+                raise ValueError(f"Configuration errors: {config_errors}")
 
         if not self.supported_topics:
             logger.warning("No topics configured for consumption")
@@ -315,8 +328,11 @@ class GenericKafkaToDBConsumer:
         """Reload mapping configuration (for hot-reloading)."""
         logger.info("Reloading mapping configuration")
 
-        # Reload config
-        self.mapping_engine.reload_config()
+        # Reload config based on type
+        if self.use_database_config:
+            await self.mapping_engine.reload_config()
+        else:
+            self.mapping_engine.reload_config()
 
         # Check if supported topics changed
         new_topics = self.mapping_engine.get_supported_topics()
@@ -354,9 +370,12 @@ async def lifespan(app: FastAPI):
     )
     kafka_servers = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     group_id = os.getenv("KAFKA_GROUP_ID", "generic-kafka-to-db-consumer")
+    use_database_config = os.getenv("USE_DATABASE_CONFIG", "false").lower() == "true"
 
     # Startup
-    consumer = GenericKafkaToDBConsumer(database_url, kafka_servers, group_id)
+    consumer = GenericKafkaToDBConsumer(
+        database_url, kafka_servers, group_id, use_database_config
+    )
     await consumer.start()
 
     # Start consumption task
@@ -408,6 +427,10 @@ async def get_status():
             content={"error": "Consumer not initialized"}, status_code=503
         )
 
+    config_valid = True
+    if not consumer.use_database_config:
+        config_valid = len(consumer.mapping_engine.validate_config()) == 0
+
     return JSONResponse(
         content={
             "consumer_running": consumer.running,
@@ -415,7 +438,8 @@ async def get_status():
             "topic_count": len(consumer.supported_topics),
             "kafka_servers": consumer.kafka_bootstrap_servers,
             "group_id": consumer.group_id,
-            "configuration_valid": len(consumer.mapping_engine.validate_config()) == 0,
+            "configuration_valid": config_valid,
+            "config_source": "database" if consumer.use_database_config else "yaml",
         }
     )
 
@@ -489,15 +513,26 @@ async def validate_config():
             content={"error": "Consumer not initialized"}, status_code=503
         )
 
-    errors = consumer.mapping_engine.validate_config()
-
-    return JSONResponse(
-        content={
-            "valid": len(errors) == 0,
-            "errors": errors,
-            "supported_topics": len(consumer.supported_topics),
-        }
-    )
+    # Database configurations are always valid if loaded successfully
+    if consumer.use_database_config:
+        return JSONResponse(
+            content={
+                "valid": True,
+                "errors": [],
+                "supported_topics": len(consumer.supported_topics),
+                "config_source": "database",
+            }
+        )
+    else:
+        errors = consumer.mapping_engine.validate_config()
+        return JSONResponse(
+            content={
+                "valid": len(errors) == 0,
+                "errors": errors,
+                "supported_topics": len(consumer.supported_topics),
+                "config_source": "yaml",
+            }
+        )
 
 
 if __name__ == "__main__":

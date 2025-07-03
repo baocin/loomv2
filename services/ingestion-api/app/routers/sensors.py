@@ -602,7 +602,8 @@ async def ingest_light_data(
         trace_context = get_trace_context()
         light_reading.trace_id = trace_context.get("trace_id")
         light_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_sensor_data(light_reading, "light")
@@ -660,7 +661,8 @@ async def ingest_gyroscope_data(
         trace_context = get_trace_context()
         gyro_reading.trace_id = trace_context.get("trace_id")
         gyro_reading.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_sensor_data(gyro_reading, "gyroscope")

@@ -27,8 +27,9 @@ from .routers import (
     sensors,
     system,  # System monitoring (app monitoring, device metadata)
     unified_ingestion,  # Unified data ingestion with message type mapping
-    # urls,  # TODO: Check if this requires database
 )
+
+# urls,  # TODO: Check if this requires database
 from .tracing import TracingMiddleware, get_trace_context
 
 
@@ -109,7 +110,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 await asyncio.sleep(retry_delay)
             else:
                 logger.error(
-                    "Failed to start dependencies after all retries", error=str(e)
+                    "Failed to start dependencies after all retries",
+                    error=str(e),
                 )
                 raise
 
@@ -164,7 +166,7 @@ app.include_router(os_events.router)  # OS event tracking
 app.include_router(sensors.router)
 app.include_router(system.router)  # System monitoring (app monitoring, device metadata)
 app.include_router(
-    unified_ingestion.router
+    unified_ingestion.router,
 )  # Unified data ingestion with message type mapping
 # app.include_router(urls.router)  # TODO: Check if this requires database
 

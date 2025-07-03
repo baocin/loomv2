@@ -36,7 +36,8 @@ async def ingest_clipboard_data(
         trace_context = get_trace_context()
         clipboard_data.trace_id = trace_context.get("trace_id")
         clipboard_data.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_digital_data(clipboard_data, "clipboard")
@@ -94,7 +95,8 @@ async def ingest_web_analytics_data(
         trace_context = get_trace_context()
         web_analytics.trace_id = trace_context.get("trace_id")
         web_analytics.services_encountered = trace_context.get(
-            "services_encountered", []
+            "services_encountered",
+            [],
         )
 
         await kafka_producer.send_digital_data(web_analytics, "web_analytics")

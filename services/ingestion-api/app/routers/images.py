@@ -92,9 +92,9 @@ async def upload_screenshot(image: ImageData) -> APIResponse:
         # Force camera_type to screen for screenshots
         image.camera_type = "screen"
 
-        # Send to Kafka topic for screen recordings
+        # Send to Kafka topic for screenshots
         await kafka_producer.send_message(
-            topic="device.video.screen.raw",
+            topic="device.image.screenshot.raw",
             message=image,
         )
 
@@ -110,7 +110,7 @@ async def upload_screenshot(image: ImageData) -> APIResponse:
         return APIResponse(
             status="success",
             message_id=image.message_id,
-            topic="device.video.screen.raw",
+            topic="device.image.screenshot.raw",
         )
 
     except HTTPException:
@@ -154,7 +154,7 @@ async def upload_images_batch(images: list[ImageData]) -> APIResponse:
 
             # Choose topic based on camera type
             topic = (
-                "device.video.screen.raw"
+                "device.image.screenshot.raw"
                 if image.camera_type == "screen"
                 else "device.image.camera.raw"
             )
