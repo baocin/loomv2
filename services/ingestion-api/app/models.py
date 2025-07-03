@@ -5,7 +5,15 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator, validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+    validator,
+)
 
 # Python 3.10 compatibility
 try:
@@ -37,14 +45,14 @@ class BaseMessage(BaseModel):
         default_factory=list,
         description="List of services that have processed this message",
     )
-    
-    @model_validator(mode='before')
+
+    @model_validator(mode="before")
     @classmethod
     def handle_timestamp_alias(cls, data: Any) -> Any:
         """Handle timestamp as an alias for recorded_at field."""
         if isinstance(data, dict):
-            if 'timestamp' in data and 'recorded_at' not in data:
-                data['recorded_at'] = data['timestamp']
+            if "timestamp" in data and "recorded_at" not in data:
+                data["recorded_at"] = data["timestamp"]
         return data
 
     @validator("device_id")
@@ -107,14 +115,14 @@ class AudioChunk(BaseMessage):
         default=None,
         description="Associated file ID for chunking",
     )
-    
-    @model_validator(mode='before')
+
+    @model_validator(mode="before")
     @classmethod
     def handle_chunk_data_alias(cls, data: Any) -> Any:
         """Handle chunk_data as an alias for data field."""
         if isinstance(data, dict):
-            if 'chunk_data' in data and 'data' not in data:
-                data['data'] = data.pop('chunk_data')
+            if "chunk_data" in data and "data" not in data:
+                data["data"] = data.pop("chunk_data")
         return data
 
 
@@ -236,6 +244,100 @@ class BarometerReading(BaseMessage):
     )
 
 
+class LightReading(BaseMessage):
+    """Light sensor reading."""
+
+    lux: float = Field(description="Light level in lux")
+    color_temperature: int | None = Field(
+        default=None,
+        description="Color temperature in Kelvin",
+    )
+
+
+class GyroscopeReading(BaseMessage):
+    """Gyroscope sensor reading."""
+
+    x: float = Field(description="Angular velocity around X axis")
+    y: float = Field(description="Angular velocity around Y axis")
+    z: float = Field(description="Angular velocity around Z axis")
+    unit: str = Field(default="rad/s", description="Angular velocity unit")
+
+
+class MagnetometerReading(BaseMessage):
+    """Magnetometer sensor reading."""
+
+    x: float = Field(description="Magnetic field strength X component")
+    y: float = Field(description="Magnetic field strength Y component")
+    z: float = Field(description="Magnetic field strength Z component")
+    unit: str = Field(default="μT", description="Magnetic field unit")
+
+
+class StepsReading(BaseMessage):
+    """Step counter reading."""
+
+    step_count: int = Field(description="Number of steps taken")
+    distance_meters: float | None = Field(
+        default=None,
+        description="Distance traveled in meters",
+    )
+    calories_burned: float | None = Field(
+        default=None,
+        description="Estimated calories burned",
+    )
+    activity_type: str | None = Field(
+        default=None,
+        description="Type of activity (walking, running, etc.)",
+    )
+
+
+class SleepReading(BaseMessage):
+    """Sleep tracking data."""
+
+    sleep_stage: str = Field(description="Sleep stage")
+    duration_seconds: int = Field(description="Duration of this sleep stage in seconds")
+    quality_score: float | None = Field(
+        default=None,
+        description="Sleep quality score (0-100)",
+    )
+
+    @field_validator("sleep_stage")
+    def validate_sleep_stage(cls, v):
+        valid_stages = ["awake", "light", "deep", "rem"]
+        if v not in valid_stages:
+            raise ValueError(f"sleep_stage must be one of {valid_stages}")
+        return v
+
+
+class BloodOxygenReading(BaseMessage):
+    """Blood oxygen saturation reading."""
+
+    spo2_percentage: int = Field(
+        description="Blood oxygen saturation percentage",
+        ge=0,
+        le=100,
+    )
+    confidence: float | None = Field(
+        default=None,
+        description="Measurement confidence (0-1)",
+    )
+    measurement_type: str | None = Field(
+        default=None,
+        description="Measurement type (spot check, continuous, etc.)",
+    )
+
+
+class BloodPressureReading(BaseMessage):
+    """Blood pressure reading."""
+
+    systolic: int = Field(description="Systolic pressure in mmHg")
+    diastolic: int = Field(description="Diastolic pressure in mmHg")
+    pulse: int | None = Field(default=None, description="Pulse rate")
+    measurement_type: str | None = Field(
+        default=None,
+        description="Measurement type (manual, automatic, etc.)",
+    )
+
+
 class ImageData(BaseMessage):
     """Image data from camera or screenshot."""
 
@@ -278,6 +380,54 @@ class NoteData(BaseMessage):
         if "content" in values:
             return len(values["content"].split())
         return v
+
+
+class ClipboardData(BaseMessage):
+    """Clipboard content data."""
+
+    content_type: str = Field(description="Type of clipboard content")
+    content_text: str | None = Field(
+        default=None,
+        description="Text content of clipboard",
+    )
+    content_data: str | None = Field(
+        default=None,
+        description="Base64 encoded non-text content",
+    )
+    source_app: str | None = Field(
+        default=None,
+        description="Application that last modified clipboard",
+    )
+
+    @field_validator("content_type")
+    def validate_content_type(cls, v):
+        valid_types = ["text", "image", "file", "url", "mixed"]
+        if v not in valid_types:
+            raise ValueError(f"content_type must be one of {valid_types}")
+        return v
+
+
+class WebAnalyticsData(BaseMessage):
+    """Web browsing analytics data."""
+
+    url: str = Field(description="URL of the visited page")
+    page_title: str | None = Field(default=None, description="Title of the page")
+    domain: str = Field(description="Domain name")
+    time_spent_seconds: int | None = Field(
+        default=None,
+        description="Time spent on page in seconds",
+    )
+    scroll_depth_percentage: int | None = Field(
+        default=None,
+        description="Maximum scroll depth reached (0-100)",
+        ge=0,
+        le=100,
+    )
+    clicks_count: int | None = Field(
+        default=None,
+        description="Number of clicks/interactions on page",
+    )
+    referrer: str | None = Field(default=None, description="Referring URL")
 
 
 class WebSocketMessage(BaseModel):
@@ -528,8 +678,12 @@ class DeviceMetadata(BaseMessage):
 class OSEventAppLifecycle(BaseMessage):
     """OS application lifecycle event."""
 
-    app_identifier: str = Field(description="Application identifier (package name or bundle ID)")
-    app_name: str | None = Field(default=None, description="Human-readable application name")
+    app_identifier: str = Field(
+        description="Application identifier (package name or bundle ID)"
+    )
+    app_name: str | None = Field(
+        default=None, description="Human-readable application name"
+    )
     event_type: str = Field(
         description="Event type",
         pattern="^(launch|foreground|background|terminate|crash)$",
@@ -580,7 +734,9 @@ class OSEventNotification(BaseMessage):
     """OS notification event."""
 
     notification_id: str = Field(description="Unique notification identifier")
-    app_identifier: str = Field(description="Application identifier that sent the notification")
+    app_identifier: str = Field(
+        description="Application identifier that sent the notification"
+    )
     title: str | None = Field(default=None, description="Notification title")
     body: str | None = Field(default=None, description="Notification body text")
     action: str | None = Field(

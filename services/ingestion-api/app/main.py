@@ -17,13 +17,16 @@ from .models import HealthCheck
 from .routers import (
     audio,
     # devices,  # TODO: Requires database implementation
+    digital,  # Digital data (clipboard, web analytics)
     # documents,  # TODO: Check if this requires database
     # github,  # TODO: Check if this requires database
+    health_data,  # Health monitoring data
     images,  # Images router doesn't require database
     # notes,  # TODO: Check if this requires database
     os_events,  # OS event tracking
     sensors,
     system,  # System monitoring (app monitoring, device metadata)
+    unified_ingestion,  # Unified data ingestion with message type mapping
     # urls,  # TODO: Check if this requires database
 )
 from .tracing import TracingMiddleware, get_trace_context
@@ -84,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Retry logic for Kafka connectivity
     max_retries = 5
     retry_delay = 5  # seconds
-    
+
     for attempt in range(max_retries):
         try:
             # Start Kafka topic manager first
@@ -94,18 +97,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             # Start Kafka producer
             await kafka_producer.start()
             logger.info("Kafka producer started successfully")
-            
+
             break  # Success, exit retry loop
-            
+
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.warning(
                     f"Failed to connect to Kafka (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s",
-                    error=str(e)
+                    error=str(e),
                 )
                 await asyncio.sleep(retry_delay)
             else:
-                logger.error("Failed to start dependencies after all retries", error=str(e))
+                logger.error(
+                    "Failed to start dependencies after all retries", error=str(e)
+                )
                 raise
 
     yield
@@ -149,13 +154,18 @@ app.add_middleware(
 # Include routers
 app.include_router(audio.router)
 # app.include_router(devices.router)  # TODO: Requires database implementation
+app.include_router(digital.router)  # Digital data (clipboard, web analytics)
 # app.include_router(documents.router)  # TODO: Check if this requires database
 # app.include_router(github.router)  # TODO: Check if this requires database
+app.include_router(health_data.router)  # Health monitoring data
 app.include_router(images.router)  # Images router doesn't require database
 # app.include_router(notes.router)  # TODO: Check if this requires database
 app.include_router(os_events.router)  # OS event tracking
 app.include_router(sensors.router)
 app.include_router(system.router)  # System monitoring (app monitoring, device metadata)
+app.include_router(
+    unified_ingestion.router
+)  # Unified data ingestion with message type mapping
 # app.include_router(urls.router)  # TODO: Check if this requires database
 
 
@@ -171,6 +181,8 @@ async def root() -> JSONResponse:
             "endpoints": {
                 "health": "/healthz",
                 "readiness": "/readyz",
+                "unified_ingestion": "/ingest/message",
+                "message_types": "/ingest/message-types",
                 "audio_websocket": "/audio/stream/{device_id}",
                 "audio_upload": "/audio/upload",
                 "image_upload": "/images/upload",
@@ -187,8 +199,21 @@ async def root() -> JSONResponse:
                     "bluetooth": "/sensor/bluetooth",
                     "temperature": "/sensor/temperature",
                     "barometer": "/sensor/barometer",
+                    "light": "/sensor/light",
+                    "gyroscope": "/sensor/gyroscope",
+                    "magnetometer": "/sensor/magnetometer",
                     "generic": "/sensor/generic",
                     "batch": "/sensor/batch",
+                },
+                "health_endpoints": {
+                    "steps": "/health/steps",
+                    "sleep": "/health/sleep",
+                    "blood_oxygen": "/health/blood-oxygen",
+                    "blood_pressure": "/health/blood-pressure",
+                },
+                "digital_endpoints": {
+                    "clipboard": "/digital/clipboard",
+                    "web_analytics": "/digital/web-analytics",
                 },
                 "system_app_monitoring": {
                     "macos": "/system/apps/macos",

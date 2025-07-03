@@ -57,6 +57,38 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            "device.health.steps.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "5184000000",  # 60 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.health.sleep.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "5184000000",  # 60 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.health.blood_oxygen.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "5184000000",  # 60 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.health.blood_pressure.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "5184000000",  # 60 days
+                    "compression.type": "producer",
+                },
+            },
             # State topics
             "device.state.power.raw": {
                 "partitions": settings.kafka_default_partitions,
@@ -93,6 +125,30 @@ class KafkaTopicManager:
                 },
             },
             "device.sensor.barometer.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.sensor.light.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.sensor.gyroscope.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
+            "device.sensor.magnetometer.raw": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,
                 "config": {
@@ -143,6 +199,22 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            "digital.clipboard.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days (clipboard content)
+                    "compression.type": "producer",
+                },
+            },
+            "digital.web_analytics.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days (web analytics data)
+                    "compression.type": "producer",
+                },
+            },
             "device.image.camera.raw": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,
@@ -156,6 +228,15 @@ class KafkaTopicManager:
                 "replication_factor": settings.kafka_default_replication_factor,
                 "config": {
                     "retention.ms": "604800000",  # 7 days (screenshots)
+                    "compression.type": "producer",
+                },
+            },
+            # Twitter/External images for OCR processing
+            "external.twitter.images.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days (images for OCR)
                     "compression.type": "producer",
                 },
             },
@@ -245,6 +326,14 @@ class KafkaTopicManager:
                 },
             },
             "media.image.vision_annotations": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "1296000000",  # 15 days
+                    "compression.type": "producer",
+                },
+            },
+            "media.image.analysis.moondream_results": {
                 "partitions": settings.kafka_default_partitions,
                 "replication_factor": settings.kafka_default_replication_factor,
                 "config": {

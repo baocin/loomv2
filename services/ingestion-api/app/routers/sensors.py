@@ -10,7 +10,10 @@ from ..models import (
     AccelerometerReading,
     BarometerReading,
     GPSReading,
+    GyroscopeReading,
     HeartRateReading,
+    LightReading,
+    MagnetometerReading,
     NetworkBluetoothReading,
     NetworkWiFiReading,
     PowerState,
@@ -575,3 +578,179 @@ async def ingest_sensor_batch(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process sensor batch",
         ) from e
+
+
+@router.post("/light", status_code=status.HTTP_201_CREATED)
+async def ingest_light_data(
+    light_reading: LightReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest light sensor data.
+
+    Args:
+    ----
+        light_reading: Light sensor reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        light_reading.trace_id = trace_context.get("trace_id")
+        light_reading.services_encountered = trace_context.get(
+            "services_encountered", []
+        )
+
+        await kafka_producer.send_sensor_data(light_reading, "light")
+
+        logger.info(
+            "Light data ingested",
+            device_id=light_reading.device_id,
+            message_id=light_reading.message_id,
+            lux=light_reading.lux,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": light_reading.message_id,
+                "topic": "device.sensor.light.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest light data",
+            device_id=light_reading.device_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest light data",
+        )
+
+
+@router.post("/gyroscope", status_code=status.HTTP_201_CREATED)
+async def ingest_gyroscope_data(
+    gyro_reading: GyroscopeReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest gyroscope sensor data.
+
+    Args:
+    ----
+        gyro_reading: Gyroscope reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        gyro_reading.trace_id = trace_context.get("trace_id")
+        gyro_reading.services_encountered = trace_context.get(
+            "services_encountered", []
+        )
+
+        await kafka_producer.send_sensor_data(gyro_reading, "gyroscope")
+
+        logger.info(
+            "Gyroscope data ingested",
+            device_id=gyro_reading.device_id,
+            message_id=gyro_reading.message_id,
+            x=gyro_reading.x,
+            y=gyro_reading.y,
+            z=gyro_reading.z,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": gyro_reading.message_id,
+                "topic": "device.sensor.gyroscope.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest gyroscope data",
+            device_id=gyro_reading.device_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest gyroscope data",
+        )
+
+
+@router.post("/magnetometer", status_code=status.HTTP_201_CREATED)
+async def ingest_magnetometer_data(
+    mag_reading: MagnetometerReading,
+    request: Request,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Ingest magnetometer sensor data.
+
+    Args:
+    ----
+        mag_reading: Magnetometer reading data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        # Get trace context and add to message
+        trace_context = get_trace_context()
+        mag_reading.trace_id = trace_context.get("trace_id")
+        mag_reading.services_encountered = trace_context.get("services_encountered", [])
+
+        await kafka_producer.send_sensor_data(mag_reading, "magnetometer")
+
+        logger.info(
+            "Magnetometer data ingested",
+            device_id=mag_reading.device_id,
+            message_id=mag_reading.message_id,
+            x=mag_reading.x,
+            y=mag_reading.y,
+            z=mag_reading.z,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": mag_reading.message_id,
+                "topic": "device.sensor.magnetometer.raw",
+                "trace_id": trace_context.get("trace_id"),
+                "services_encountered": trace_context.get("services_encountered", []),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest magnetometer data",
+            device_id=mag_reading.device_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest magnetometer data",
+        )

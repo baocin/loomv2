@@ -179,6 +179,38 @@ class KafkaProducerService:
             message=image_data,
         )
 
+    async def send_health_data(self, health_data: Any, health_type: str) -> None:
+        """Send health data to the appropriate health topic."""
+        topic = f"device.health.{health_type}.raw"
+        await self.send_message(
+            topic=topic,
+            message=health_data,
+        )
+
+    async def send_network_data(self, network_data: Any, network_type: str) -> None:
+        """Send network data to the appropriate network topic."""
+        topic = f"device.network.{network_type}.raw"
+        await self.send_message(
+            topic=topic,
+            message=network_data,
+        )
+
+    async def send_state_data(self, state_data: Any, state_type: str) -> None:
+        """Send state data to the appropriate state topic."""
+        topic = f"device.state.{state_type}.raw"
+        await self.send_message(
+            topic=topic,
+            message=state_data,
+        )
+
+    async def send_digital_data(self, digital_data: Any, data_type: str) -> None:
+        """Send digital data to the appropriate digital topic."""
+        topic = f"digital.{data_type}.raw"
+        await self.send_message(
+            topic=topic,
+            message=digital_data,
+        )
+
     @property
     def is_connected(self) -> bool:
         """Check if producer is connected to Kafka."""
