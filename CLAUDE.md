@@ -2,12 +2,12 @@
 
 ## Project Overview
 
-**Loom v2** is a personal informatics data pipeline built with a microservices architecture, designed to ingest, process, and store data from various devices (audio, sensors, health metrics). The system uses an event-driven architecture with Kafka for message streaming and PostgreSQL for data persistence.
+**Loom v2** is a personal informatics data pipeline built with a microservices architecture, designed to ingest, process, and store data from various devices (audio, sensors, health metrics). The system uses an event-driven architecture with Kafka for message streaming and TimescaleDB for data persistence.
 
 ### Architecture Summary
 - **Ingestion API**: FastAPI-based service for real-time data ingestion via REST and WebSocket
 - **Event Streaming**: Kafka for reliable message queuing and processing
-- **Storage**: PostgreSQL 15 for structured data persistence
+- **Storage**: TimescaleDB for time-series data persistence
 - **Deployment**: Kubernetes-native with Helm charts and k3d for local development
 - **Observability**: Structured logging, Prometheus metrics, health probes
 
@@ -16,7 +16,7 @@
 - **Python 3.11+** - Primary language
 - **FastAPI** - High-performance async web framework
 - **Kafka** - Event streaming platform
-- **PostgreSQL 15** - Relational database (migrated from TimescaleDB)
+- **TimescaleDB** - Time-series database built on PostgreSQL 15
 - **Kubernetes** - Container orchestration
 - **Docker** - Containerization
 - **Tilt** - Local development environment with hot-reload
@@ -71,7 +71,7 @@ make format                  # Format code with black and ruff
 make security-scan           # Run security scans (bandit, safety)
 
 # Database operations
-make db-connect              # Connect to local PostgreSQL
+make db-connect              # Connect to local TimescaleDB
 export DATABASE_URL="postgresql://loom:loom@localhost:5432/loom"
 
 # Kafka operations
@@ -547,7 +547,7 @@ make status
 make logs
 
 # Connect to services
-make db-connect                           # PostgreSQL CLI
+make db-connect                           # TimescaleDB CLI
 kubectl exec -n loom-dev -it deployment/kafka -- kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic device.audio.raw
 ```
 
