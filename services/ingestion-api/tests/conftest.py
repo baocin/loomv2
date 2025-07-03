@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.auth import verify_api_key
 from app.main import app
@@ -26,3 +27,10 @@ def client():
 def authenticated_client():
     """Test client with real API key header."""
     return TestClient(app)
+
+
+@pytest.fixture()
+async def test_client():
+    """Async test client fixture."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client

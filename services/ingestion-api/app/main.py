@@ -11,10 +11,12 @@ from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from .config import settings
+from .database import db_manager
 from .kafka_producer import kafka_producer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
 from .routers import (
+    ai_context,  # AI context endpoint
     audio,
     # devices,  # TODO: Requires database implementation
     digital,  # Digital data (clipboard, web analytics)
@@ -85,6 +87,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info("Starting ingestion API service", version="0.1.0")
 
+    # Start database connection pool if configured
+    if settings.database_url:
+        try:
+            await db_manager.start()
+            logger.info("Database connection established")
+        except Exception as e:
+            logger.error("Failed to connect to database", error=str(e))
+            # Don't fail startup if database is not available
+            # Some endpoints can still work without it
+
     # Retry logic for Kafka connectivity
     max_retries = 5
     retry_delay = 5  # seconds
@@ -129,6 +141,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await topic_manager.stop()
         logger.info("Kafka topic manager stopped successfully")
 
+        # Stop database connection pool
+        if db_manager.is_connected:
+            await db_manager.stop()
+            logger.info("Database connection pool stopped successfully")
+
     except Exception as e:
         logger.error("Error during shutdown", error=str(e))
 
@@ -154,6 +171,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(ai_context.router)  # AI context endpoint
 app.include_router(audio.router)
 # app.include_router(devices.router)  # TODO: Requires database implementation
 app.include_router(digital.router)  # Digital data (clipboard, web analytics)
@@ -183,6 +201,7 @@ async def root() -> JSONResponse:
             "endpoints": {
                 "health": "/healthz",
                 "readiness": "/readyz",
+                "ai_context": "/ai/context",
                 "unified_ingestion": "/ingest/message",
                 "message_types": "/ingest/message-types",
                 "audio_websocket": "/audio/stream/{device_id}",

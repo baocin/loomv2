@@ -26,7 +26,7 @@ dev-down: ## Stop local development environment
 
 dev-compose-up: ## Start local development environment with Docker Compose
 	@echo "Starting Loom v2 services with Docker Compose..."
-	docker compose -f docker-compose.local.yml up -d
+	docker compose --env-file .env.docker-compose -f docker-compose.local.yml up -d
 	@echo "✅ Services started:"
 
 dev-compose-up-rebuild: ## Start local development environment with Docker Compose (force rebuild)
@@ -80,30 +80,34 @@ dev-compose-build: ## Build specific service(s) with Docker Compose - force recr
 
 dev-compose-refresh: ## Refresh containers with minimal rebuild - uses cache for faster updates (use SERVICE=<name> for specific service)
 	@echo "🔄 Refreshing Loom v2 services with minimal rebuild..."
+	@echo "💡 Using Docker BuildKit for efficient layer caching"
 	@if [ -z "$(SERVICE)" ]; then \
-		echo "📦 Building all services (using cache for unchanged layers)..."; \
+		echo "📦 Building all services (only rebuilding changed layers)..."; \
+		export DOCKER_BUILDKIT=1; \
+		export COMPOSE_DOCKER_CLI_BUILD=1; \
 		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
 		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
-		docker compose -f docker-compose.local.yml build; \
+		docker compose --env-file .env.docker-compose -f docker-compose.local.yml build --progress=plain; \
 		echo "🔄 Recreating containers with updated code..."; \
-		docker compose -f docker-compose.local.yml up -d --force-recreate; \
-		echo "✅ All services refreshed with latest code changes"; \
+		docker compose --env-file .env.docker-compose -f docker-compose.local.yml up -d --force-recreate --no-build; \
+		echo "✅ All services refreshed (only final layers rebuilt)"; \
 	else \
-		echo "📦 Building service: $(SERVICE) (using cache)..."; \
+		echo "📦 Building service: $(SERVICE) (only changed layers)..."; \
+		export DOCKER_BUILDKIT=1; \
+		export COMPOSE_DOCKER_CLI_BUILD=1; \
 		export GIT_COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 		export GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"); \
 		export BUILD_DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 		export BUILD_VERSION=$$(git describe --tags --always 2>/dev/null || echo "latest"); \
-		docker compose -f docker-compose.local.yml build $(SERVICE); \
+		docker compose --env-file .env.docker-compose -f docker-compose.local.yml build --progress=plain $(SERVICE); \
 		echo "🔄 Recreating $(SERVICE) container..."; \
-		docker compose -f docker-compose.local.yml stop $(SERVICE) 2>/dev/null || true; \
-		docker compose -f docker-compose.local.yml rm -f $(SERVICE) 2>/dev/null || true; \
-		docker compose -f docker-compose.local.yml up -d --no-deps $(SERVICE); \
-		echo "✅ Service $(SERVICE) refreshed with latest code changes"; \
+		docker compose --env-file .env.docker-compose -f docker-compose.local.yml up -d --no-deps --no-build $(SERVICE); \
+		echo "✅ Service $(SERVICE) refreshed (only final layer rebuilt)"; \
 	fi
 	@echo ""
+	@echo "⚡ Tip: BuildKit cache ensures only changed layers are rebuilt"
 	@echo "📊 View logs with: make dev-compose-logs"
 	@echo "🔍 Check specific service: make dev-compose-logs SERVICE=<name>"
 

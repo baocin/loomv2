@@ -124,6 +124,12 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", description="Log level")
 
+    # Database configuration
+    database_url: str | None = Field(
+        default=None,
+        description="PostgreSQL/TimescaleDB connection URL",
+    )
+
     model_config = {
         "env_prefix": "LOOM_",
         "case_sensitive": False,

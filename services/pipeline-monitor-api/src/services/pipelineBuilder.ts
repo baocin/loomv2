@@ -11,6 +11,12 @@ interface PipelineNode {
     label: string
     status: 'active' | 'idle' | 'error' | 'unknown'
     description?: string
+    metrics?: {
+      messageCount?: number
+      lag?: number
+      rate?: number
+      lastActivity?: Date
+    }
   }
 }
 
@@ -19,29 +25,22 @@ interface PipelineEdge {
   source: string
   target: string
   animated?: boolean
+  data?: {
+    throughput?: number
+    lag?: number
+  }
 }
 
 interface PipelineFlow {
   nodes: PipelineNode[]
   edges: PipelineEdge[]
-}
-
-interface TopicFlow {
-  source: string
-  processor: string
-  destination: string
-  health?: 'healthy' | 'warning' | 'error' | 'unknown'
-  lag?: number
-}
-
-interface ProcessorInfo {
-  id: string
-  label: string
-  description: string
-  inputTopics: string[]
-  outputTopics: string[]
-  health?: 'healthy' | 'warning' | 'error' | 'unknown'
-  lag?: number
+  summary?: {
+    totalFlows: number
+    activeFlows: number
+    totalTopics: number
+    totalProcessors: number
+    healthStatus: 'healthy' | 'warning' | 'error'
+  }
 }
 
 export class PipelineBuilder {
