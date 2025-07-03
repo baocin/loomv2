@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { KafkaMetricsCollector } from '../kafka/metrics'
 import { KafkaClient } from '../kafka/client'
+import { DatabaseClient } from '../database/client'
 import { MemoryCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { config } from '../config'
@@ -12,13 +13,14 @@ import { HealthMonitor } from '../services/healthMonitor'
 export function createKafkaRoutes(
   kafkaClient: KafkaClient,
   metricsCollector: KafkaMetricsCollector,
+  databaseClient: DatabaseClient,
   k8sDiscovery?: K8sDiscovery,
   serviceRegistry?: ServiceRegistry,
   healthMonitor?: HealthMonitor
 ): Router {
   const router = Router()
   const messageCache = new MemoryCache<any>(config.cache.cacheTimeout)
-  const pipelineBuilder = new PipelineBuilder(kafkaClient, metricsCollector)
+  const pipelineBuilder = new PipelineBuilder(kafkaClient, metricsCollector, databaseClient)
 
   // Get pipeline structure
   router.get('/pipeline', async (req, res) => {
@@ -28,6 +30,39 @@ export function createKafkaRoutes(
     } catch (error) {
       logger.error('Failed to build pipeline', error)
       res.status(500).json({ error: 'Failed to build pipeline structure' })
+    }
+  })
+
+  // Get pipeline structure from database
+  router.get('/pipeline/database', async (req, res) => {
+    try {
+      const pipeline = await pipelineBuilder.buildPipelineFromDatabase()
+      res.json(pipeline)
+    } catch (error) {
+      logger.error('Failed to build pipeline from database', error)
+      res.status(500).json({ error: 'Failed to build pipeline from database' })
+    }
+  })
+
+  // Get pipeline topology from database
+  router.get('/pipeline/topology', async (req, res) => {
+    try {
+      const topology = await databaseClient.getPipelineTopology()
+      res.json(topology)
+    } catch (error) {
+      logger.error('Failed to get pipeline topology', error)
+      res.status(500).json({ error: 'Failed to get pipeline topology' })
+    }
+  })
+
+  // Get service dependencies from database
+  router.get('/pipeline/dependencies', async (req, res) => {
+    try {
+      const dependencies = await databaseClient.getServiceDependencies()
+      res.json(dependencies)
+    } catch (error) {
+      logger.error('Failed to get service dependencies', error)
+      res.status(500).json({ error: 'Failed to get service dependencies' })
     }
   })
 

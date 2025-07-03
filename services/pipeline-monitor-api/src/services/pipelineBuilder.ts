@@ -1,5 +1,6 @@
 import { KafkaClient } from '../kafka/client'
 import { KafkaMetricsCollector } from '../kafka/metrics'
+import { DatabaseClient } from '../database/client'
 import { logger } from '../utils/logger'
 
 interface PipelineNode {
@@ -46,10 +47,12 @@ interface ProcessorInfo {
 export class PipelineBuilder {
   private kafkaClient: KafkaClient
   private metricsCollector: KafkaMetricsCollector
+  private databaseClient: DatabaseClient
 
-  constructor(kafkaClient: KafkaClient, metricsCollector: KafkaMetricsCollector) {
+  constructor(kafkaClient: KafkaClient, metricsCollector: KafkaMetricsCollector, databaseClient: DatabaseClient) {
     this.kafkaClient = kafkaClient
     this.metricsCollector = metricsCollector
+    this.databaseClient = databaseClient
   }
 
   async detectFlows(): Promise<TopicFlow[]> {
@@ -118,7 +121,366 @@ export class PipelineBuilder {
     }
   }
 
+  async buildPipelineFromDatabase(): Promise<PipelineFlow> {
+    try {
+      const topology = await this.databaseClient.getPipelineTopology()
+      const { flows, stages, topics } = topology
+
+      const nodes: PipelineNode[] = []
+      const edges: PipelineEdge[] = []
+      const nodePositions = new Map<string, { x: number; y: number }>()
+
+      // Create nodes for API endpoints and external producers
+      let xPos = 0
+      let yPos = 50
+      const apiEndpoints = new Set<string>()
+      const externalProducers = new Map<string, { topics: string[], description: string }>()
+
+      // Collect API endpoints
+      topics.forEach((topic: any) => {
+        if (topic.primary_endpoints) {
+          topic.primary_endpoints.forEach((endpoint: string) => {
+            apiEndpoints.add(endpoint)
+          })
+        }
+      })
+
+      // Define external producers for topics without producers in stages
+      // These are services that produce data but aren't defined in pipeline stages
+      const externalProducerMappings: Record<string, { label: string, description: string, topics: string[] }> = {
+        'x-likes-fetcher': {
+          label: 'X Likes Fetcher',
+          description: 'Fetches liked posts from X/Twitter',
+          topics: ['external.twitter.liked.raw']
+        },
+        'calendar-fetcher': {
+          label: 'Calendar Fetcher',
+          description: 'Syncs calendar events',
+          topics: ['external.calendar.events.raw']
+        },
+        'email-fetcher': {
+          label: 'Email Fetcher',
+          description: 'Fetches emails from IMAP',
+          topics: ['external.email.events.raw']
+        },
+        'mobile-client': {
+          label: 'Mobile Clients',
+          description: 'Android/iOS apps',
+          topics: [
+            'device.health.heartrate.raw',
+            'device.health.steps.raw',
+            'device.metadata.raw',
+            'device.sensor.barometer.raw',
+            'device.sensor.temperature.raw',
+            'device.system.apps.android.raw',
+            'device.video.screen.raw',
+            'digital.clipboard.raw',
+            'os.events.app_lifecycle.raw',
+            'os.events.system.raw',
+            'os.events.notifications.raw'
+          ]
+        },
+        'desktop-client': {
+          label: 'Desktop Clients',
+          description: 'macOS/Windows apps',
+          topics: ['device.system.apps.macos.raw']
+        }
+      }
+
+      // Add external producers that aren't covered by API endpoints
+      Object.entries(externalProducerMappings).forEach(([id, config]) => {
+        // Check if any of the topics exist and don't have API endpoints
+        const relevantTopics = config.topics.filter(topicName =>
+          topics.some((t: any) => t.topic_name === topicName && (!t.primary_endpoints || t.primary_endpoints.length === 0))
+        )
+
+        if (relevantTopics.length > 0) {
+          externalProducers.set(id, {
+            topics: relevantTopics,
+            description: config.description
+          })
+        }
+      })
+
+      // Create API endpoint nodes
+      let nodeIdx = 0
+      Array.from(apiEndpoints).forEach((endpoint) => {
+        const nodeId = `api-${endpoint}`
+        nodes.push({
+          id: nodeId,
+          type: 'external',
+          position: { x: xPos, y: yPos + nodeIdx * 80 },
+          data: {
+            label: endpoint,
+            status: 'active',
+            description: 'API Endpoint'
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: yPos + nodeIdx * 80 })
+        nodeIdx++
+      })
+
+      // Create external producer nodes
+      Array.from(externalProducers.entries()).forEach(([producerId, config]) => {
+        const nodeId = `external-${producerId}`
+        const producerConfig = externalProducerMappings[producerId]
+        nodes.push({
+          id: nodeId,
+          type: 'external',
+          position: { x: xPos, y: yPos + nodeIdx * 80 },
+          data: {
+            label: producerConfig.label,
+            status: 'active',
+            description: config.description
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: yPos + nodeIdx * 80 })
+        nodeIdx++
+      })
+
+      // Create topic nodes grouped by stage
+      xPos = 300
+      const rawTopics = topics.filter((t: any) => t.topic_name.endsWith('.raw'))
+      const processedTopics = topics.filter((t: any) =>
+        t.topic_name.includes('.filtered') ||
+        t.topic_name.includes('.processed') ||
+        t.topic_name.includes('.transcribed') ||
+        t.topic_name.includes('.classified') ||
+        t.topic_name.includes('.enriched') ||
+        t.topic_name.includes('.geocoded') ||
+        t.topic_name.includes('.detected') ||
+        t.topic_name.includes('.embedded') ||
+        t.topic_name.includes('.parsed') ||
+        t.topic_name.includes('.archived') ||
+        t.topic_name.includes('.fetched') ||
+        t.topic_name.includes('.events')
+      )
+      const analysisTopics = topics.filter((t: any) =>
+        t.topic_name.includes('.analysis') ||
+        t.topic_name.includes('.results') ||
+        t.topic_name.includes('motion.') ||
+        t.topic_name.includes('location.')
+      )
+
+      // Also get error topics and task topics
+      const errorTopics = topics.filter((t: any) => t.topic_name.includes('processing.errors'))
+      const taskTopics = topics.filter((t: any) => t.topic_name.startsWith('task.'))
+
+      // Raw topics
+      rawTopics.forEach((topic: any, idx: number) => {
+        const nodeId = topic.topic_name
+        nodes.push({
+          id: nodeId,
+          type: 'kafka-topic',
+          position: { x: xPos, y: 50 + idx * 80 },
+          data: {
+            label: this.getTopicLabel(topic.topic_name),
+            status: 'active',
+            description: topic.description
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
+
+        // Connect API endpoints to topics
+        if (topic.primary_endpoints) {
+          topic.primary_endpoints.forEach((endpoint: string) => {
+            const sourceId = `api-${endpoint}`
+            edges.push({
+              id: `e-${sourceId}-${nodeId}`,
+              source: sourceId,
+              target: nodeId,
+              animated: true
+            })
+          })
+        }
+
+        // Connect external producers to topics
+        externalProducers.forEach((config, producerId) => {
+          if (config.topics.includes(topic.topic_name)) {
+            const sourceId = `external-${producerId}`
+            edges.push({
+              id: `e-${sourceId}-${nodeId}`,
+              source: sourceId,
+              target: nodeId,
+              animated: true
+            })
+          }
+        })
+      })
+
+      // Processing nodes (from pipeline stages)
+      xPos = 600
+      const processors = new Map<string, ProcessorInfo>()
+
+      stages.forEach((stage: any) => {
+        const processorId = `${stage.flow_name}-${stage.service_name}`
+
+        if (!processors.has(processorId)) {
+          processors.set(processorId, {
+            id: processorId,
+            label: stage.service_name,
+            description: stage.flow_name,
+            inputTopics: [],
+            outputTopics: []
+          })
+        }
+
+        const processor = processors.get(processorId)!
+        if (stage.input_topics) {
+          processor.inputTopics.push(...stage.input_topics)
+        }
+        if (stage.output_topics) {
+          processor.outputTopics.push(...stage.output_topics)
+        }
+      })
+
+
+      Array.from(processors.values()).forEach((processor, idx) => {
+        const nodeId = processor.id
+        nodes.push({
+          id: nodeId,
+          type: 'processor',
+          position: { x: xPos, y: 100 + idx * 120 },
+          data: {
+            label: processor.label,
+            status: 'active',
+            description: processor.description
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: 100 + idx * 120 })
+
+        // Connect input topics to processors
+        processor.inputTopics.forEach(topic => {
+          if (nodePositions.has(topic)) {
+            edges.push({
+              id: `e-${topic}-${nodeId}`,
+              source: topic,
+              target: nodeId,
+              animated: true
+            })
+          }
+        })
+      })
+
+      // Processed topics
+      xPos = 900
+      processedTopics.forEach((topic: any, idx: number) => {
+        const nodeId = topic.topic_name
+        nodes.push({
+          id: nodeId,
+          type: 'kafka-topic',
+          position: { x: xPos, y: 50 + idx * 80 },
+          data: {
+            label: this.getTopicLabel(topic.topic_name),
+            status: 'active',
+            description: topic.description
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: 50 + idx * 80 })
+
+        // Connect processors to output topics
+        processors.forEach(processor => {
+          if (processor.outputTopics.includes(topic.topic_name)) {
+            edges.push({
+              id: `e-${processor.id}-${nodeId}`,
+              source: processor.id,
+              target: nodeId,
+              animated: true
+            })
+          }
+        })
+      })
+
+      // Analysis topics
+      xPos = 1200
+      analysisTopics.forEach((topic: any, idx: number) => {
+        const nodeId = topic.topic_name
+        nodes.push({
+          id: nodeId,
+          type: 'kafka-topic',
+          position: { x: xPos, y: 100 + idx * 100 },
+          data: {
+            label: this.getTopicLabel(topic.topic_name),
+            status: 'active',
+            description: topic.description
+          }
+        })
+        nodePositions.set(nodeId, { x: xPos, y: 100 + idx * 100 })
+      })
+
+      // Kafka-to-DB Consumer node (special processor that writes to database)
+      const kafkaToDbConsumerId = 'kafka-to-db-consumer'
+      const topicsWithTables = topics.filter((t: any) => t.table_name)
+
+      if (topicsWithTables.length > 0) {
+        // Position the kafka-to-db consumer between the last topics and database
+        const kafkaToDbXPos = 1350
+        nodes.push({
+          id: kafkaToDbConsumerId,
+          type: 'processor',
+          position: { x: kafkaToDbXPos, y: 200 },
+          data: {
+            label: 'Kafka to DB Consumer',
+            status: 'active',
+            description: `Persists data from ${topicsWithTables.length} topics to TimescaleDB`
+          }
+        })
+        nodePositions.set(kafkaToDbConsumerId, { x: kafkaToDbXPos, y: 200 })
+
+        // Connect all topics with table mappings to kafka-to-db consumer
+        topicsWithTables.forEach((topic: any) => {
+          if (nodePositions.has(topic.topic_name)) {
+            edges.push({
+              id: `e-${topic.topic_name}-${kafkaToDbConsumerId}`,
+              source: topic.topic_name,
+              target: kafkaToDbConsumerId,
+              animated: true
+            })
+          }
+        })
+      }
+
+      // Database node
+      nodes.push({
+        id: 'timescaledb',
+        type: 'database',
+        position: { x: 1500, y: 200 },
+        data: {
+          label: 'TimescaleDB',
+          status: 'active',
+          description: 'Time-series storage'
+        }
+      })
+
+      // Connect kafka-to-db consumer to database
+      if (topicsWithTables.length > 0) {
+        edges.push({
+          id: `e-${kafkaToDbConsumerId}-timescaledb`,
+          source: kafkaToDbConsumerId,
+          target: 'timescaledb',
+          animated: false
+        })
+      }
+
+      return { nodes, edges }
+    } catch (error) {
+      logger.error('Failed to build pipeline from database', error)
+      return { nodes: [], edges: [] }
+    }
+  }
+
   async buildPipeline(): Promise<PipelineFlow> {
+    // Try to build from database first
+    try {
+      const dbPipeline = await this.buildPipelineFromDatabase()
+      if (dbPipeline.nodes.length > 0) {
+        return dbPipeline
+      }
+    } catch (error) {
+      logger.warn('Failed to build pipeline from database, falling back to discovery', error)
+    }
+
+    // Fallback to original discovery method
     try {
       const topics = await this.kafkaClient.getTopics()
       const consumerGroups = await this.kafkaClient.getConsumerGroups()
