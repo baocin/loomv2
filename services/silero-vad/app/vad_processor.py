@@ -22,6 +22,7 @@ class VADProcessor:
         self.utils = None
         self.executor = ThreadPoolExecutor(max_workers=2)
         self._initialized = False
+        self._model_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         """Initialize the VAD model asynchronously."""
@@ -116,16 +117,30 @@ class VADProcessor:
                 )
                 audio_tensor = resampler(audio_tensor)
 
+            # Reset model state before processing each chunk
+            # This prevents the tensor dimension error
+            if hasattr(self.model, 'reset_states'):
+                self.model.reset_states()
+            
             # Get speech timestamps
-            speech_timestamps = self.get_speech_timestamps(
-                audio_tensor,
-                self.model,
-                threshold=settings.vad_threshold,
-                min_speech_duration_ms=settings.vad_min_speech_duration_ms,
-                min_silence_duration_ms=settings.vad_min_silence_duration_ms,
-                window_size_samples=settings.vad_window_size_samples,
-                sampling_rate=settings.vad_sample_rate,
-            )
+            # Use a fresh model state for each chunk to avoid state corruption
+            try:
+                speech_timestamps = self.get_speech_timestamps(
+                    audio_tensor,
+                    self.model,
+                    threshold=settings.vad_threshold,
+                    min_speech_duration_ms=settings.vad_min_speech_duration_ms,
+                    min_silence_duration_ms=settings.vad_min_silence_duration_ms,
+                    window_size_samples=settings.vad_window_size_samples,
+                    sampling_rate=settings.vad_sample_rate,
+                    return_seconds=False,  # Return sample indices
+                )
+            except RuntimeError as e:
+                if "index 1 out of range" in str(e):
+                    # Model state corruption - return empty segments
+                    logger.warning("VAD model state corrupted, skipping chunk", error=str(e))
+                    return []
+                raise
 
             # Convert timestamps to milliseconds
             segments = []

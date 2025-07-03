@@ -29,7 +29,10 @@ class Settings(BaseSettings):
     kafka_auto_offset_reset: str = "earliest"
     kafka_enable_auto_commit: bool = False
     kafka_max_poll_records: int = 10
-    kafka_consumer_timeout_ms: int = 1000
+    kafka_consumer_timeout_ms: int = 5000  # 5 seconds for better polling
+    kafka_session_timeout_ms: int = 30000  # 30 seconds
+    kafka_heartbeat_interval_ms: int = 3000  # 3 seconds
+    kafka_max_poll_interval_ms: int = 300000  # 5 minutes for slow processing
 
     # VAD settings
     vad_threshold: float = 0.5

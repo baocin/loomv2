@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class BaseMessage(BaseModel):
@@ -54,6 +54,15 @@ class AudioChunk(BaseModel):
     format: str = Field(default="wav", description="Audio format")
     duration_ms: int = Field(..., description="Chunk duration in milliseconds")
     file_id: str | None = Field(None, description="Associated file ID")
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_chunk_data_alias(cls, data: Any) -> Any:
+        """Handle chunk_data as an alias for data field."""
+        if isinstance(data, dict):
+            if "chunk_data" in data and "data" not in data:
+                data["data"] = data.pop("chunk_data")
+        return data
 
     def decode_audio(self) -> bytes:
         """Decode base64 audio data to bytes."""

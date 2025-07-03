@@ -27,6 +27,10 @@ class KafkaVADConsumer:
         self._running = False
         self._tasks: set[asyncio.Task] = set()
         self._message_retry_counts: dict[str, int] = {}
+        self._messages_processed = 0
+        self._last_commit_time = time.time()
+        self._commit_interval = 5.0  # Commit every 5 seconds
+        self._commit_batch_size = 100  # Or every 100 messages
 
     async def start(self) -> None:
         """Start the Kafka consumer and producer."""
@@ -43,6 +47,9 @@ class KafkaVADConsumer:
                 enable_auto_commit=settings.kafka_enable_auto_commit,
                 max_poll_records=settings.kafka_max_poll_records,
                 consumer_timeout_ms=settings.kafka_consumer_timeout_ms,
+                session_timeout_ms=settings.kafka_session_timeout_ms,
+                heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
+                max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             )
 
@@ -84,6 +91,14 @@ class KafkaVADConsumer:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
+        # Commit any pending offsets before stopping
+        if self.consumer and self._messages_processed > 0:
+            try:
+                await self.consumer.commit()
+                logger.info("Final commit before shutdown", messages_processed=self._messages_processed)
+            except Exception as e:
+                logger.error("Failed to commit final offsets", error=str(e))
+
         # Stop Kafka clients
         if self.consumer:
             await self.consumer.stop()
@@ -119,6 +134,9 @@ class KafkaVADConsumer:
                         )
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
+                
+                # Check if we need to commit based on time
+                await self._maybe_commit()
 
             except asyncio.CancelledError:
                 break
@@ -126,62 +144,90 @@ class KafkaVADConsumer:
                 logger.error("Error in consumer loop", error=str(e))
                 await asyncio.sleep(1)  # Brief pause before retry
 
+    async def _maybe_commit(self) -> None:
+        """Commit offsets if batch size or time interval is reached."""
+        current_time = time.time()
+        time_since_last_commit = current_time - self._last_commit_time
+        
+        if (self._messages_processed >= self._commit_batch_size or 
+            time_since_last_commit >= self._commit_interval):
+            try:
+                await self.consumer.commit()
+                logger.info(
+                    "Batch commit completed",
+                    messages_processed=self._messages_processed,
+                    time_since_last_commit=round(time_since_last_commit, 2)
+                )
+                self._messages_processed = 0
+                self._last_commit_time = current_time
+            except Exception as e:
+                logger.error("Failed to commit offsets", error=str(e))
+
     async def _process_message_with_retry(self, message) -> None:
         """Process a message with retry logic and DLQ handling."""
         message_key = f"{message.topic}:{message.partition}:{message.offset}"
         retry_count = self._message_retry_counts.get(message_key, 0)
+        max_retries = 3  # Maximum number of retries
 
-        try:
-            await self._process_message(message)
+        # Use a loop instead of recursion to avoid stack overflow
+        while retry_count <= max_retries:
+            try:
+                await self._process_message(message)
 
-            # Success - remove from retry tracking and commit
-            self._message_retry_counts.pop(message_key, None)
-            await self.consumer.commit()
+                # Success - remove from retry tracking
+                self._message_retry_counts.pop(message_key, None)
+                self._messages_processed += 1
+                
+                # Batch commit logic
+                await self._maybe_commit()
+                return  # Exit the loop on success
 
-        except Exception as e:
-            logger.error(
-                "Message processing failed",
-                error=str(e),
-                error_type=type(e).__name__,
-                topic=message.topic,
-                partition=message.partition,
-                offset=message.offset,
-                retry_count=retry_count,
-                message_key=message_key,
-            )
-
-            # Check if we should retry or send to DLQ
-            if self.dlq_handler and await self.dlq_handler.should_retry(e, retry_count):
-                # Increment retry count and retry after delay
-                self._message_retry_counts[message_key] = retry_count + 1
-                delay = self.dlq_handler.get_retry_delay(retry_count)
-
-                logger.info(
-                    "Scheduling message retry",
-                    retry_count=retry_count + 1,
-                    delay_seconds=delay,
+            except Exception as e:
+                logger.error(
+                    "Message processing failed",
+                    error=str(e),
+                    error_type=type(e).__name__,
                     topic=message.topic,
+                    partition=message.partition,
                     offset=message.offset,
+                    retry_count=retry_count,
+                    message_key=message_key,
                 )
 
-                await asyncio.sleep(delay)
-                # Retry the message
-                await self._process_message_with_retry(message)
+                # Check if we should retry or send to DLQ
+                if self.dlq_handler and await self.dlq_handler.should_retry(e, retry_count) and retry_count < max_retries:
+                    # Increment retry count and retry after delay
+                    retry_count += 1
+                    self._message_retry_counts[message_key] = retry_count
+                    delay = self.dlq_handler.get_retry_delay(retry_count - 1)
 
-            else:
-                # Send to DLQ and commit the offset to skip this message
-                if self.dlq_handler:
-                    await self.dlq_handler.send_to_dlq(
-                        original_message=message.value,
-                        source_topic=message.topic,
-                        error=e,
-                        dlq_topic="dlq.audio.processing",
+                    logger.info(
+                        "Scheduling message retry",
                         retry_count=retry_count,
+                        max_retries=max_retries,
+                        delay_seconds=delay,
+                        topic=message.topic,
+                        offset=message.offset,
                     )
 
-                # Clean up retry tracking and commit to skip the problematic message
-                self._message_retry_counts.pop(message_key, None)
-                await self.consumer.commit()
+                    await asyncio.sleep(delay)
+                    # Continue to next iteration of the loop
+
+                else:
+                    # Send to DLQ and commit the offset to skip this message
+                    if self.dlq_handler:
+                        await self.dlq_handler.send_to_dlq(
+                            original_message=message.value,
+                            source_topic=message.topic,
+                            error=e,
+                            dlq_topic="dlq.audio.processing",
+                            retry_count=retry_count,
+                        )
+
+                    # Clean up retry tracking and force commit to skip the problematic message
+                    self._message_retry_counts.pop(message_key, None)
+                    await self.consumer.commit()  # Force commit for DLQ messages
+                    return  # Exit the loop after sending to DLQ
 
     async def _process_message(self, message) -> None:
         """Process a single message."""
