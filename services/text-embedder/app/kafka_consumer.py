@@ -132,19 +132,34 @@ class TextEmbeddingConsumer:
             # Generate trace ID if not present
             trace_id = message.get("trace_id", str(uuid.uuid4()))
 
-            # Extract tweet ID from URL or generate
-            tweet_url = message.get("tweetLink", message.get("url", ""))
-            tweet_id = tweet_url.split("/")[-1] if tweet_url else str(uuid.uuid4())
+            # Extract the data payload (support both nested and flat structures)
+            data = message.get("data", message)
+            
+            # Extract tweet ID from URL or use the provided tweet_id
+            tweet_url = data.get("url", data.get("tweetLink", ""))
+            tweet_id = data.get("tweet_id") or (tweet_url.split("/")[-1] if tweet_url else str(uuid.uuid4()))
+            
+            # Extract author username from profile_link if not provided
+            if not data.get("author") and data.get("profile_link"):
+                data["author"] = data["profile_link"].rstrip("/").split("/")[-1]
 
             # Prepare text for embedding
-            text = self.embedder.prepare_twitter_text(message)
+            text = self.embedder.prepare_twitter_text(data)
 
             # Generate embedding
             embedding = self.embedder.embed_text(text)
 
-            # Store in database
+            # Store in database - pass the flattened data structure
             stored_id = await self.db_handler.store_twitter_with_embedding(
-                message, embedding, trace_id, tweet_id
+                {
+                    **data,  # Use the extracted data
+                    "device_id": message.get("device_id"),
+                    "timestamp": message.get("timestamp"),
+                    "trace_id": trace_id,
+                }, 
+                embedding, 
+                trace_id, 
+                tweet_id
             )
 
             # Send to X URL processor for screenshot/extraction
@@ -158,8 +173,8 @@ class TextEmbeddingConsumer:
                         "tweet_id": tweet_id,
                         "priority": "normal",
                         "metadata": {
-                            "author": message.get("author_username"),
-                            "text": message.get("text"),
+                            "author": data.get("author", data.get("author_username")),
+                            "text": data.get("text"),
                         },
                     },
                 )

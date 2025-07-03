@@ -89,17 +89,18 @@ class TextEmbedder:
         parts = []
 
         # Add author info
-        if tweet_data.get("author_username"):
-            parts.append(f"@{tweet_data['author_username']}")
-        elif tweet_data.get("profileLink"):
+        author = tweet_data.get("author") or tweet_data.get("author_username")
+        if author:
+            parts.append(f"@{author}")
+        elif tweet_data.get("profile_link") or tweet_data.get("profileLink"):
             # Extract username from profile link
-            username = tweet_data["profileLink"].split("/")[-1]
+            profile_link = tweet_data.get("profile_link") or tweet_data.get("profileLink")
+            username = profile_link.split("/")[-1]
             parts.append(f"@{username}")
 
         # Add tweet text
-        if tweet_data.get("text"):
-            parts.append(tweet_data["text"])
-        elif tweet_data.get("content"):
-            parts.append(tweet_data["content"])
+        text = tweet_data.get("text") or tweet_data.get("content")
+        if text:
+            parts.append(text)
 
-        return " ".join(parts)
+        return " ".join(parts) if parts else "empty_tweet"
