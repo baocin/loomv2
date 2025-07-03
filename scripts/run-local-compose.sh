@@ -35,8 +35,8 @@ $COMPOSE_CMD -f docker-compose.local.yml up -d
 # Wait for services to be ready
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
 
-# Wait for PostgreSQL
-echo -n "Waiting for PostgreSQL"
+# Wait for TimescaleDB
+echo -n "Waiting for TimescaleDB"
 for i in {1..30}; do
     if docker exec $(docker ps -q -f name=postgres) pg_isready -U loom -d loom >/dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
@@ -45,7 +45,7 @@ for i in {1..30}; do
     echo -n "."
     sleep 2
     if [ $i -eq 30 ]; then
-        echo -e " ${RED}✗ PostgreSQL failed to start${NC}"
+        echo -e " ${RED}✗ TimescaleDB failed to start${NC}"
         exit 1
     fi
 done
@@ -86,7 +86,7 @@ echo -e "${BLUE}📍 Service URLs:${NC}"
 echo -e "  • Ingestion API: ${GREEN}http://localhost:8000${NC}"
 echo -e "  • API Docs: ${GREEN}http://localhost:8000/docs${NC}"
 echo -e "  • Kafka UI: ${GREEN}http://localhost:8081${NC}"
-echo -e "  • PostgreSQL: ${GREEN}localhost:5432${NC} (loom/loom/loom)"
+echo -e "  • TimescaleDB: ${GREEN}localhost:5432${NC} (loom/loom/loom)"
 echo ""
 echo -e "${BLUE}🔧 Useful Commands:${NC}"
 echo -e "  • View logs: ${YELLOW}$COMPOSE_CMD -f docker-compose.local.yml logs -f${NC}"
