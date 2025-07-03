@@ -7,7 +7,7 @@ schema_version: "v1"
 
 # Global defaults
 defaults:
-  upsert_key: "trace_id, timestamp"  # For hypertables
+  upsert_key: "device_id, timestamp"  # For hypertables - matches TimescaleDB PK
   conflict_strategy: "ignore"  # ignore, update, replace
   timestamp_field: "timestamp"
   device_id_field: "device_id"
@@ -24,29 +24,42 @@ topics:
       device_id: device_id
       timestamp: timestamp
       schema_version: schema_version
+      # Handle various data field formats
+      chunk_data: audio_data  # Handle old format
+      data: audio_data  # Handle flat data field
+      data.audio_data: audio_data  # Handle nested format
+      data.chunk_data: audio_data  # Handle nested chunk_data
+      # Handle chunk number
+      chunk_number: chunk_number
       data.chunk_number: chunk_number
-      data.audio_data: audio_data
+      # Handle format field
+      format: format
       data.format: format
+      # Handle sample rate
+      sample_rate: sample_rate
       data.sample_rate: sample_rate
+      # Handle channels
+      channels: channels
       data.channels: channels
+      # Handle duration
+      duration_ms: duration_ms
       data.duration_ms: duration_ms
+      # Other fields
       metadata: metadata
+      file_id: file_id
+      message_id: message_id
+      recorded_at: recorded_at
     data_types:
       chunk_number: integer
       sample_rate: integer
       channels: integer
       duration_ms: integer
       timestamp: timestamp
+      recorded_at: timestamp
     required_fields:
-      - trace_id
       - device_id
       - timestamp
-      - data.chunk_number
-      - data.audio_data
-      - data.format
-      - data.sample_rate
-      - data.channels
-      - data.duration_ms
+    conflict_strategy: "ignore"
 
   device.video.screen.raw:
     table: "device_video_screen_raw"
@@ -442,18 +455,36 @@ topics:
       device_id: device_id
       timestamp: timestamp
       schema_version: schema_version
+      # Try nested fields first
       data.ssid: ssid
       data.bssid: bssid
       data.signal_strength: signal_strength
       data.link_speed_mbps: link_speed_mbps
       data.frequency_mhz: frequency_mhz
+      data.is_connected: is_connected
+      # Also check flat fields (top level)
+      ssid: ssid
+      bssid: bssid
+      signal_strength: signal_strength
+      frequency: frequency
+      channel: channel
+      security: security_type
+      security_type: security_type
+      ip_address: ip_address
+      link_speed: link_speed
+      is_connected: is_connected
+      connected: is_connected  # Field name variant
+      # Metadata fields
       metadata.ip_address: ip_address
       metadata.security_type: security_type
     data_types:
       signal_strength: integer
       link_speed_mbps: integer
       frequency_mhz: integer
+      is_connected: boolean
       timestamp: timestamp
+    defaults:
+      is_connected: false  # Default to disconnected if not specified
     required_fields:
       - trace_id
       - device_id
@@ -510,7 +541,7 @@ topics:
   external.twitter.liked.raw:
     table: "twitter_posts"
     description: "Liked tweets from Twitter/X"
-    upsert_key: "tweet_id, timestamp"
+    upsert_key: "tweet_id"  # Twitter posts use tweet_id as unique key
     conflict_strategy: "update"
     field_mappings:
       trace_id: trace_id
@@ -749,7 +780,7 @@ topics:
   analysis.text.embedded.twitter:
     table: "twitter_posts"
     description: "Twitter content with text embeddings - updates existing records"
-    upsert_key: "tweet_id, timestamp"
+    upsert_key: "tweet_id"  # Match the raw table's unique constraint
     conflict_strategy: "update"
     field_mappings:
       trace_id: trace_id

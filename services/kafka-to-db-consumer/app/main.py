@@ -536,7 +536,7 @@ class KafkaToDBConsumer:
                 json.dumps(data.get("attachments", [])),
                 data.get("folder"),
                 data.get("email_source"),
-                data.get("embedding"),  # This should be a list of floats
+                f"[{','.join(map(str, data.get('embedding', [])))}]" if data.get('embedding') else None,  # Convert list to PostgreSQL array format
                 data.get("embedding_model"),
                 embedding_timestamp,
                 json.dumps(data.get("metadata", {})),
@@ -643,7 +643,7 @@ class KafkaToDBConsumer:
                 data.get("author_username"),
                 data.get("author_name"),
                 data.get("author_profile_url"),
-                data.get("embedding"),  # This should be a list of floats
+                f"[{','.join(map(str, data.get('embedding', [])))}]" if data.get('embedding') else None,  # Convert list to PostgreSQL array format
                 data.get("embedding_model"),
                 embedding_timestamp,
                 data.get("screenshot_url"),

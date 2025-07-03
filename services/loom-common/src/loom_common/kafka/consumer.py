@@ -37,6 +37,10 @@ class BaseKafkaConsumer(ABC):
         self.producer: Optional[AIOKafkaProducer] = None
         self._running = False
         self._tasks: Set[asyncio.Task] = set()
+        self._messages_processed = 0
+        self._last_commit_time = 0.0
+        self._commit_interval = 5.0  # Commit every 5 seconds
+        self._commit_batch_size = 100  # Or every 100 messages
 
     async def start(self) -> None:
         """Start the consumer and producer"""
@@ -50,6 +54,10 @@ class BaseKafkaConsumer(ABC):
             value_deserializer=lambda v: orjson.loads(v) if v else None,
             key_deserializer=lambda k: k.decode("utf-8") if k else None,
             max_poll_records=self.max_poll_records,
+            session_timeout_ms=30000,  # 30 seconds
+            heartbeat_interval_ms=3000,  # 3 seconds
+            max_poll_interval_ms=300000,  # 5 minutes for slow processing
+            consumer_timeout_ms=5000,  # 5 seconds
         )
 
         # Start producer for output messages
@@ -64,6 +72,10 @@ class BaseKafkaConsumer(ABC):
 
         await self.consumer.start()
         await self.producer.start()
+        
+        # Initialize commit tracking
+        import time
+        self._last_commit_time = time.time()
 
         logger.info(
             "Kafka consumer started",
@@ -83,6 +95,14 @@ class BaseKafkaConsumer(ABC):
         # Wait for tasks to complete
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
+
+        # Commit any pending offsets before stopping
+        if self.consumer and not self.enable_auto_commit and self._messages_processed > 0:
+            try:
+                await self.consumer.commit()
+                logger.info("Final commit before shutdown", messages_processed=self._messages_processed)
+            except Exception as e:
+                logger.error("Failed to commit final offsets", error=str(e))
 
         # Stop consumer and producer
         if self.consumer:
@@ -113,6 +133,10 @@ class BaseKafkaConsumer(ABC):
                 if len(self._tasks) >= self.max_poll_records:
                     # Wait for some tasks to complete
                     await asyncio.gather(*self._tasks, return_exceptions=True)
+                
+                # Check if we need to commit based on time (for low-volume topics)
+                if not self.enable_auto_commit:
+                    await self._maybe_commit()
 
         except Exception as e:
             logger.error("Error in consumer loop", error=str(e), exc_info=True)
@@ -123,9 +147,10 @@ class BaseKafkaConsumer(ABC):
         try:
             await self.process_message(message)
 
-            # Commit offset if not auto-committing
+            # Track successful processing
             if not self.enable_auto_commit:
-                await self._commit_offset(message)
+                self._messages_processed += 1
+                await self._maybe_commit()
 
         except Exception as e:
             logger.error(
@@ -143,7 +168,28 @@ class BaseKafkaConsumer(ABC):
 
             # Still commit offset to avoid reprocessing
             if not self.enable_auto_commit:
+                # Force commit for failed messages to skip them
                 await self._commit_offset(message)
+
+    async def _maybe_commit(self) -> None:
+        """Commit offsets if batch size or time interval is reached."""
+        import time
+        current_time = time.time()
+        time_since_last_commit = current_time - self._last_commit_time
+        
+        if (self._messages_processed >= self._commit_batch_size or 
+            time_since_last_commit >= self._commit_interval):
+            try:
+                await self.consumer.commit()
+                logger.info(
+                    "Batch commit completed",
+                    messages_processed=self._messages_processed,
+                    time_since_last_commit=round(time_since_last_commit, 2)
+                )
+                self._messages_processed = 0
+                self._last_commit_time = current_time
+            except Exception as e:
+                logger.error("Failed to commit offsets", error=str(e))
 
     async def _commit_offset(self, message: ConsumerRecord) -> None:
         """Commit offset for a processed message"""

@@ -93,7 +93,21 @@ class MappingEngine:
 
             # Map each field according to configuration
             for source_field, target_column in field_mappings.items():
+                # Skip if we already have this column (from a previous mapping)
+                if target_column in record and record[target_column] is not None:
+                    continue
+                    
                 value = self._extract_field_value(message, source_field)
+                
+                # Debug logging for WiFi fields
+                if topic == "device.network.wifi.raw" and source_field in ["ssid", "bssid", "signal_strength"]:
+                    logger.debug(
+                        f"WiFi field mapping attempt",
+                        source_field=source_field,
+                        target_column=target_column,
+                        extracted_value=value,
+                        message_keys=list(message.keys()) if isinstance(message, dict) else None,
+                    )
 
                 if value is not None:
                     # Apply data type conversion
@@ -120,12 +134,23 @@ class MappingEngine:
                     # For array mappings, return multiple records
                     return table_name, array_records, upsert_key
 
-            # Validate required fields
+            # Validate required fields - check both the source field path and the target column
             required_fields = topic_config.get("required_fields", [])
             missing_fields = []
             for field in required_fields:
-                target_column = field_mappings.get(field, field)
-                if target_column not in record or record[target_column] is None:
+                # First check if field is directly in record (could be a target column name)
+                if field in record and record[field] is not None:
+                    continue
+                
+                # Otherwise check if it's a source field that maps to a target column
+                found = False
+                for source_field, target_column in field_mappings.items():
+                    if source_field == field or target_column == field:
+                        if target_column in record and record[target_column] is not None:
+                            found = True
+                            break
+                
+                if not found:
                     missing_fields.append(field)
 
             if missing_fields:
@@ -134,9 +159,19 @@ class MappingEngine:
                     topic=topic,
                     missing_fields=missing_fields,
                     trace_id=record.get("trace_id"),
+                    available_fields=list(record.keys()),
+                    message_keys=list(message.keys()) if isinstance(message, dict) else None,
                 )
                 return None
 
+            # Apply default values for missing required database columns
+            # This handles cases where database columns have NOT NULL constraints
+            # but the field is optional in the Kafka message
+            defaults = topic_config.get("defaults", {})
+            for column, default_value in defaults.items():
+                if column not in record or record[column] is None:
+                    record[column] = default_value
+            
             # Ensure created_at timestamp
             if "created_at" not in record:
                 record["created_at"] = datetime.now(timezone.utc)
@@ -147,6 +182,7 @@ class MappingEngine:
                 table=table_name,
                 trace_id=record.get("trace_id"),
                 fields=list(record.keys()),
+                field_values={k: v for k, v in record.items() if k != "audio_data"},  # Log all fields except large binary data
             )
 
             return table_name, record, upsert_key
@@ -237,12 +273,19 @@ class MappingEngine:
 
             elif target_type == "float_array":
                 if isinstance(value, list):
-                    return [float(x) for x in value if x is not None]
+                    # Convert to PostgreSQL array format string
+                    float_list = [float(x) for x in value if x is not None]
+                    return f"[{','.join(map(str, float_list))}]"
                 elif isinstance(value, str):
+                    # Already in PostgreSQL array format?
+                    if value.startswith('[') and value.endswith(']'):
+                        return value
+                    # Try to parse as JSON array
                     try:
                         parsed = json.loads(value)
                         if isinstance(parsed, list):
-                            return [float(x) for x in parsed if x is not None]
+                            float_list = [float(x) for x in parsed if x is not None]
+                            return f"[{','.join(map(str, float_list))}]"
                     except:
                         pass
 
