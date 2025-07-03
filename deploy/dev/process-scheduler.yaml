@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: process-scheduler
+  namespace: loom-dev
+  labels:
+    app: process-scheduler
+    component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: process-scheduler
+  template:
+    metadata:
+      labels:
+        app: process-scheduler
+        component: scheduler
+    spec:
+      containers:
+      - name: scheduler
+        image: loom/process-scheduler:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://loom:loom@postgres:5432/loom"
+        - name: SCHEDULER_CHECK_INTERVAL
+          value: "60"
+        - name: ENVIRONMENT
+          value: "development"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import asyncpg; import asyncio; asyncio.run(asyncpg.connect('postgresql://loom:loom@postgres:5432/loom').close())"
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 3
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: process-scheduler-api
+  namespace: loom-dev
+  labels:
+    app: process-scheduler-api
+    component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: process-scheduler-api
+  template:
+    metadata:
+      labels:
+        app: process-scheduler-api
+        component: api
+    spec:
+      containers:
+      - name: api
+        image: loom/process-scheduler:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "-m", "app.api"]
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://loom:loom@postgres:5432/loom"
+        - name: ENVIRONMENT
+          value: "development"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 10
+          failureThreshold: 3
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: process-scheduler-api
+  namespace: loom-dev
+  labels:
+    app: process-scheduler-api
+spec:
+  selector:
+    app: process-scheduler-api
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
