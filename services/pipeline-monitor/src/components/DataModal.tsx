@@ -39,7 +39,7 @@ export const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, title, da
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold">{title} - Raw Data</h3>
+          <h3 className="text-lg font-semibold">{title}</h3>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded"
