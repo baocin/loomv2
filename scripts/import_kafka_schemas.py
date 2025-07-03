@@ -139,6 +139,14 @@ class KafkaSchemaImporter:
                 "retention": 30,
                 "desc": "Website analytics data",
             },
+            "digital.notes.raw": {
+                "retention": 30,
+                "desc": "Digital notes and text documents",
+            },
+            "digital.documents.raw": {
+                "retention": 30,
+                "desc": "Various document types (PDFs, docs, etc)",
+            },
             "external.twitter.liked.raw": {
                 "retention": 90,
                 "desc": "Scraped liked Twitter/X posts",

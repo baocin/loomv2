@@ -86,7 +86,8 @@
       "Bash(PGPASSWORD=loom psql -h localhost -U loom -d loom -t -c \"\nSELECT ''device_audio_raw'', COUNT(*) FROM device_audio_raw UNION ALL\nSELECT ''device_sensor_gps_raw'', COUNT(*) FROM device_sensor_gps_raw UNION ALL\nSELECT ''device_sensor_accelerometer_raw'', COUNT(*) FROM device_sensor_accelerometer_raw UNION ALL\nSELECT ''device_health_heartrate_raw'', COUNT(*) FROM device_health_heartrate_raw UNION ALL\nSELECT ''device_state_power_raw'', COUNT(*) FROM device_state_power_raw UNION ALL\nSELECT ''device_image_camera_raw'', COUNT(*) FROM device_image_camera_raw UNION ALL\nSELECT ''external_twitter_liked_raw'', COUNT(*) FROM external_twitter_liked_raw UNION ALL\nSELECT ''os_events_system_raw'', COUNT(*) FROM os_events_system_raw UNION ALL\nSELECT ''os_events_app_lifecycle_raw'', COUNT(*) FROM os_events_app_lifecycle_raw\nORDER BY 2 DESC;\")",
       "Bash(k3d cluster:*)",
       "Bash(kafka-consumer-groups.sh:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(kubectl get:*)"
     ]
   },
   "enableAllProjectMcpServers": false
