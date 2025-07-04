@@ -282,49 +282,72 @@ export class DatabaseClient {
   }
 
   async getPipelineTopology(): Promise<any> {
-    if (!this.pool) throw new Error('Database not connected')
+    if (!this.pool) {
+      throw new Error('Database not connected')
+    }
 
-    // Get all active pipelines with their stages
-    const flows = await this.getPipelineFlows()
-    const stages = await this.getPipelineStages()
-    const topics = await this.getTopicMappings()
+    try {
+      // Get all pipeline components using our working queries
+      const flows = await this.getPipelineFlows()
+      const stages = await this.getPipelineStages()
+      const topics = await this.getTopicMappings()
 
-    // Build a map of topic producers and consumers
-    const topicProducers = new Map<string, string[]>()
-    const topicConsumers = new Map<string, string[]>()
+      // Build topic producer/consumer relationships
+      const topicProducers = new Map<string, string[]>()
+      const topicConsumers = new Map<string, string[]>()
 
-    stages.forEach(stage => {
-      const serviceId = `${stage.flow_name}-${stage.service_name}`
+      // Process stages to build relationships
+      stages.forEach(stage => {
+        const serviceId = `${stage.flow_name}-${stage.service_name}`
 
-      // Track producers
-      if (stage.output_topics) {
-        stage.output_topics.forEach((topic: string) => {
-          if (!topicProducers.has(topic)) {
-            topicProducers.set(topic, [])
-          }
-          topicProducers.get(topic)!.push(serviceId)
-        })
+        // Add output topics (this stage produces these topics)
+        if (stage.output_topics && Array.isArray(stage.output_topics)) {
+          stage.output_topics.forEach((topic: string) => {
+            if (topic && typeof topic === 'string' && topic.trim()) {
+              if (!topicProducers.has(topic)) {
+                topicProducers.set(topic, [])
+              }
+              topicProducers.get(topic)!.push(serviceId)
+            }
+          })
+        }
+
+        // Add input topics (this stage consumes these topics)
+        if (stage.input_topics && Array.isArray(stage.input_topics)) {
+          stage.input_topics.forEach((topic: string) => {
+            if (topic && typeof topic === 'string' && topic.trim()) {
+              if (!topicConsumers.has(topic)) {
+                topicConsumers.set(topic, [])
+              }
+              topicConsumers.get(topic)!.push(serviceId)
+            }
+          })
+        }
+      })
+
+      return {
+        flows,
+        stages,
+        topics,
+        topology: {
+          topicProducers: Object.fromEntries(topicProducers),
+          topicConsumers: Object.fromEntries(topicConsumers)
+        },
+        stats: {
+          flowCount: flows.length,
+          stageCount: stages.length,
+          topicCount: topics.length,
+          producerTopicCount: topicProducers.size,
+          consumerTopicCount: topicConsumers.size
+        },
+        timestamp: new Date().toISOString()
       }
-
-      // Track consumers
-      if (stage.input_topics) {
-        stage.input_topics.forEach((topic: string) => {
-          if (!topicConsumers.has(topic)) {
-            topicConsumers.set(topic, [])
-          }
-          topicConsumers.get(topic)!.push(serviceId)
-        })
-      }
-    })
-
-    return {
-      flows,
-      stages,
-      topics,
-      topology: {
-        topicProducers: Object.fromEntries(topicProducers),
-        topicConsumers: Object.fromEntries(topicConsumers)
-      }
+    } catch (error) {
+      logger.error('Failed to get pipeline topology from database', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      throw error
     }
   }
 

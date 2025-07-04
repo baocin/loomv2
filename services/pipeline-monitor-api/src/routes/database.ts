@@ -38,5 +38,41 @@ export function createDatabaseRoutes(databaseClient: DatabaseClient): Router {
     }
   })
 
+  // Test pipeline flows query specifically
+  router.get('/test-flows', async (req, res) => {
+    try {
+      logger.info('Testing getPipelineFlows directly...')
+      const flows = await databaseClient.getPipelineFlows()
+      logger.info(`Successfully got ${flows.length} flows`)
+      res.json({ flows: flows.slice(0, 3) }) // Return first 3 for testing
+    } catch (error) {
+      logger.error('Failed to test pipeline flows', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      res.status(500).json({ error: 'Failed to test pipeline flows' })
+    }
+  })
+
+  // Test topology method specifically
+  router.get('/test-topology', async (req, res) => {
+    try {
+      logger.info('Testing getPipelineTopology directly...')
+      const topology = await databaseClient.getPipelineTopology()
+      logger.info('Successfully got topology')
+      res.json({
+        flowCount: topology.flows?.length || 0,
+        stageCount: topology.stages?.length || 0,
+        topicCount: topology.topics?.length || 0
+      })
+    } catch (error) {
+      logger.error('Failed to test topology', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      res.status(500).json({ error: 'Failed to test topology' })
+    }
+  })
+
   return router
 }

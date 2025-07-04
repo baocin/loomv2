@@ -47,10 +47,15 @@ export function createKafkaRoutes(
   // Get pipeline topology from database
   router.get('/pipeline/topology', async (req, res) => {
     try {
+      logger.info('ROUTE: About to call databaseClient.getPipelineTopology()')
       const topology = await databaseClient.getPipelineTopology()
+      logger.info('ROUTE: Successfully got topology response')
       res.json(topology)
     } catch (error) {
-      logger.error('Failed to get pipeline topology', error)
+      logger.error('ROUTE: Failed to get pipeline topology', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
       res.status(500).json({ error: 'Failed to get pipeline topology' })
     }
   })
