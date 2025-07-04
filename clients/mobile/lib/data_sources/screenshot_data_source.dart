@@ -20,7 +20,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   Timer? _captureTimer;
   Duration _captureInterval = const Duration(minutes: 5);
   bool _automaticCaptureEnabled = false;
-  
+
   ScreenshotDataSource(this.deviceId);
 
   @override
@@ -79,9 +79,9 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Start automatic screenshot capture
   void _startAutomaticCapture() async {
     _stopAutomaticCapture(); // Cancel any existing timer
-    
+
     if (!_automaticCaptureEnabled) return;
-    
+
     // Try platform-specific implementation first (Android only)
     if (Platform.isAndroid) {
       final hasPermission = await PlatformScreenshotService.hasScreenshotPermission();
@@ -92,7 +92,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           return;
         }
       }
-      
+
       final started = await PlatformScreenshotService.startAutomaticCapture(
         interval: _captureInterval,
         onScreenshot: (Uint8List imageBytes) async {
@@ -104,13 +104,13 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           await _handlePlatformScreenshot(imageBytes);
         },
       );
-      
+
       if (started) {
         print('Platform screenshot service started with interval: ${_captureInterval.inSeconds}s');
         return;
       }
     }
-    
+
     // Fallback to timer-based approach (limited functionality)
     _captureTimer = Timer.periodic(_captureInterval, (timer) async {
       try {
@@ -119,10 +119,10 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           print('Skipping timer-based screenshot - screen is off or device is locked');
           return;
         }
-        
+
         // This is limited - can only capture app's own UI
         print('Timer-based screenshot capture (limited to app UI)');
-        
+
         final data = {
           'device_id': deviceId,
           'timestamp': DateTime.now().toIso8601String(),
@@ -130,13 +130,13 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'capture_method': 'automatic_limited',
           'interval_seconds': _captureInterval.inSeconds,
         };
-        
+
         emitData(data);
       } catch (e) {
         print('Automatic screenshot failed: $e');
       }
     });
-    
+
     print('Timer-based screenshot capture started with interval: ${_captureInterval.inSeconds}s');
   }
 
@@ -144,18 +144,18 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   void _stopAutomaticCapture() async {
     _captureTimer?.cancel();
     _captureTimer = null;
-    
+
     // Stop platform service if running
     if (Platform.isAndroid) {
       await PlatformScreenshotService.stopAutomaticCapture();
     }
   }
-  
+
   /// Handle screenshot from platform service
   Future<void> _handlePlatformScreenshot(Uint8List imageBytes) async {
     try {
       final timestamp = DateTime.now();
-      
+
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
@@ -168,13 +168,13 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           print('Failed to save to gallery: $e');
         }
       }
-      
+
       // Get image dimensions
       final codec = await ui.instantiateImageCodec(imageBytes);
       final frame = await codec.getNextFrame();
       final width = frame.image.width;
       final height = frame.image.height;
-      
+
       // Upload via API
       final apiClient = await LoomApiClient.createFromSettings();
       await apiClient.uploadScreenshot(
@@ -190,10 +190,10 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'interval_seconds': _captureInterval.inSeconds,
         },
       );
-      
+
       print('Automatic screenshot uploaded successfully: ${imageBytes.length} bytes');
       _lastCaptureTime = timestamp;
-      
+
       // Emit to stream for tracking
       final data = {
         'device_id': deviceId,
@@ -203,7 +203,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'uploaded': true,
         'size_bytes': imageBytes.length,
       };
-      
+
       emitData(data);
     } catch (e) {
       print('Failed to handle platform screenshot: $e');
@@ -213,23 +213,52 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Capture a screenshot manually
   Future<void> captureScreenshot(String? description) async {
     if (!isRunning) return;
-    
+
     try {
-      // Note: In a real implementation, you would capture the current screen
-      // This is a placeholder that would need platform-specific implementation
-      print('Screenshot capture requested: $description');
-      
-      // For now, we'll just emit a placeholder event
+      // Check screen state before capturing
+      if (!_shouldCaptureScreenshot()) {
+        throw Exception('Cannot capture screenshot - screen is off or device is locked');
+      }
+
+      // Try platform screenshot first (Android only)
+      if (Platform.isAndroid) {
+        final hasPermission = await PlatformScreenshotService.hasScreenshotPermission();
+        if (!hasPermission) {
+          // Request permission
+          final granted = await PlatformScreenshotService.requestScreenshotPermission();
+          if (!granted) {
+            throw Exception('Screenshot permission not granted');
+          }
+        }
+
+        // Take a single screenshot
+        final screenshotBytes = await PlatformScreenshotService.takeScreenshot();
+        if (screenshotBytes != null) {
+          await captureAndUpload(screenshotBytes, description: description);
+          return;
+        }
+      }
+
+      // Fallback: use screenshot package to capture app content only
+      print('Using fallback screenshot method (app content only)');
+
+      // Note: This requires the app to wrap its content in a Screenshot widget
+      // For a full implementation, you'd need to pass the screenshot controller
+      // from the main app or use a different approach
+
       final timestamp = DateTime.now();
       final data = {
         'device_id': deviceId,
         'timestamp': timestamp.toIso8601String(),
         'description': description ?? 'Manual screenshot',
         'capture_method': 'manual',
+        'fallback_method': true,
       };
-      
+
       emitData(data);
       _lastCaptureTime = timestamp;
+
+      throw Exception('Full screen capture not available. Please use the screenshot widget in the app.');
     } catch (e) {
       print('Error capturing screenshot: $e');
       throw Exception('Screenshot capture failed: $e');
@@ -239,10 +268,10 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Capture and upload a screenshot with image data
   Future<void> captureAndUpload(Uint8List imageBytes, {String? description}) async {
     if (!isRunning) return;
-    
+
     try {
       final timestamp = DateTime.now();
-      
+
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
@@ -255,13 +284,13 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           print('Failed to save to gallery: $e');
         }
       }
-      
+
       // Get image dimensions
       final codec = await ui.instantiateImageCodec(imageBytes);
       final frame = await codec.getNextFrame();
       final width = frame.image.width;
       final height = frame.image.height;
-      
+
       // Upload via API
       final apiClient = await LoomApiClient.createFromSettings();
       await apiClient.uploadScreenshot(
@@ -276,11 +305,11 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'image_size': imageBytes.length,
         },
       );
-      
+
       // Log the upload
       print('UPLOAD: /image/screenshot | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: screenshot');
       _lastCaptureTime = timestamp;
-      
+
       // Emit to stream for tracking
       final data = {
         'device_id': deviceId,
@@ -290,7 +319,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'uploaded': true,
         'size_bytes': imageBytes.length,
       };
-      
+
       emitData(data);
     } catch (e) {
       print('Failed to upload screenshot: $e');
@@ -320,12 +349,12 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       // If screen state source is not available, allow capture
       return true;
     }
-    
+
     // Don't capture if screen is off
     if (!screenStateSource.isScreenOn) {
       return false;
     }
-    
+
     // Don't capture if device is locked (unless it was just unlocked)
     if (screenStateSource.isDeviceLocked) {
       // Check if device was recently unlocked (within 5 seconds)
@@ -339,7 +368,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       }
       return false;
     }
-    
+
     return true;
   }
 

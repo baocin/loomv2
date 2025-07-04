@@ -16,6 +16,7 @@ import 'screens/advanced_settings_screen.dart';
 import 'data_sources/screenshot_data_source.dart';
 import 'data_sources/camera_data_source.dart';
 import 'widgets/screenshot_widget.dart';
+import 'widgets/camera_widget.dart';
 import 'core/utils/power_estimation.dart';
 
 void main() async {
@@ -120,7 +121,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _initializeDataSources() async {
     final dataSources = widget.dataService.availableDataSources;
     final config = widget.dataService.config;
-    
+
     for (final sourceId in dataSources.keys) {
       _dataSourceStates[sourceId] = config?.getConfig(sourceId).enabled ?? false;
     }
@@ -131,12 +132,12 @@ class _HomePageState extends State<HomePage> {
     // Get device ID from shared preferences
     final prefs = await SharedPreferences.getInstance();
     String? deviceId = prefs.getString('loom_device_id');
-    
+
     if (deviceId == null) {
       deviceId = const Uuid().v4();
       await prefs.setString('loom_device_id', deviceId);
     }
-    
+
     _screenshotDataSource = ScreenshotDataSource(deviceId);
   }
 
@@ -144,23 +145,28 @@ class _HomePageState extends State<HomePage> {
     // Get device ID from shared preferences
     final prefs = await SharedPreferences.getInstance();
     String? deviceId = prefs.getString('loom_device_id');
-    
+
     if (deviceId == null) {
       deviceId = const Uuid().v4();
       await prefs.setString('loom_device_id', deviceId);
     }
-    
+
     _cameraDataSource = CameraDataSource(deviceId);
   }
 
   Future<void> _captureScreenshot() async {
     if (_isCapturingScreenshot || _screenshotDataSource == null) return;
-    
+
     setState(() {
       _isCapturingScreenshot = true;
     });
-    
+
     try {
+      // Ensure the data source is started
+      if (!_screenshotDataSource!.isRunning) {
+        await _screenshotDataSource!.start();
+      }
+
       await _screenshotDataSource!.captureScreenshot('Manual screenshot from app');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Screenshot captured and uploaded!')),
@@ -178,15 +184,24 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _capturePhoto() async {
     if (_isCapturingPhoto || _cameraDataSource == null) return;
-    
+
     setState(() {
       _isCapturingPhoto = true;
     });
-    
+
     try {
-      await _cameraDataSource!.capturePhoto(description: 'Manual photo from app');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo captured and uploaded!')),
+      // Ensure the data source is started
+      if (!_cameraDataSource!.isRunning) {
+        await _cameraDataSource!.start();
+      }
+
+      // Navigate to camera page for better UX
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CameraCapturePage(
+            cameraDataSource: _cameraDataSource!,
+          ),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -232,7 +247,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Loom'),
         actions: [
           IconButton(
-            icon: _isCapturingPhoto 
+            icon: _isCapturingPhoto
                 ? const SizedBox(
                     width: 24,
                     height: 24,
@@ -265,8 +280,8 @@ class _HomePageState extends State<HomePage> {
           children: [
             // Permissions Status (moved to top for visibility)
             Card(
-              color: _permissionSummary != null && !_permissionSummary!.allGranted 
-                  ? Colors.orange.shade50 
+              color: _permissionSummary != null && !_permissionSummary!.allGranted
+                  ? Colors.orange.shade50
                   : null,
               child: Column(
                 children: [
@@ -278,16 +293,16 @@ class _HomePageState extends State<HomePage> {
                       child: ElevatedButton.icon(
                         onPressed: () => _showPermissionDialog(),
                         icon: Icon(
-                          _permissionSummary?.allGranted == true 
-                              ? Icons.check_circle 
+                          _permissionSummary?.allGranted == true
+                              ? Icons.check_circle
                               : Icons.warning,
-                          color: _permissionSummary?.allGranted == true 
-                              ? Colors.green 
+                          color: _permissionSummary?.allGranted == true
+                              ? Colors.green
                               : Colors.orange,
                         ),
                         label: Text(
-                          _permissionSummary?.allGranted == true 
-                              ? 'All Permissions Granted' 
+                          _permissionSummary?.allGranted == true
+                              ? 'All Permissions Granted'
                               : 'Manage Permissions',
                         ),
                         style: ElevatedButton.styleFrom(
@@ -305,7 +320,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Data Collection Control
             Card(
               child: ListTile(
@@ -320,7 +335,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Data Sources Header with Advanced Settings Button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -357,7 +372,7 @@ class _HomePageState extends State<HomePage> {
                       title: Text(dataSource.displayName),
                       subtitle: Row(
                         children: [
-                          if (queueSize > 0) ...[  
+                          if (queueSize > 0) ...[
                             Icon(_getDataSourceIcon(sourceId), size: 14),
                             const SizedBox(width: 4),
                             Text('$queueSize', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -439,17 +454,17 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _currentProfile = profile;
     });
-    
+
     if (profile != BatteryProfile.custom) {
       // Apply the predefined profile configuration
       final profileConfig = BatteryProfileManager.getProfileConfig(profile);
-      
+
       for (final sourceId in widget.dataService.availableDataSources.keys) {
         final config = profileConfig.getConfig(sourceId);
         await widget.dataService.updateDataSourceConfig(sourceId, config);
       }
     }
-    
+
     // Restart data collection with new profile
     if (_isDataCollectionRunning) {
       await widget.dataService.stopDataCollection();
@@ -457,7 +472,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
   */
-  
+
   /* // Removed - moved to advanced settings
   List<Widget> _buildConfigTiles(String sourceId, DataSourceConfigParams config, bool isCustomMode) {
     return [
@@ -465,7 +480,7 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           children: [
-            if (isCustomMode) ...[  
+            if (isCustomMode) ...[
               ListTile(
                 title: const Text('Collection Interval'),
                 subtitle: Slider(
@@ -553,14 +568,14 @@ class _HomePageState extends State<HomePage> {
     ];
   }
   */
-  
+
   /* // Removed - not needed with simplified UI
   List<Widget> _buildScreenshotSettings() {
     final screenshotSource = _screenshotDataSource;
     if (screenshotSource == null) return [];
-    
+
     final settings = screenshotSource.getAutomaticCaptureSettings();
-    
+
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -568,8 +583,8 @@ class _HomePageState extends State<HomePage> {
           children: [
             SwitchListTile(
               title: const Text('Automatic Capture'),
-              subtitle: Text(settings['enabled'] 
-                ? 'Every ${settings['interval_seconds']} seconds' 
+              subtitle: Text(settings['enabled']
+                ? 'Every ${settings['interval_seconds']} seconds'
                 : 'Manual only'),
               value: settings['enabled'],
               onChanged: (value) {
@@ -620,14 +635,14 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
   }
-  
+
   // Removed - not needed with simplified UI
   List<Widget> _buildCameraSettings() {
     final cameraSource = _cameraDataSource;
     if (cameraSource == null) return [];
-    
+
     final settings = cameraSource.getAutomaticCaptureSettings();
-    
+
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -635,8 +650,8 @@ class _HomePageState extends State<HomePage> {
           children: [
             SwitchListTile(
               title: const Text('Automatic Capture'),
-              subtitle: Text(settings['enabled'] 
-                ? 'Every ${settings['interval_seconds']} seconds' 
+              subtitle: Text(settings['enabled']
+                ? 'Every ${settings['interval_seconds']} seconds'
                 : 'Manual only'),
               value: settings['enabled'],
               onChanged: (value) {
@@ -690,7 +705,7 @@ class _HomePageState extends State<HomePage> {
             if (settings['enabled'])
               ListTile(
                 title: const Text('ℹ️ Camera Usage'),
-                subtitle: Text(settings['capture_both_cameras'] 
+                subtitle: Text(settings['capture_both_cameras']
                   ? 'Will capture from both cameras at each interval'
                   : 'Will capture from back camera only'),
                 leading: const Icon(Icons.info_outline, color: Colors.blue),
@@ -701,14 +716,14 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
   }
-  
+
   String _getDataSourceSubtitle(String sourceId, DataSourceConfigParams? config) {
     if (config == null) return '';
     final interval = (config.collectionIntervalMs / 1000).toStringAsFixed(1);
     return '• ${interval}s • ${config.priority.name}';
   }
   */
-  
+
   List<Widget> _buildPermissionSummary() {
     final summary = _permissionSummary!;
     return [
@@ -731,12 +746,12 @@ class _HomePageState extends State<HomePage> {
         ),
     ];
   }
-  
+
   Future<void> _showPermissionDialog() async {
     final summary = await widget.dataService.getPermissionSummary();
-    
+
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -780,7 +795,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   IconData _getDataSourceIcon(String sourceId) {
     switch (sourceId) {
       case 'gps':
@@ -807,7 +822,7 @@ class _HomePageState extends State<HomePage> {
         return Icons.sensors;
     }
   }
-  
+
   Future<Map<String, dynamic>> _getDataSourceStats(String sourceId) async {
     // Get average size based on data type
     // These are estimated average sizes in bytes
@@ -820,11 +835,11 @@ class _HomePageState extends State<HomePage> {
       'screenshot': 500000,  // ~500KB per screenshot
       'camera': 800000,  // ~800KB per photo
     };
-    
+
     final queueSize = widget.dataService.getQueueSizeForSource(sourceId);
     final avgSize = avgSizes[sourceId] ?? 100;
     final totalSize = queueSize * avgSize;
-    
+
     return {
       'avgSize': avgSize,
       'totalSize': totalSize,
@@ -834,7 +849,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showLastResponse(String sourceId) {
     final lastDataPoint = widget.dataService.getLastDataPointForSource(sourceId);
-    
+
     if (lastDataPoint == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -912,16 +927,16 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Color _getPowerColor(double level) {
     final hex = PowerEstimation.getPowerLevelColor(level);
     return Color(int.parse(hex.substring(1), radix: 16) + 0xFF000000);
   }
-  
+
   String _formatLastUpdate(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inSeconds < 60) {
       return '${difference.inSeconds}s ago';
     } else if (difference.inMinutes < 60) {
