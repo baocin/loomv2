@@ -20,11 +20,11 @@ from .routers import (
     audio,
     # devices,  # TODO: Requires database implementation
     digital,  # Digital data (clipboard, web analytics)
-    # documents,  # TODO: Check if this requires database
+    documents,  # Documents router for document ingestion
     # github,  # TODO: Check if this requires database
     health_data,  # Health monitoring data
     images,  # Images router doesn't require database
-    # notes,  # TODO: Check if this requires database
+    notes,  # Notes router for text notes ingestion
     os_events,  # OS event tracking
     sensors,
     system,  # System monitoring (app monitoring, device metadata)
@@ -175,11 +175,11 @@ app.include_router(ai_context.router)  # AI context endpoint
 app.include_router(audio.router)
 # app.include_router(devices.router)  # TODO: Requires database implementation
 app.include_router(digital.router)  # Digital data (clipboard, web analytics)
-# app.include_router(documents.router)  # TODO: Check if this requires database
+app.include_router(documents.router)  # Documents router for document ingestion
 # app.include_router(github.router)  # TODO: Check if this requires database
 app.include_router(health_data.router)  # Health monitoring data
 app.include_router(images.router)  # Images router doesn't require database
-# app.include_router(notes.router)  # TODO: Check if this requires database
+app.include_router(notes.router)  # Notes router for text notes ingestion
 app.include_router(os_events.router)  # OS event tracking
 app.include_router(sensors.router)
 app.include_router(system.router)  # System monitoring (app monitoring, device metadata)

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import verify_api_key
 from ..kafka_producer import kafka_producer
-from ..models import APIResponse, ImageData
+from ..models import APIResponse, ImageData, VideoData
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/images", tags=["images"])
@@ -186,3 +186,59 @@ async def upload_images_batch(images: list[ImageData]) -> APIResponse:
         status="success" if failed == 0 else "partial",
         topic="device.image.camera.raw",
     )
+
+
+@router.post("/video", response_model=APIResponse)
+async def upload_video(
+    video: VideoData,
+    api_key: str = Depends(verify_api_key),
+) -> APIResponse:
+    """Upload a video recording.
+
+    Args:
+    ----
+        video: Video data including base64 encoded video and metadata
+
+    Returns:
+    -------
+        APIResponse with status and message ID
+
+    """
+    try:
+        # Validate base64 encoding
+        try:
+            base64.b64decode(video.video_data)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid base64 video data")
+
+        # Send to Kafka topic
+        await kafka_producer.send_message(
+            topic="device.video.screen.raw",
+            message=video,
+        )
+
+        logger.info(
+            "Video uploaded successfully",
+            device_id=video.device_id,
+            message_id=video.message_id,
+            format=video.format,
+            duration=video.duration,
+            dimensions=f"{video.width}x{video.height}",
+            file_size=video.file_size,
+        )
+
+        return APIResponse(
+            status="success",
+            message_id=video.message_id,
+            topic="device.video.screen.raw",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to upload video",
+            device_id=video.device_id,
+            error=str(e),
+        )
+        raise HTTPException(status_code=500, detail="Failed to upload video")

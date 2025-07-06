@@ -900,3 +900,50 @@ class DocumentTask(BaseMessage):
         if v > 100 * 1024 * 1024:  # 100MB limit
             raise ValueError("file_size exceeds maximum limit of 100MB")
         return v
+
+
+class VideoData(BaseMessage):
+    """Video recording data."""
+
+    video_data: str = Field(description="Base64 encoded video data")
+    format: str = Field(description="Video format (mp4, webm, etc.)")
+    duration: float = Field(description="Duration in seconds")
+    width: int = Field(description="Video width in pixels")
+    height: int = Field(description="Video height in pixels")
+    fps: float | None = Field(default=None, description="Frames per second")
+    file_size: int | None = Field(default=None, description="File size in bytes")
+    capture_location: dict | None = Field(
+        default=None,
+        description="GPS location where video was captured",
+    )
+
+
+class StepsData(BaseMessage):
+    """Step count data."""
+
+    step_count: int = Field(description="Number of steps taken")
+    date: str = Field(description="Date in YYYY-MM-DD format")
+    distance_meters: float | None = Field(
+        default=None,
+        description="Distance traveled in meters",
+    )
+    calories_burned: float | None = Field(
+        default=None,
+        description="Estimated calories burned",
+    )
+    active_minutes: int | None = Field(
+        default=None,
+        description="Active minutes during the day",
+    )
+
+
+class MacOSAppsData(BaseMessage):
+    """macOS application monitoring data."""
+
+    applications: list[dict[str, Any]] = Field(
+        description="List of running applications with details",
+    )
+    system_stats: dict[str, Any] | None = Field(
+        default=None,
+        description="System CPU and memory usage stats",
+    )
