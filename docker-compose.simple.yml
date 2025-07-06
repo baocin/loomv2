@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  pipeline-monitor-api-simple:
+    build:
+      context: ./services/pipeline-monitor-api
+      dockerfile: Dockerfile.simple
+    ports:
+      - "8082:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - LOOM_DATABASE_HOST=loomv2-postgres-1
+      - LOOM_DATABASE_PORT=5432
+      - LOOM_DATABASE_NAME=loom
+      - LOOM_DATABASE_USER=loom
+      - LOOM_DATABASE_PASSWORD=loom
+    # depends_on postgres from main docker-compose
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  pipeline-monitor-simple:
+    build:
+      context: ./services/pipeline-monitor
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8082
+    depends_on:
+      - pipeline-monitor-api-simple
+
+networks:
+  default:
+    name: loomv2_default
+    external: true

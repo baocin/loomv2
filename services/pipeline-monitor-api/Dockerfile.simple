@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci
+
+# Copy source
+COPY tsconfig.json ./
+COPY src/server-simple.ts ./src/
+COPY src/utils/logger.ts ./src/utils/
+
+# Build
+RUN npm run build
+
+# Run
+EXPOSE 8080
+CMD ["node", "dist/server-simple.js"]
