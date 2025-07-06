@@ -87,7 +87,8 @@
       "Bash(k3d cluster:*)",
       "Bash(kafka-consumer-groups.sh:*)",
       "Bash(python:*)",
-      "Bash(kubectl get:*)"
+      "Bash(kubectl get:*)",
+      "Bash(./scripts/run-migrations.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": false

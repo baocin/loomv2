@@ -16,6 +16,9 @@ dependencies = [
     "numpy>=2.2.0",
     "httpx>=0.28.1",
     "lz4>=4.3.3",
+    "asyncpg>=0.29.0",
+    "psutil>=5.9.8",
+    "loom-common @ file://localhost//home/aoi/code/loomv2/services/loom-common",
 ]
 
 [project.optional-dependencies]

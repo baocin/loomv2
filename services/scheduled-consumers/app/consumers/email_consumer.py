@@ -4,6 +4,26 @@ import os
 from datetime import datetime, timedelta
 from typing import List
 
+
+# Create optimized consumer with database config
+def create_optimized_consumer():
+    # Note: For sync consumers, you may need to refactor to async
+    # or use the BaseKafkaConsumer from loom_common
+    from loom_common.kafka.consumer import BaseKafkaConsumer
+
+    consumer = BaseKafkaConsumer(
+        service_name="scheduled-consumers",
+        topics=["various"],  # Update with actual topics
+        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
+        db_pool=None,  # Pass asyncpg pool if available
+    )
+
+    return consumer
+
+
+# Use it in your main function:
+# consumer = create_optimized_consumer()
+
 import structlog
 
 from ..config import settings

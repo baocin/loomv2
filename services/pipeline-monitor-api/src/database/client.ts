@@ -380,4 +380,136 @@ export class DatabaseClient {
     const result = await this.query(query)
     return result.rows
   }
+
+  async getConsumerMetrics(serviceName?: string, timeRange: string = '1 hour'): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not connected')
+
+    let query = `
+      SELECT
+        m.service_name,
+        SUM(m.messages_processed) as total_messages_processed,
+        AVG(m.messages_per_second) as avg_messages_per_second,
+        AVG(m.processing_time_ms) as avg_processing_time_ms,
+        MAX(m.timestamp) as last_update,
+        COUNT(*) as metric_count
+      FROM consumer_processing_metrics m
+      WHERE m.timestamp > NOW() - INTERVAL $1
+    `
+
+    const params: any[] = [timeRange]
+
+    if (serviceName) {
+      query += ' AND m.service_name = $2'
+      params.push(serviceName)
+    }
+
+    query += `
+      GROUP BY m.service_name
+      ORDER BY m.service_name
+    `
+
+    const result = await this.query(query, params)
+    return result.rows
+  }
+
+  async getConsumerLag(serviceName?: string): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not connected')
+
+    let query = `
+      WITH latest_lag AS (
+        SELECT DISTINCT ON (service_name, topic, partition)
+          service_name,
+          topic,
+          partition,
+          lag,
+          consumer_offset,
+          timestamp
+        FROM consumer_lag_history
+        WHERE timestamp > NOW() - INTERVAL '5 minutes'
+        ORDER BY service_name, topic, partition, timestamp DESC
+      )
+      SELECT
+        service_name,
+        topic,
+        SUM(lag) as total_lag,
+        COUNT(DISTINCT partition) as partition_count,
+        MAX(timestamp) as last_update
+      FROM latest_lag
+    `
+
+    const params: any[] = []
+
+    if (serviceName) {
+      query += ' WHERE service_name = $1'
+      params.push(serviceName)
+    }
+
+    query += `
+      GROUP BY service_name, topic
+      ORDER BY service_name, topic
+    `
+
+    const result = await this.query(query, params)
+    return result.rows
+  }
+
+  async getMessageFlow(timeRange: string = '1 hour'): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not connected')
+
+    const query = `
+      WITH topic_metrics AS (
+        -- Get message counts for each topic from hypertables
+        SELECT
+          topic_name,
+          COUNT(*) as message_count,
+          MAX(created_at) as last_message_time
+        FROM (
+          SELECT 'device.audio.raw' as topic_name, created_at FROM device_audio_raw WHERE created_at > NOW() - INTERVAL $1
+          UNION ALL
+          SELECT 'device.sensor.gps.raw' as topic_name, created_at FROM device_sensor_gps_raw WHERE created_at > NOW() - INTERVAL $1
+          UNION ALL
+          SELECT 'device.sensor.accelerometer.raw' as topic_name, created_at FROM device_sensor_accelerometer_raw WHERE created_at > NOW() - INTERVAL $1
+          UNION ALL
+          SELECT 'media.audio.vad_filtered' as topic_name, created_at FROM media_audio_vad_filtered WHERE created_at > NOW() - INTERVAL $1
+          UNION ALL
+          SELECT 'media.text.transcribed.words' as topic_name, created_at FROM media_text_transcribed_words WHERE created_at > NOW() - INTERVAL $1
+          -- Add more tables as needed
+        ) as all_messages
+        GROUP BY topic_name
+      ),
+      consumer_flow AS (
+        -- Get consumer processing metrics
+        SELECT
+          ps.service_name,
+          ps.flow_name,
+          ps.stage_name,
+          pst_in.topic_name as input_topic,
+          pst_out.topic_name as output_topic,
+          COALESCE(tm_in.message_count, 0) as input_messages,
+          COALESCE(tm_out.message_count, 0) as output_messages,
+          CASE
+            WHEN COALESCE(tm_in.message_count, 0) > 0
+            THEN ROUND((COALESCE(tm_out.message_count, 0)::numeric / tm_in.message_count) * 100, 2)
+            ELSE 0
+          END as pass_through_rate
+        FROM pipeline_stages ps
+        LEFT JOIN pipeline_stage_topics pst_in ON ps.id = pst_in.stage_id AND pst_in.topic_role = 'input'
+        LEFT JOIN pipeline_stage_topics pst_out ON ps.id = pst_out.stage_id AND pst_out.topic_role = 'output'
+        LEFT JOIN topic_metrics tm_in ON pst_in.topic_name = tm_in.topic_name
+        LEFT JOIN topic_metrics tm_out ON pst_out.topic_name = tm_out.topic_name
+        WHERE ps.is_active = true
+      )
+      SELECT * FROM consumer_flow
+      ORDER BY flow_name, service_name
+    `
+
+    const result = await this.query(query, [timeRange])
+    return result.rows
+  }
+
+  async getConsumerLogs(serviceName: string, lines: number = 500): Promise<string[]> {
+    // This is a placeholder - in reality, you'd fetch from your logging system
+    // For Docker containers, we'll use docker logs command via exec
+    return [`Logs for ${serviceName} would be fetched from container logs or logging system`]
+  }
 }

@@ -319,6 +319,7 @@ function SimplePipelineMonitor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [topology, setTopology] = useState<any>(null)
 
   useEffect(() => {
     fetchPipelineStructure()
@@ -334,7 +335,8 @@ function SimplePipelineMonitor() {
         throw new Error('Failed to fetch pipeline topology')
       }
 
-      const topology = await response.json()
+      const topologyData = await response.json()
+      setTopology(topologyData)
 
       const newNodes: Node[] = []
       const newEdges: Edge[] = []
@@ -358,7 +360,7 @@ function SimplePipelineMonitor() {
 
       // First, identify which topics are actually written to DB
       const topicsWrittenToDB = new Set<string>()
-      topology.stages?.forEach((stage: any) => {
+      topologyData.stages?.forEach((stage: any) => {
         // Check if this is a DB writer service
         if (stage.service_name.includes('kafka-to-db') ||
             stage.service_name.includes('timescale-writer') ||
@@ -414,7 +416,7 @@ function SimplePipelineMonitor() {
       })
 
       // Create topic nodes
-      topology.topics?.forEach((topic: any) => {
+      topologyData.topics?.forEach((topic: any) => {
         const nodeId = `topic_${topic.topic_name.replace(/\./g, '_')}`
         const isStoredInDB = topicsWrittenToDB.has(topic.topic_name) && topic.table_name
         const node: Node = {
@@ -517,7 +519,7 @@ function SimplePipelineMonitor() {
       })
 
       // Create processor nodes
-      topology.stages?.forEach((stage: any) => {
+      topologyData.stages?.forEach((stage: any) => {
         const nodeId = `processor_${stage.service_name.replace(/[\.-]/g, '_')}`
 
         if (!nodeMap.has(nodeId)) {
@@ -618,7 +620,7 @@ function SimplePipelineMonitor() {
       const tableNodeSet = new Set<string>()
       const topicToTable = new Map<string, string>() // Map topic names to table node IDs
 
-      topology.topics?.forEach((topic: any) => {
+      topologyData.topics?.forEach((topic: any) => {
         if (topic.table_name) {
           const tableNodeId = `table_${topic.table_name.replace(/[\._]/g, '_')}`
 
@@ -642,7 +644,7 @@ function SimplePipelineMonitor() {
       })
 
       // Find kafka-to-db consumers and connect them to tables
-      topology.stages?.forEach((stage: any) => {
+      topologyData.stages?.forEach((stage: any) => {
         // Check if this is a kafka-to-db consumer (has inputs but no outputs)
         if (stage.service_name.includes('kafka-to-db') ||
             stage.service_name.includes('timescale-writer') ||
@@ -787,6 +789,80 @@ function SimplePipelineMonitor() {
           className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md"
         >
           Refresh
+        </button>
+        
+        <button
+          onClick={() => {
+            // Create a comprehensive structure object
+            const structure = {
+              metadata: {
+                exportDate: new Date().toISOString(),
+                totalNodes: nodes.length,
+                totalEdges: edges.length,
+                apiEndpoints: 1,
+                fetchers: nodes.filter(n => n.type === 'fetcher').length,
+                topics: nodes.filter(n => n.type === 'kafka-topic').length,
+                processors: nodes.filter(n => n.type === 'processor').length,
+                tables: nodes.filter(n => n.type === 'table').length
+              },
+              apiEndpoints: nodes.filter(n => n.type === 'api').map(n => ({
+                id: n.id,
+                label: n.data.label,
+                description: n.data.description,
+                endpoints: n.data.endpoints
+              })),
+              fetchers: nodes.filter(n => n.type === 'fetcher').map(n => ({
+                id: n.id,
+                label: n.data.label,
+                description: n.data.description,
+                sources: n.data.sources,
+                outputTopics: n.data.outputTopics
+              })),
+              topics: nodes.filter(n => n.type === 'kafka-topic').map(n => ({
+                id: n.id,
+                name: n.data.label,
+                description: n.data.description,
+                hasTable: n.data.hasTable,
+                tableName: n.data.tableName
+              })),
+              processors: nodes.filter(n => n.type === 'processor').map(n => ({
+                id: n.id,
+                serviceName: n.data.label,
+                description: n.data.description,
+                consumerGroup: n.data.consumerGroup,
+                inputTopics: n.data.inputTopics,
+                outputTopics: n.data.outputTopics
+              })),
+              tables: nodes.filter(n => n.type === 'table').map(n => ({
+                id: n.id,
+                tableName: n.data.label,
+                sourceTopic: n.data.topic
+              })),
+              connections: edges.map(e => ({
+                id: e.id,
+                source: e.source,
+                target: e.target,
+                label: e.label,
+                type: e.type
+              })),
+              rawTopology: topology
+            }
+            
+            // Convert to JSON and download
+            const dataStr = JSON.stringify(structure, null, 2)
+            const dataBlob = new Blob([dataStr], { type: 'application/json' })
+            const url = URL.createObjectURL(dataBlob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `loom-pipeline-structure-${new Date().toISOString().split('T')[0]}.json`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+          }}
+          className="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md"
+        >
+          Download Structure as JSON
         </button>
       </div>
 

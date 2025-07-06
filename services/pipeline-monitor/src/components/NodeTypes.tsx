@@ -119,6 +119,105 @@ export const ProcessorNode: React.FC<NodeProps> = ({ data }) => {
   )
 }
 
+export const ConsumerNode: React.FC<NodeProps & { onViewLogs?: (serviceName: string) => void }> = ({ data, onViewLogs }) => {
+  const metrics = data.metrics as any
+  const health = data.health as any
+  const flow = (data as any).flow
+
+  return (
+    <div className={clsx(
+      'min-w-[200px] shadow-lg rounded-lg bg-white border-2 p-3 relative',
+      getStatusBorder(data.status || 'unknown'),
+      health?.errorCount > 0 && 'border-red-500'
+    )}>
+      <Handle type="target" position={Position.Left} />
+
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-purple-600" />
+          <Circle className={clsx('w-2 h-2 rounded-full', getStatusColor(data.status || 'unknown'))} />
+          <span className="font-semibold text-sm">{data.label}</span>
+        </div>
+        {onViewLogs && (
+          <button
+            onClick={() => onViewLogs((data as any).serviceName || data.label)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Logs
+          </button>
+        )}
+      </div>
+
+      {flow && (
+        <div className="space-y-2 text-xs">
+          {flow.inputMessages !== undefined && flow.outputMessages !== undefined && (
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Input:</span>
+                <span className="font-medium">{flow.inputMessages.toLocaleString()} msgs</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Output:</span>
+                <span className="font-medium">{flow.outputMessages.toLocaleString()} msgs</span>
+              </div>
+              {flow.passThrough !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Pass-through:</span>
+                  <span className={clsx(
+                    'font-medium',
+                    flow.passThrough < 50 && 'text-orange-600',
+                    flow.passThrough < 20 && 'text-red-600'
+                  )}>
+                    {flow.passThrough.toFixed(1)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {metrics && (
+            <>
+              {metrics.lag !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Lag:</span>
+                  <span className={clsx(
+                    'font-medium',
+                    metrics.lag > 1000 && 'text-orange-600',
+                    metrics.lag > 10000 && 'text-red-600'
+                  )}>
+                    {metrics.lag.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {metrics.avgProcessingTime && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Avg time:</span>
+                  <span className="font-medium">{metrics.avgProcessingTime.toFixed(0)}ms</span>
+                </div>
+              )}
+              {metrics.messagesPerSecond && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Rate:</span>
+                  <span className="font-medium">{metrics.messagesPerSecond.toFixed(1)}/s</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Error indicator */}
+      {health?.errorCount > 0 && (
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {health.errorCount > 99 ? '99+' : health.errorCount}
+        </div>
+      )}
+
+      <Handle type="source" position={Position.Right} />
+    </div>
+  )
+}
+
 export const DatabaseNode: React.FC<NodeProps> = ({ data }) => {
   const health = data.health as any
 
@@ -184,6 +283,7 @@ export const ExternalNode: React.FC<NodeProps> = ({ data }) => {
 export const nodeTypes = {
   'kafka-topic': KafkaTopicNode,
   'processor': ProcessorNode,
+  'consumer': ConsumerNode,
   'database': DatabaseNode,
   'external': ExternalNode,
 }

@@ -4,12 +4,15 @@ import asyncio
 import json
 import time
 
+import asyncpg
+import psutil
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
+from loom_common.kafka.consumer_config_loader import KafkaConsumerConfigLoader
 
-from app.kyutai_streaming_processor import KyutaiStreamingProcessor
 from app.config import settings
+from app.kyutai_streaming_processor import KyutaiStreamingProcessor
 from app.models import AudioChunk, TranscribedText
 
 logger = structlog.get_logger()
@@ -22,25 +25,35 @@ class KafkaConsumer:
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.asr_processor = KyutaiStreamingProcessor()
+        self.db_pool: asyncpg.Pool | None = None
+        self.config_loader: KafkaConsumerConfigLoader | None = None
         self.running = False
         self._consumer_task = None
+        self._messages_processed = 0
+        self._last_metrics_time = time.time()
+        self._metrics_interval = 60.0  # Record metrics every minute
 
     async def start(self):
         """Start the Kafka consumer and producer."""
         try:
             # ASR processor will lazy-load on first use
 
-            # Create consumer
-            self.consumer = AIOKafkaConsumer(
-                settings.kafka_input_topic,
-                bootstrap_servers=settings.kafka_bootstrap_servers,
+            # Create database pool
+            self.db_pool = await asyncpg.create_pool(
+                settings.database_url,
+                min_size=settings.database_pool_min_size,
+                max_size=settings.database_pool_max_size,
+            )
+
+            # Create config loader
+            self.config_loader = KafkaConsumerConfigLoader(self.db_pool)
+
+            # Create optimized consumer using config loader
+            self.consumer = await self.config_loader.create_consumer(
+                service_name=settings.service_name,
+                topics=[settings.kafka_input_topic],
+                kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group,
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-                auto_offset_reset="earliest",
-                enable_auto_commit=False,  # Manual commit for better reliability
-                session_timeout_ms=settings.kafka_session_timeout_ms,
-                heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
-                max_poll_records=settings.kafka_max_poll_records,
             )
 
             # Create producer
@@ -89,6 +102,10 @@ class KafkaConsumer:
             await self.producer.stop()
             logger.info("Kafka producer stopped")
 
+        if self.db_pool:
+            await self.db_pool.close()
+            logger.info("Database pool closed")
+
     async def _consume(self):
         """Main consumer loop."""
         logger.info("Starting consumer loop")
@@ -108,10 +125,10 @@ class KafkaConsumer:
                             "Received raw audio chunk for transcription",
                             chunk_id=audio_chunk.get_chunk_id(),
                             device_id=audio_chunk.device_id,
-                            sequence_number=getattr(audio_chunk, 'sequence_number', None),
+                            sequence_number=getattr(audio_chunk, "sequence_number", None),
                             duration_ms=audio_chunk.get_duration_ms(),
-                            sample_rate=getattr(audio_chunk, 'sample_rate', None),
-                            file_id=getattr(audio_chunk, 'file_id', None),
+                            sample_rate=getattr(audio_chunk, "sample_rate", None),
+                            file_id=getattr(audio_chunk, "file_id", None),
                             topic=msg.topic,
                             partition=msg.partition,
                             offset=msg.offset,
@@ -121,12 +138,10 @@ class KafkaConsumer:
                         asr_start = time.time()
                         # Run sync processor in thread pool to not block async loop
                         words = await asyncio.get_event_loop().run_in_executor(
-                            None, 
-                            self.asr_processor.process_audio_chunk,
-                            audio_chunk
+                            None, self.asr_processor.process_audio_chunk, audio_chunk
                         )
                         asr_duration = time.time() - asr_start
-                        
+
                         # Create TranscribedText from words
                         if words:
                             transcribed = TranscribedText(
@@ -137,7 +152,7 @@ class KafkaConsumer:
                                 words=words,
                                 text=" ".join(w.word for w in words),
                                 processing_time_ms=asr_duration * 1000,
-                                model_version="openai/whisper-large-v3"
+                                model_version="openai/whisper-large-v3",
                             )
                         else:
                             transcribed = None
@@ -147,18 +162,22 @@ class KafkaConsumer:
                                 "ASR processing completed",
                                 chunk_id=audio_chunk.get_chunk_id(),
                                 device_id=audio_chunk.device_id,
-                                word_count=len(transcribed.words) if hasattr(transcribed, 'words') else 0,
-                                text_length=len(transcribed.text) if hasattr(transcribed, 'text') else 0,
-                                confidence=getattr(transcribed, 'confidence', None),
+                                word_count=(len(transcribed.words) if hasattr(transcribed, "words") else 0),
+                                text_length=(len(transcribed.text) if hasattr(transcribed, "text") else 0),
+                                confidence=getattr(transcribed, "confidence", None),
                                 asr_processing_time_ms=round(asr_duration * 1000, 2),
                                 input_duration_ms=audio_chunk.get_duration_ms(),
                             )
-                            
+
                             # Send to output topic
                             await self._send_transcript(transcribed)
 
                             # Commit offset after successful processing
                             await self.consumer.commit()
+                            self._messages_processed += 1
+
+                            # Record metrics periodically
+                            await self._maybe_record_metrics()
 
                             logger.info(
                                 "STT processing completed successfully",
@@ -215,21 +234,82 @@ class KafkaConsumer:
 
             logger.info(
                 "Transcript sent to Kafka",
-                chunk_id=getattr(transcript, 'chunk_id', None),
+                chunk_id=getattr(transcript, "chunk_id", None),
                 device_id=transcript.device_id,
-                word_count=len(transcript.words) if hasattr(transcript, 'words') else 0,
-                text_preview=transcript.text[:100] + '...' if hasattr(transcript, 'text') and len(transcript.text) > 100 else getattr(transcript, 'text', ''),
-                confidence=getattr(transcript, 'confidence', None),
+                word_count=len(transcript.words) if hasattr(transcript, "words") else 0,
+                text_preview=(
+                    transcript.text[:100] + "..."
+                    if hasattr(transcript, "text") and len(transcript.text) > 100
+                    else getattr(transcript, "text", "")
+                ),
+                confidence=getattr(transcript, "confidence", None),
                 topic=settings.kafka_output_topic,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to send transcript to Kafka",
-                chunk_id=getattr(transcript, 'chunk_id', None),
+                chunk_id=getattr(transcript, "chunk_id", None),
                 device_id=transcript.device_id,
                 error=str(e),
                 error_type=type(e).__name__,
                 topic=settings.kafka_output_topic,
             )
             raise
+
+    async def _maybe_record_metrics(self):
+        """Record processing metrics periodically."""
+        current_time = time.time()
+        time_since_last_metrics = current_time - self._last_metrics_time
+
+        if time_since_last_metrics >= self._metrics_interval and self.config_loader:
+            try:
+                # Get memory usage
+                process = psutil.Process()
+                memory_usage_mb = process.memory_info().rss / 1024 / 1024
+
+                # Record processing metrics
+                await self.config_loader.record_processing_metrics(
+                    service_name=settings.service_name,
+                    messages_processed=self._messages_processed,
+                    processing_time_ms=time_since_last_metrics * 1000,
+                    memory_usage_mb=memory_usage_mb,
+                )
+
+                # Record consumer lag for each partition
+                if self.consumer:
+                    partitions = self.consumer.assignment()
+                    for tp in partitions:
+                        try:
+                            # Get current position
+                            position = await self.consumer.position(tp)
+                            # Get end offset
+                            end_offsets = await self.consumer.end_offsets([tp])
+                            end_offset = end_offsets.get(tp, position)
+                            # Calculate lag
+                            lag = end_offset - position
+
+                            await self.config_loader.record_consumer_lag(
+                                service_name=settings.service_name,
+                                topic=tp.topic,
+                                partition=tp.partition,
+                                lag=lag,
+                                offset=position,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to record lag for partition",
+                                topic=tp.topic,
+                                partition=tp.partition,
+                                error=str(e),
+                            )
+
+                self._last_metrics_time = current_time
+                logger.info(
+                    "Recorded processing metrics",
+                    messages_processed=self._messages_processed,
+                    memory_usage_mb=round(memory_usage_mb, 2),
+                )
+
+            except Exception as e:
+                logger.error("Failed to record metrics", error=str(e))

@@ -6,12 +6,14 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set
 
+import asyncpg
 import orjson
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, ConsumerRecord
 from aiokafka.errors import CommitFailedError
 
 from loom_common.config import BaseSettings
+from loom_common.kafka.consumer_config_loader import KafkaConsumerConfigLoader
 
 logger = structlog.get_logger(__name__)
 
@@ -26,15 +28,20 @@ class BaseKafkaConsumer(ABC):
         group_id: str,
         enable_auto_commit: bool = False,
         max_poll_records: int = 100,
+        db_pool: Optional[asyncpg.Pool] = None,
+        service_name: Optional[str] = None,
     ):
         self.settings = settings
         self.topics = [settings.get_kafka_topic(t) for t in topics]
         self.group_id = settings.get_consumer_group(group_id)
         self.enable_auto_commit = enable_auto_commit
         self.max_poll_records = max_poll_records
+        self.db_pool = db_pool
+        self.service_name = service_name
 
         self.consumer: Optional[AIOKafkaConsumer] = None
         self.producer: Optional[AIOKafkaProducer] = None
+        self.config_loader: Optional[KafkaConsumerConfigLoader] = None
         self._running = False
         self._tasks: Set[asyncio.Task] = set()
         self._messages_processed = 0
@@ -44,21 +51,56 @@ class BaseKafkaConsumer(ABC):
 
     async def start(self) -> None:
         """Start the consumer and producer"""
-        # Start consumer
-        self.consumer = AIOKafkaConsumer(
-            *self.topics,
-            bootstrap_servers=self.settings.kafka_bootstrap_servers,
-            group_id=self.group_id,
-            enable_auto_commit=self.enable_auto_commit,
-            auto_offset_reset="earliest",
-            value_deserializer=lambda v: orjson.loads(v) if v else None,
-            key_deserializer=lambda k: k.decode("utf-8") if k else None,
-            max_poll_records=self.max_poll_records,
-            session_timeout_ms=30000,  # 30 seconds
-            heartbeat_interval_ms=3000,  # 3 seconds
-            max_poll_interval_ms=300000,  # 5 minutes for slow processing
-            consumer_timeout_ms=5000,  # 5 seconds
-        )
+        # Initialize config loader if database pool is provided
+        if self.db_pool and self.service_name:
+            self.config_loader = KafkaConsumerConfigLoader(self.db_pool)
+
+            # Try to create optimized consumer
+            try:
+                self.consumer = await self.config_loader.create_consumer(
+                    service_name=self.service_name,
+                    topics=self.topics,
+                    kafka_bootstrap_servers=self.settings.kafka_bootstrap_servers,
+                    group_id=self.group_id,
+                    enable_auto_commit=self.enable_auto_commit,
+                    key_deserializer=lambda k: k.decode("utf-8") if k else None,
+                )
+
+                # Update our internal settings from loaded config
+                config = await self.config_loader.load_config(self.service_name)
+                if config:
+                    self.max_poll_records = config.max_poll_records
+                    self._commit_interval = config.auto_commit_interval_ms / 1000.0
+
+                logger.info(
+                    "Using optimized consumer configuration",
+                    service_name=self.service_name,
+                    max_poll_records=self.max_poll_records,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to load optimized config, using defaults",
+                    service_name=self.service_name,
+                    error=str(e),
+                )
+                self.consumer = None
+
+        # Fall back to default consumer if optimization failed or not available
+        if not self.consumer:
+            self.consumer = AIOKafkaConsumer(
+                *self.topics,
+                bootstrap_servers=self.settings.kafka_bootstrap_servers,
+                group_id=self.group_id,
+                enable_auto_commit=self.enable_auto_commit,
+                auto_offset_reset="earliest",
+                value_deserializer=lambda v: orjson.loads(v) if v else None,
+                key_deserializer=lambda k: k.decode("utf-8") if k else None,
+                max_poll_records=self.max_poll_records,
+                session_timeout_ms=30000,  # 30 seconds
+                heartbeat_interval_ms=3000,  # 3 seconds
+                max_poll_interval_ms=300000,  # 5 minutes for slow processing
+                consumer_timeout_ms=5000,  # 5 seconds
+            )
 
         # Start producer for output messages
         self.producer = AIOKafkaProducer(
@@ -72,9 +114,10 @@ class BaseKafkaConsumer(ABC):
 
         await self.consumer.start()
         await self.producer.start()
-        
+
         # Initialize commit tracking
         import time
+
         self._last_commit_time = time.time()
 
         logger.info(
@@ -97,10 +140,17 @@ class BaseKafkaConsumer(ABC):
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
         # Commit any pending offsets before stopping
-        if self.consumer and not self.enable_auto_commit and self._messages_processed > 0:
+        if (
+            self.consumer
+            and not self.enable_auto_commit
+            and self._messages_processed > 0
+        ):
             try:
                 await self.consumer.commit()
-                logger.info("Final commit before shutdown", messages_processed=self._messages_processed)
+                logger.info(
+                    "Final commit before shutdown",
+                    messages_processed=self._messages_processed,
+                )
             except Exception as e:
                 logger.error("Failed to commit final offsets", error=str(e))
 
@@ -133,7 +183,7 @@ class BaseKafkaConsumer(ABC):
                 if len(self._tasks) >= self.max_poll_records:
                     # Wait for some tasks to complete
                     await asyncio.gather(*self._tasks, return_exceptions=True)
-                
+
                 # Check if we need to commit based on time (for low-volume topics)
                 if not self.enable_auto_commit:
                     await self._maybe_commit()
@@ -144,6 +194,10 @@ class BaseKafkaConsumer(ABC):
 
     async def _process_message_wrapper(self, message: ConsumerRecord) -> None:
         """Wrapper to handle message processing with error handling"""
+        import time
+
+        start_time = time.time()
+
         try:
             await self.process_message(message)
 
@@ -151,6 +205,17 @@ class BaseKafkaConsumer(ABC):
             if not self.enable_auto_commit:
                 self._messages_processed += 1
                 await self._maybe_commit()
+
+            # Record metrics if config loader is available
+            if self.config_loader and self.service_name:
+                processing_time_ms = (time.time() - start_time) * 1000
+                memory_usage_mb = self._get_memory_usage_mb()
+                await self.config_loader.record_processing_metrics(
+                    self.service_name,
+                    1,  # Single message
+                    processing_time_ms,
+                    memory_usage_mb,
+                )
 
         except Exception as e:
             logger.error(
@@ -174,17 +239,20 @@ class BaseKafkaConsumer(ABC):
     async def _maybe_commit(self) -> None:
         """Commit offsets if batch size or time interval is reached."""
         import time
+
         current_time = time.time()
         time_since_last_commit = current_time - self._last_commit_time
-        
-        if (self._messages_processed >= self._commit_batch_size or 
-            time_since_last_commit >= self._commit_interval):
+
+        if (
+            self._messages_processed >= self._commit_batch_size
+            or time_since_last_commit >= self._commit_interval
+        ):
             try:
                 await self.consumer.commit()
                 logger.info(
                     "Batch commit completed",
                     messages_processed=self._messages_processed,
-                    time_since_last_commit=round(time_since_last_commit, 2)
+                    time_since_last_commit=round(time_since_last_commit, 2),
                 )
                 self._messages_processed = 0
                 self._last_commit_time = current_time
@@ -257,6 +325,45 @@ class BaseKafkaConsumer(ABC):
             key=key,
             headers=list(headers.items()) if headers else None,
         )
+
+    def _get_memory_usage_mb(self) -> float:
+        """Get current memory usage in MB"""
+        import os
+
+        import psutil
+
+        process = psutil.Process(os.getpid())
+        return process.memory_info().rss / 1024 / 1024
+
+    async def record_consumer_lag(self) -> None:
+        """Record current consumer lag for monitoring"""
+        if not self.consumer or not self.config_loader or not self.service_name:
+            return
+
+        try:
+            # Get current position and end offsets
+            partitions = self.consumer.assignment()
+            if not partitions:
+                return
+
+            for tp in partitions:
+                # Get current position
+                position = await self.consumer.position(tp)
+
+                # Get end offset
+                end_offsets = await self.consumer.end_offsets([tp])
+                end_offset = end_offsets.get(tp, position)
+
+                # Calculate lag
+                lag = end_offset - position
+
+                # Record metric
+                await self.config_loader.record_consumer_lag(
+                    self.service_name, tp.topic, tp.partition, lag, position
+                )
+
+        except Exception as e:
+            logger.debug("Error recording consumer lag", error=str(e))
 
     @abstractmethod
     async def process_message(self, message: ConsumerRecord) -> None:

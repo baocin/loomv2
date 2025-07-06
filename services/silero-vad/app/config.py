@@ -54,5 +54,10 @@ class Settings(BaseSettings):
     health_check_interval_seconds: int = 30
     kafka_health_timeout_seconds: int = 5
 
+    # Database settings
+    database_url: str = "postgresql://loom:loom@postgres:5432/loom"
+    database_pool_min_size: int = 2
+    database_pool_max_size: int = 10
+
 
 settings = Settings()

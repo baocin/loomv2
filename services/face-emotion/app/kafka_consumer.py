@@ -4,8 +4,31 @@ import asyncio
 import json
 from typing import Any, Dict, Optional
 
+
+# Create optimized consumer with database config
+async def create_optimized_consumer():
+    db_url = os.getenv("DATABASE_URL", "postgresql://loom:loom@postgres:5432/loom")
+    db_pool = await asyncpg.create_pool(db_url)
+    loader = KafkaConsumerConfigLoader(db_pool)
+
+    consumer = await loader.create_consumer(
+        service_name="face-emotion",
+        topics=["media.image.analysis.minicpm_results"],  # Update with actual topics
+        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
+    )
+
+    return consumer, loader, db_pool
+
+
+# Use it in your main function:
+# consumer, loader, db_pool = await create_optimized_consumer()
+
+import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+
+# Kafka consumer optimization
+from loom_common.kafka_utils.consumer_config_loader import KafkaConsumerConfigLoader
 
 from app.config import settings
 from app.face_processor import FaceEmotionProcessor

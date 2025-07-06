@@ -19,6 +19,8 @@ import { LogViewer } from './components/LogViewer'
 import { TestMessagePanel } from './components/TestMessagePanel'
 import { StructureViewEnhanced } from './components/StructureViewEnhanced'
 import { ZoomControls } from './components/ZoomControls'
+import { PipelineFlowView } from './components/PipelineFlowView'
+import { SimplePipelineView } from './components/SimplePipelineView'
 import { useTopicMetrics, useConsumerMetrics, useLatestMessage, useClearCache, useClearAllTopics, useAutoDiscovery, useServiceHealth } from './hooks/usePipelineData'
 import { usePipelineDefinitions } from './hooks/usePipelineDefinitions'
 import { usePipelineGraph } from './hooks/usePipelineGraph'
@@ -85,9 +87,9 @@ const exportPositions = () => {
     const positions = loadNodePositions()
     const dataStr = JSON.stringify(positions, null, 2)
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
-    
+
     const exportFileDefaultName = `loom-pipeline-positions-${new Date().toISOString().split('T')[0]}.json`
-    
+
     const linkElement = document.createElement('a')
     linkElement.setAttribute('href', dataUri)
     linkElement.setAttribute('download', exportFileDefaultName)
@@ -125,12 +127,14 @@ function PipelineMonitor() {
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [testPanelTopic, setTestPanelTopic] = useState<string>('')
   const [showStructureView, setShowStructureView] = useState(false)
+  const [showFlowView, setShowFlowView] = useState(false)
+  const [showSimpleLagView, setShowSimpleLagView] = useState(false)
   const [useManualPositions, setUseManualPositions] = useState(true)
   const [pulsingTopics, setPulsingTopics] = useState<Set<string>>(new Set())
   const [lastMessageCounts, setLastMessageCounts] = useState<Map<string, number>>(new Map())
-  
+
   const { fitView, getNodes } = useReactFlow()
-  
+
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -143,7 +147,7 @@ function PipelineMonitor() {
   const { data: autoDiscoveryData } = useAutoDiscovery()
   const { data: serviceHealthData } = useServiceHealth()
   const { data: pipelineDefinitions } = usePipelineDefinitions()
-  
+
   // Screenshot function
   const takeScreenshot = useCallback(() => {
     if (reactFlowWrapper.current === null) {
@@ -211,7 +215,7 @@ function PipelineMonitor() {
       // If message count increased, add to pulsing set
       if (currentCount > prevCount && prevCount > 0) {
         newPulsing.add(metric.topic)
-        
+
         // Remove pulse after 2 seconds
         setTimeout(() => {
           setPulsingTopics(prev => {
@@ -328,17 +332,17 @@ function PipelineMonitor() {
   // Zoom to nodes with specific priority
   const zoomToPriority = useCallback((priority: 'critical' | 'high' | 'medium' | 'low') => {
     const allNodes = getNodes()
-    
+
     // Find all processor nodes with the specified priority
-    const priorityNodes = allNodes.filter(node => 
+    const priorityNodes = allNodes.filter(node =>
       node.type === 'processor' && node.data.priority === priority
     )
-    
+
     if (priorityNodes.length === 0) {
       console.log(`No nodes found with priority: ${priority}`)
       return
     }
-    
+
     // Fit view to show all nodes with that priority
     fitView({
       nodes: priorityNodes,
@@ -352,17 +356,17 @@ function PipelineMonitor() {
   // Zoom to nodes with specific status
   const zoomToStatus = useCallback((status: 'active' | 'idle' | 'error') => {
     const allNodes = getNodes()
-    
+
     // Find all nodes with the specified status
-    const statusNodes = allNodes.filter(node => 
+    const statusNodes = allNodes.filter(node =>
       node.data.status === status
     )
-    
+
     if (statusNodes.length === 0) {
       console.log(`No nodes found with status: ${status}`)
       return
     }
-    
+
     // Fit view to show all nodes with that status
     fitView({
       nodes: statusNodes,
@@ -443,7 +447,7 @@ function PipelineMonitor() {
           <div>Active Consumers: {consumerMetrics?.filter(c =>
             new Date().getTime() - new Date(c.lastHeartbeat).getTime() < 30000
           ).length || 0}</div>
-          
+
           {/* Pipeline Definitions Summary */}
           {pipelineDefinitions && (
             <div className="mt-2 pt-2 border-t border-gray-200">
@@ -451,28 +455,28 @@ function PipelineMonitor() {
               <div className="text-xs space-y-1">
                 <div>Total: {pipelineDefinitions.summary.totalFlows}</div>
                 <div className="grid grid-cols-2 gap-1 mt-1">
-                  <button 
+                  <button
                     onClick={() => zoomToPriority('critical')}
                     className="text-red-600 hover:bg-red-50 rounded px-1 py-0.5 transition-colors text-left"
                     title="Click to zoom to critical priority flows"
                   >
                     Critical: {pipelineDefinitions.summary.byPriority.critical}
                   </button>
-                  <button 
+                  <button
                     onClick={() => zoomToPriority('high')}
                     className="text-orange-600 hover:bg-orange-50 rounded px-1 py-0.5 transition-colors text-left"
                     title="Click to zoom to high priority flows"
                   >
                     High: {pipelineDefinitions.summary.byPriority.high}
                   </button>
-                  <button 
+                  <button
                     onClick={() => zoomToPriority('medium')}
                     className="text-green-600 hover:bg-green-50 rounded px-1 py-0.5 transition-colors text-left"
                     title="Click to zoom to medium priority flows"
                   >
                     Medium: {pipelineDefinitions.summary.byPriority.medium}
                   </button>
-                  <button 
+                  <button
                     onClick={() => zoomToPriority('low')}
                     className="text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors text-left"
                     title="Click to zoom to low priority flows"
@@ -518,7 +522,7 @@ function PipelineMonitor() {
           )}
 
           <div className="flex items-center gap-2 mt-2">
-            <button 
+            <button
               onClick={() => zoomToStatus('active')}
               className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
               title="Click to zoom to active nodes"
@@ -526,7 +530,7 @@ function PipelineMonitor() {
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
               <span>Active</span>
             </button>
-            <button 
+            <button
               onClick={() => zoomToStatus('idle')}
               className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
               title="Click to zoom to idle nodes"
@@ -534,7 +538,7 @@ function PipelineMonitor() {
               <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
               <span>Idle</span>
             </button>
-            <button 
+            <button
               onClick={() => zoomToStatus('error')}
               className="flex items-center gap-1 hover:bg-gray-100 rounded px-1 py-0.5 transition-colors"
               title="Click to zoom to error nodes"
@@ -564,7 +568,7 @@ function PipelineMonitor() {
           <div className="text-xs text-gray-500 mt-1 text-center">
             {useManualPositions ? 'Drag nodes to reposition' : 'Auto-aligned by data flow'}
           </div>
-          
+
           {/* Screenshot and Export/Import buttons */}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -590,7 +594,7 @@ function PipelineMonitor() {
               Export
             </button>
           </div>
-          
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={!useManualPositions}
@@ -613,7 +617,7 @@ function PipelineMonitor() {
               }
             }}
           />
-          
+
           <button
             onClick={() => setShowStructureView(!showStructureView)}
             className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
@@ -622,6 +626,24 @@ function PipelineMonitor() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             {showStructureView ? 'Hide' : 'Show'} Structure View
+          </button>
+          <button
+            onClick={() => setShowFlowView(!showFlowView)}
+            className="mt-2 w-full bg-purple-500 hover:bg-purple-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {showFlowView ? 'Hide' : 'Show'} Flow View
+          </button>
+          <button
+            onClick={() => setShowSimpleLagView(!showSimpleLagView)}
+            className="mt-2 w-full bg-orange-500 hover:bg-orange-600 text-white text-sm py-2 px-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            {showSimpleLagView ? 'Hide' : 'Show'} Lag Status
           </button>
           <button
             onClick={() => setShowTestPanel(!showTestPanel)}
@@ -794,6 +816,50 @@ function PipelineMonitor() {
               </button>
             </div>
             <StructureViewEnhanced />
+          </div>
+        </div>
+      )}
+
+      {/* Pipeline Flow View Modal */}
+      {showFlowView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-semibold">Pipeline Flow - Consumer Details</h2>
+              <button
+                onClick={() => setShowFlowView(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="h-[calc(100%-73px)]">
+              <PipelineFlowView />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Lag View Modal */}
+      {showSimpleLagView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-semibold">Consumer Lag Status</h2>
+              <button
+                onClick={() => setShowSimpleLagView(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-73px)]">
+              <SimplePipelineView />
+            </div>
           </div>
         </div>
       )}

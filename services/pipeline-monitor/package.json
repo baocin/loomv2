@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.81.5",
+    "@types/dagre": "^0.7.53",
     "clsx": "^2.1.0",
+    "dagre": "^0.8.5",
     "date-fns": "^3.0.0",
     "html-to-image": "^1.11.11",
     "lucide-react": "^0.312.0",

@@ -84,6 +84,8 @@ async def lifespan(app: FastAPI):
                 output_topic=settings.kafka_output_topic,
                 consumer_group=settings.kafka_consumer_group,
                 device=settings.model_device,
+                service_name=settings.service_name,
+                database_url=settings.database_url,
             )
         )
 

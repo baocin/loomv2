@@ -5,8 +5,10 @@ import json
 import time
 from typing import Any
 
+import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from loom_common.kafka.consumer_config_loader import KafkaConsumerConfigLoader
 
 from app.config import settings
 from app.dlq_handler import DLQHandler
@@ -24,6 +26,8 @@ class KafkaVADConsumer:
         self.producer: AIOKafkaProducer | None = None
         self.vad_processor = VADProcessor()
         self.dlq_handler: DLQHandler | None = None
+        self.db_pool: asyncpg.Pool | None = None
+        self.config_loader: KafkaConsumerConfigLoader | None = None
         self._running = False
         self._tasks: set[asyncio.Task] = set()
         self._message_retry_counts: dict[str, int] = {}
@@ -31,6 +35,8 @@ class KafkaVADConsumer:
         self._last_commit_time = time.time()
         self._commit_interval = 5.0  # Commit every 5 seconds
         self._commit_batch_size = 100  # Or every 100 messages
+        self._last_metrics_time = time.time()
+        self._metrics_interval = 60.0  # Record metrics every minute
 
     async def start(self) -> None:
         """Start the Kafka consumer and producer."""
@@ -38,19 +44,23 @@ class KafkaVADConsumer:
             # Initialize VAD processor
             await self.vad_processor.initialize()
 
-            # Create consumer
-            self.consumer = AIOKafkaConsumer(
-                settings.kafka_input_topic,
-                bootstrap_servers=settings.kafka_bootstrap_servers,
+            # Create database pool
+            self.db_pool = await asyncpg.create_pool(
+                settings.database_url,
+                min_size=settings.database_pool_min_size,
+                max_size=settings.database_pool_max_size,
+            )
+
+            # Create config loader
+            self.config_loader = KafkaConsumerConfigLoader(self.db_pool)
+
+            # Create optimized consumer using config loader
+            self.consumer = await self.config_loader.create_consumer(
+                service_name=settings.service_name,
+                topics=[settings.kafka_input_topic],
+                kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group,
-                auto_offset_reset=settings.kafka_auto_offset_reset,
-                enable_auto_commit=settings.kafka_enable_auto_commit,
-                max_poll_records=settings.kafka_max_poll_records,
                 consumer_timeout_ms=settings.kafka_consumer_timeout_ms,
-                session_timeout_ms=settings.kafka_session_timeout_ms,
-                heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
-                max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             )
 
             # Create producer
@@ -95,7 +105,10 @@ class KafkaVADConsumer:
         if self.consumer and self._messages_processed > 0:
             try:
                 await self.consumer.commit()
-                logger.info("Final commit before shutdown", messages_processed=self._messages_processed)
+                logger.info(
+                    "Final commit before shutdown",
+                    messages_processed=self._messages_processed,
+                )
             except Exception as e:
                 logger.error("Failed to commit final offsets", error=str(e))
 
@@ -107,6 +120,10 @@ class KafkaVADConsumer:
 
         # Cleanup VAD processor
         await self.vad_processor.cleanup()
+
+        # Close database pool
+        if self.db_pool:
+            await self.db_pool.close()
 
         logger.info("Kafka consumer stopped")
 
@@ -134,9 +151,12 @@ class KafkaVADConsumer:
                         )
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
-                
+
                 # Check if we need to commit based on time
                 await self._maybe_commit()
+
+                # Record metrics periodically
+                await self._maybe_record_metrics()
 
             except asyncio.CancelledError:
                 break
@@ -148,15 +168,17 @@ class KafkaVADConsumer:
         """Commit offsets if batch size or time interval is reached."""
         current_time = time.time()
         time_since_last_commit = current_time - self._last_commit_time
-        
-        if (self._messages_processed >= self._commit_batch_size or 
-            time_since_last_commit >= self._commit_interval):
+
+        if (
+            self._messages_processed >= self._commit_batch_size
+            or time_since_last_commit >= self._commit_interval
+        ):
             try:
                 await self.consumer.commit()
                 logger.info(
                     "Batch commit completed",
                     messages_processed=self._messages_processed,
-                    time_since_last_commit=round(time_since_last_commit, 2)
+                    time_since_last_commit=round(time_since_last_commit, 2),
                 )
                 self._messages_processed = 0
                 self._last_commit_time = current_time
@@ -177,7 +199,7 @@ class KafkaVADConsumer:
                 # Success - remove from retry tracking
                 self._message_retry_counts.pop(message_key, None)
                 self._messages_processed += 1
-                
+
                 # Batch commit logic
                 await self._maybe_commit()
                 return  # Exit the loop on success
@@ -195,7 +217,11 @@ class KafkaVADConsumer:
                 )
 
                 # Check if we should retry or send to DLQ
-                if self.dlq_handler and await self.dlq_handler.should_retry(e, retry_count) and retry_count < max_retries:
+                if (
+                    self.dlq_handler
+                    and await self.dlq_handler.should_retry(e, retry_count)
+                    and retry_count < max_retries
+                ):
                     # Increment retry count and retry after delay
                     retry_count += 1
                     self._message_retry_counts[message_key] = retry_count
@@ -258,7 +284,7 @@ class KafkaVADConsumer:
                 audio_bytes, audio_chunk.sample_rate, audio_chunk.channels
             )
             vad_duration = time.time() - vad_start
-            
+
             logger.info(
                 "VAD processing completed",
                 device_id=audio_chunk.device_id,
@@ -276,7 +302,8 @@ class KafkaVADConsumer:
                     timestamp=audio_chunk.timestamp,
                     message_id=f"{audio_chunk.message_id or 'vad'}_segment_{idx}",
                     trace_id=audio_chunk.trace_id,
-                    services_encountered=(audio_chunk.services_encountered or []) + ["silero-vad"],
+                    services_encountered=(audio_chunk.services_encountered or [])
+                    + ["silero-vad"],
                     content_hash=audio_chunk.content_hash,
                     data="",  # Will be set below
                     sample_rate=segment["sample_rate"],
@@ -355,3 +382,62 @@ class KafkaVADConsumer:
                 health["producer_error"] = str(e)
 
         return health
+
+    async def _maybe_record_metrics(self) -> None:
+        """Record processing metrics periodically."""
+        current_time = time.time()
+        time_since_last_metrics = current_time - self._last_metrics_time
+
+        if time_since_last_metrics >= self._metrics_interval and self.config_loader:
+            try:
+                # Get memory usage (simplified - in production you'd use psutil)
+                import psutil
+
+                process = psutil.Process()
+                memory_usage_mb = process.memory_info().rss / 1024 / 1024
+
+                # Record processing metrics
+                await self.config_loader.record_processing_metrics(
+                    service_name=settings.service_name,
+                    messages_processed=self._messages_processed,
+                    processing_time_ms=time_since_last_metrics * 1000,
+                    memory_usage_mb=memory_usage_mb,
+                )
+
+                # Record consumer lag for each partition
+                if self.consumer:
+                    partitions = self.consumer.assignment()
+                    for tp in partitions:
+                        try:
+                            # Get current position
+                            position = await self.consumer.position(tp)
+                            # Get end offset
+                            end_offsets = await self.consumer.end_offsets([tp])
+                            end_offset = end_offsets.get(tp, position)
+                            # Calculate lag
+                            lag = end_offset - position
+
+                            await self.config_loader.record_consumer_lag(
+                                service_name=settings.service_name,
+                                topic=tp.topic,
+                                partition=tp.partition,
+                                lag=lag,
+                                offset=position,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to record lag for partition",
+                                topic=tp.topic,
+                                partition=tp.partition,
+                                error=str(e),
+                            )
+
+                self._last_metrics_time = current_time
+                logger.info(
+                    "Recorded processing metrics",
+                    messages_processed=self._messages_processed,
+                    memory_usage_mb=round(memory_usage_mb, 2),
+                )
+
+            except Exception as e:
+                logger.error("Failed to record metrics", error=str(e))

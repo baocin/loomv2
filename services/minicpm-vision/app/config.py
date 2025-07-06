@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     health_check_interval: int = 30
     readiness_timeout: int = 5
 
+    # Database settings
+    database_url: str = "postgresql://loom:loom@postgres:5432/loom"
+    database_pool_min_size: int = 2
+    database_pool_max_size: int = 10
+
 
 # Global settings instance
 settings = Settings()

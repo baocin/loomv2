@@ -2,21 +2,42 @@
 
 import json
 import time
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
+
+# Create optimized consumer with database config
+async def create_optimized_consumer():
+    db_url = os.getenv("DATABASE_URL", "postgresql://loom:loom@postgres:5432/loom")
+    db_pool = await asyncpg.create_pool(db_url)
+    loader = KafkaConsumerConfigLoader(db_pool)
+
+    consumer = await loader.create_consumer(
+        service_name="gemma3n-processor",
+        topics=["media.text.transcribed.words"],  # Update with actual topics
+        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
+    )
+
+    return consumer, loader, db_pool
+
+
+# Use it in your main function:
+# consumer, loader, db_pool = await create_optimized_consumer()
+
+import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
 
+# Kafka consumer optimization
+from loom_common.kafka_utils.consumer_config_loader import KafkaConsumerConfigLoader
+
 from .config import settings
 from .models import (
-    TextMessage,
-    ImageMessage,
-    AudioMessage,
-    MultimodalAnalysisResult,
     AnalysisResult,
-    MultimodalRequest,
+    AudioMessage,
+    ImageMessage,
+    MultimodalAnalysisResult,
+    TextMessage,
 )
 from .ollama_client import OllamaClient
 

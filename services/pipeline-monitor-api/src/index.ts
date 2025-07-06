@@ -11,6 +11,7 @@ import { createKafkaRoutes } from './routes/kafka'
 import { createDatabaseRoutes } from './routes/database'
 import { createHealthRoutes } from './routes/health'
 import { createPipelineRoutes } from './routes/pipelines'
+import { createConsumerRoutes } from './routes/consumers'
 import pipelineDefinitionsRoutes from './routes/pipeline-definitions'
 import { K8sDiscovery } from './services/k8sDiscovery'
 import { ServiceRegistry } from './services/serviceRegistry'
@@ -87,6 +88,7 @@ class PipelineMonitorAPI {
     ))
     this.app.use('/api/database', createDatabaseRoutes(this.databaseClient))
     this.app.use('/api/pipelines', createPipelineRoutes(this.databaseClient))
+    this.app.use('/api/consumers', createConsumerRoutes(this.databaseClient))
     this.app.use('/api/pipeline-definitions', pipelineDefinitionsRoutes)
 
     // Root endpoint

@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    # Database settings
+    database_url: str = "postgresql://loom:loom@postgres:5432/loom"
+    database_pool_min_size: int = 2
+    database_pool_max_size: int = 10
+
     class Config:
         env_prefix = "LOOM_"
         case_sensitive = False
