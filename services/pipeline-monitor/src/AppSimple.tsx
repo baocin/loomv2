@@ -15,7 +15,6 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import './App.css'
-import dagre from 'dagre'
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8082'
 
@@ -243,75 +242,216 @@ const nodeTypes = {
         style={{ background: '#eab308' }}
       />
     </div>
+  ),
+  'column-header': ({ data }: any) => (
+    <div className="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg">
+      <div className="font-bold text-lg text-center">{data.label}</div>
+    </div>
   )
 }
 
-// Layout algorithm
+// Layout algorithm - organized in columns
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  const dagreGraph = new dagre.graphlib.Graph()
-  dagreGraph.setDefaultEdgeLabel(() => ({}))
-  dagreGraph.setGraph({
-    rankdir: 'LR',
-    ranksep: 200,
-    nodesep: 80,
-    marginx: 20,
-    marginy: 20,
-    ranker: 'network-simplex'
-  })
+  // Categorize nodes by type and flow
+  const apiNodes = nodes.filter(n => n.type === 'api')
+  const fetcherNodes = nodes.filter(n => n.type === 'fetcher')
+  const topicNodes = nodes.filter(n => n.type === 'kafka-topic')
+  const processorNodes = nodes.filter(n => n.type === 'processor')
+  const tableNodes = nodes.filter(n => n.type === 'table')
 
-  nodes.forEach((node) => {
-    let width = 250
-    let height = 100
+  // Separate topics by category
+  const rawTopics = topicNodes.filter(n => n.data.label.includes('.raw'))
+  const processedTopics = topicNodes.filter(n => !n.data.label.includes('.raw') && !n.data.label.includes('error'))
+  const errorTopics = topicNodes.filter(n => n.data.label.includes('error'))
 
-    if (node.type === 'database') {
-      width = 150
-    } else if (node.type === 'table') {
-      width = 220
-      height = 80
-    } else if (node.type === 'processor') {
-      width = 300
-      // Calculate height based on content
-      const baseHeight = 120 // Increased for button
-      const inputLines = (node.data.inputTopics || []).length
-      const outputLines = (node.data.outputTopics || []).length
-      const topicLines = inputLines + outputLines
-      // Add extra height for topic lists
-      height = baseHeight + (topicLines > 0 ? 20 + (topicLines * 16) : 0)
-    } else if (node.type === 'kafka-topic') {
-      width = 250
-      height = node.data.hasTable ? 140 : 120 // Extra height for button and table name
-    } else if (node.type === 'api') {
-      width = 220
-      const endpointLines = (node.data.endpoints || []).length
-      height = 100 + (endpointLines > 0 ? 20 + (endpointLines * 16) : 0)
-    } else if (node.type === 'fetcher') {
-      width = 240
-      const sourceLines = (node.data.sources || []).length
-      height = 100 + (sourceLines > 0 ? 20 + (sourceLines * 16) : 0)
-    }
+  // Find kafka-to-db consumers
+  const kafkaToDbConsumers = processorNodes.filter(n =>
+    n.data.label.includes('kafka-to-db') ||
+    n.data.label.includes('timescale-writer') ||
+    n.data.label.includes('generic-kafka-to-db')
+  )
 
-    dagreGraph.setNode(node.id, { width, height })
-  })
+  // Find other processors
+  const otherProcessors = processorNodes.filter(n =>
+    !n.data.label.includes('kafka-to-db') &&
+    !n.data.label.includes('timescale-writer') &&
+    !n.data.label.includes('generic-kafka-to-db')
+  )
 
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target)
-  })
+  // Column positions
+  const columnX = {
+    api: 50,
+    fetcher: 50,
+    rawTopic: 350,
+    processor: 700,
+    processedTopic: 1100,
+    kafkaToDb: 1450,
+    table: 1750,
+    error: 1100
+  }
 
-  dagre.layout(dagreGraph)
+  const nodeSpacing = 150
+  const sectionSpacing = 100
 
-  const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id)
-    const width = nodeWithPosition.width
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - width / 2,
-        y: nodeWithPosition.y - nodeWithPosition.height / 2,
-      },
+  // Keep column headers at top
+  const headerNodes = nodes.filter(n => n.type === 'column-header')
+  headerNodes.forEach(node => {
+    // Position is already set, just ensure y is 0
+    if (node.position) {
+      node.position.y = 0
     }
   })
 
-  return { nodes: layoutedNodes, edges }
+  // Layout API nodes
+  let currentY = 80 // Start below headers
+  apiNodes.forEach((node) => {
+    node.position = { x: columnX.api, y: currentY }
+    currentY += nodeSpacing
+  })
+
+  // Layout Fetcher nodes below API
+  currentY += sectionSpacing // Extra spacing between sections
+  const fetcherStartY = currentY
+  fetcherNodes.forEach((node) => {
+    node.position = { x: columnX.fetcher, y: currentY }
+    currentY += nodeSpacing
+  })
+
+  // Layout raw topics - group by source
+  const apiRawTopics = rawTopics.filter(t => {
+    // Check if topic has incoming edge from API
+    return edges.some(e => e.target === t.id && e.source === 'api_ingestion')
+  })
+
+  const fetcherRawTopics = rawTopics.filter(t => {
+    // Check if topic has incoming edge from fetcher
+    return edges.some(e => e.target === t.id && e.source.startsWith('fetcher_'))
+  })
+
+  // Position API raw topics
+  currentY = 80 // Start below headers
+  apiRawTopics.forEach((node) => {
+    node.position = { x: columnX.rawTopic, y: currentY }
+    currentY += nodeSpacing
+  })
+
+  // Position fetcher raw topics aligned with fetchers
+  currentY = fetcherStartY
+  fetcherRawTopics.forEach((node) => {
+    node.position = { x: columnX.rawTopic, y: currentY }
+    currentY += nodeSpacing
+  })
+
+  // Layout processors based on their input topics
+  currentY = 80 // Start below headers
+  const positionedNodes = new Set<string>()
+
+  otherProcessors.forEach((node) => {
+    // Try to align with input topics
+    const inputTopicIds = edges
+      .filter(e => e.target === node.id)
+      .map(e => e.source)
+
+    if (inputTopicIds.length > 0) {
+      const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
+      if (inputNodes.length > 0) {
+        const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
+        node.position = { x: columnX.processor, y: avgY }
+        positionedNodes.add(node.id)
+      }
+    }
+
+    if (!positionedNodes.has(node.id)) {
+      node.position = { x: columnX.processor, y: currentY }
+      currentY += nodeSpacing
+    }
+  })
+
+  // Layout processed topics
+  currentY = 80 // Start below headers
+  positionedNodes.clear()
+
+  processedTopics.forEach((node) => {
+    // Try to align with producing processors
+    const producerIds = edges
+      .filter(e => e.target === node.id)
+      .map(e => e.source)
+
+    if (producerIds.length > 0) {
+      const producerNodes = nodes.filter(n => producerIds.includes(n.id) && n.position)
+      if (producerNodes.length > 0) {
+        const avgY = producerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / producerNodes.length
+        node.position = { x: columnX.processedTopic, y: avgY }
+        positionedNodes.add(node.id)
+      }
+    }
+
+    if (!positionedNodes.has(node.id)) {
+      node.position = { x: columnX.processedTopic, y: currentY }
+      currentY += nodeSpacing
+    }
+  })
+
+  // Layout kafka-to-db consumers
+  currentY = 80 // Start below headers
+  positionedNodes.clear()
+
+  kafkaToDbConsumers.forEach((node) => {
+    // Try to align with input topics that have tables
+    const inputTopicIds = edges
+      .filter(e => e.target === node.id)
+      .map(e => e.source)
+
+    if (inputTopicIds.length > 0) {
+      const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
+      if (inputNodes.length > 0) {
+        const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
+        node.position = { x: columnX.kafkaToDb, y: avgY }
+        positionedNodes.add(node.id)
+      }
+    }
+
+    if (!positionedNodes.has(node.id)) {
+      node.position = { x: columnX.kafkaToDb, y: currentY }
+      currentY += nodeSpacing
+    }
+  })
+
+  // Layout table nodes aligned with their kafka-to-db consumers
+  tableNodes.forEach((node) => {
+    // Find the kafka-to-db consumer that reads the topic for this table
+    const topicName = node.data.topic
+    const topicNode = nodes.find(n => n.type === 'kafka-topic' && n.data.label === topicName)
+
+    if (topicNode) {
+      // Find kafka-to-db consumers that read this topic
+      const consumerIds = edges
+        .filter(e => e.source === topicNode.id && kafkaToDbConsumers.some(k => k.id === e.target))
+        .map(e => e.target)
+
+      if (consumerIds.length > 0) {
+        const consumerNodes = nodes.filter(n => consumerIds.includes(n.id) && n.position)
+        if (consumerNodes.length > 0) {
+          const avgY = consumerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / consumerNodes.length
+          node.position = { x: columnX.table, y: avgY }
+        }
+      }
+    }
+
+    if (!node.position) {
+      node.position = { x: columnX.table, y: currentY }
+      currentY += 100
+    }
+  })
+
+  // Layout error topics at bottom
+  currentY = Math.max(...nodes.filter(n => n.position).map(n => (n.position?.y || 0))) + 200
+  errorTopics.forEach((node) => {
+    node.position = { x: columnX.error, y: currentY }
+    currentY += 100
+  })
+
+  return { nodes, edges }
 }
 
 function SimplePipelineMonitor() {
@@ -342,6 +482,29 @@ function SimplePipelineMonitor() {
       const newEdges: Edge[] = []
       const nodeMap = new Map<string, Node>()
       const topicNameToId = new Map<string, string>() // Map topic names to node IDs
+
+      // Add column headers
+      const columnHeaders = [
+        { id: 'header_sources', label: 'Data Sources', x: 50 },
+        { id: 'header_raw_topics', label: 'Raw Topics', x: 350 },
+        { id: 'header_processors', label: 'Processors', x: 700 },
+        { id: 'header_processed', label: 'Processed Topics', x: 1100 },
+        { id: 'header_db_writers', label: 'DB Writers', x: 1450 },
+        { id: 'header_tables', label: 'Database Tables', x: 1750 }
+      ]
+
+      columnHeaders.forEach(header => {
+        const node: Node = {
+          id: header.id,
+          type: 'column-header',
+          position: { x: header.x, y: 0 },
+          data: { label: header.label },
+          selectable: false,
+          draggable: false
+        }
+        newNodes.push(node)
+        nodeMap.set(header.id, node)
+      })
 
       // Add ingestion API as a special node
       const apiNodeId = 'api_ingestion'
@@ -377,10 +540,17 @@ function SimplePipelineMonitor() {
       // Create fetcher nodes for external data sources
       const fetcherConfigs = [
         {
-          id: 'fetcher_email',
-          label: 'Email Fetcher',
-          description: 'IMAP email ingestion',
-          sources: ['Gmail', 'Outlook', 'IMAP servers'],
+          id: 'fetcher_gmail',
+          label: 'Gmail Fetcher',
+          description: 'Gmail email ingestion',
+          sources: ['Gmail API'],
+          outputTopics: ['external.email.raw']
+        },
+        {
+          id: 'fetcher_fastmail',
+          label: 'Fastmail Fetcher',
+          description: 'Fastmail email ingestion',
+          sources: ['Fastmail IMAP'],
           outputTopics: ['external.email.raw']
         },
         {
@@ -391,11 +561,18 @@ function SimplePipelineMonitor() {
           outputTopics: ['external.calendar.events.raw']
         },
         {
-          id: 'fetcher_twitter',
-          label: 'Twitter/X Fetcher',
+          id: 'fetcher_x_likes',
+          label: 'X/Twitter Likes Fetcher',
           description: 'Social media scraper',
-          sources: ['Twitter/X likes', 'Bookmarks'],
+          sources: ['X.com likes'],
           outputTopics: ['external.twitter.liked.raw', 'task.url.ingest']
+        },
+        {
+          id: 'fetcher_hackernews',
+          label: 'HackerNews Fetcher',
+          description: 'HN saved items',
+          sources: ['HackerNews API'],
+          outputTopics: ['external.hackernews.liked', 'task.url.ingest']
         }
       ]
 
