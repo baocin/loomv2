@@ -1,0 +1,42 @@
+# Scheduler configuration for periodic tasks
+# This configuration defines when to trigger various fetchers
+
+schedules:
+  # Calendar fetcher - run every 30 minutes
+  calendar_fetch:
+    topic: scheduler.triggers.calendar_fetch
+    cron: "*/30 * * * *"  # Every 30 minutes
+    message:
+      trigger_type: "scheduled"
+      source: "cron_scheduler"
+
+  # Email fetcher - run every 15 minutes
+  email_fetch:
+    topic: scheduler.triggers.email_fetch
+    cron: "*/15 * * * *"  # Every 15 minutes
+    message:
+      trigger_type: "scheduled"
+      source: "cron_scheduler"
+
+  # HackerNews scraper - run every hour
+  hn_scrape:
+    topic: scheduler.triggers.hn_scrape
+    cron: "0 * * * *"  # Every hour at minute 0
+    message:
+      trigger_type: "scheduled"
+      source: "cron_scheduler"
+
+# Scheduler service configuration
+service:
+  name: "loom-scheduler"
+  kafka:
+    bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}"
+    producer:
+      acks: "all"
+      retries: 3
+  timezone: "UTC"
+
+# Health check configuration
+health:
+  port: 8080
+  path: "/healthz"
