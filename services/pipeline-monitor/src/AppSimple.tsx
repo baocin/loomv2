@@ -438,12 +438,27 @@ function SimplePipelineMonitor() {
       // Create edges from API to raw topics with endpoint details
       const apiTopicMappings = [
         { topic: 'device.audio.raw', endpoints: ['/audio/upload', '/audio/stream'] },
+        { topic: 'device.image.camera.raw', endpoint: '/images/upload' },
+        { topic: 'device.image.screenshot.raw', endpoint: '/images/screenshot' },
+        { topic: 'device.video.screen.raw', endpoint: '/images/video' },
         { topic: 'device.sensor.gps.raw', endpoint: '/sensor/gps' },
         { topic: 'device.sensor.accelerometer.raw', endpoint: '/sensor/accelerometer' },
+        { topic: 'device.sensor.temperature.raw', endpoint: '/sensor/temperature' },
+        { topic: 'device.sensor.barometer.raw', endpoint: '/sensor/barometer' },
         { topic: 'device.health.heartrate.raw', endpoint: '/sensor/heartrate' },
+        { topic: 'device.health.steps.raw', endpoint: '/health/steps' },
         { topic: 'device.state.power.raw', endpoint: '/sensor/power' },
+        { topic: 'device.network.wifi.raw', endpoint: '/sensor/wifi' },
+        { topic: 'device.network.bluetooth.raw', endpoint: '/sensor/bluetooth' },
+        { topic: 'device.system.apps.macos.raw', endpoint: '/system/apps/macos' },
+        { topic: 'device.metadata.raw', endpoint: '/system/metadata' },
+        { topic: 'digital.clipboard.raw', endpoint: '/digital/clipboard' },
+        { topic: 'digital.web_analytics.raw', endpoint: '/digital/web-analytics' },
+        { topic: 'digital.notes.raw', endpoints: ['/notes/upload', '/notes/digital'] },
+        { topic: 'digital.documents.raw', endpoint: '/documents/upload' },
         { topic: 'os.events.app_lifecycle.raw', endpoint: '/os-events/app-lifecycle' },
         { topic: 'os.events.system.raw', endpoint: '/os-events/system' },
+        { topic: 'os.events.notifications.raw', endpoint: '/os-events/notifications' },
         { topic: 'device.system.apps.android.raw', endpoints: ['/system/apps/android', '/system/apps/android/usage'] }
       ]
 
@@ -790,7 +805,7 @@ function SimplePipelineMonitor() {
         >
           Refresh
         </button>
-        
+
         <button
           onClick={() => {
             // Create a comprehensive structure object
@@ -847,7 +862,7 @@ function SimplePipelineMonitor() {
               })),
               rawTopology: topology
             }
-            
+
             // Convert to JSON and download
             const dataStr = JSON.stringify(structure, null, 2)
             const dataBlob = new Blob([dataStr], { type: 'application/json' })
