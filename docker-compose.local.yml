@@ -241,35 +241,28 @@ services:
   pipeline-monitor-api:
     build:
       context: ./services/pipeline-monitor-api
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.simple
     environment:
+      NODE_ENV: production
       PORT: 8080
-      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_DATABASE_HOST: postgres
       LOOM_DATABASE_PORT: 5432
       LOOM_DATABASE_NAME: loom
       LOOM_DATABASE_USER: loom
       LOOM_DATABASE_PASSWORD: loom
-      CORS_ORIGIN: http://localhost:3000
-      LOG_LEVEL: info
-      NODE_ENV: development
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     ports:
       - "8082:8080"
-    volumes:
-      - ./docs:/docs:ro  # Mount docs directory as read-only
     depends_on:
       postgres:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/health/live', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
-      timeout: 10s
-      retries: 5
+      timeout: 5s
+      retries: 3
 
   pipeline-monitor:
     build:
@@ -277,7 +270,6 @@ services:
       dockerfile: Dockerfile
     environment:
       VITE_API_URL: http://localhost:8082
-      VITE_TEST_PRODUCER_URL: http://localhost:8008
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -285,11 +277,6 @@ services:
       - "3000:3000"
     depends_on:
       - pipeline-monitor-api
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   # Data Fetcher Services
   hackernews-fetcher:
