@@ -281,6 +281,24 @@ export class DatabaseClient {
     return result.rows
   }
 
+  async getApiEndpointMappings(): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not connected')
+
+    const query = `
+      SELECT
+        topic_name,
+        api_endpoint,
+        api_method,
+        api_description,
+        is_primary
+      FROM topic_api_endpoints
+      ORDER BY topic_name, api_endpoint
+    `
+
+    const result = await this.query(query)
+    return result.rows
+  }
+
   async getPipelineTopology(): Promise<any> {
     if (!this.pool) {
       throw new Error('Database not connected')
@@ -291,6 +309,7 @@ export class DatabaseClient {
       const flows = await this.getPipelineFlows()
       const stages = await this.getPipelineStages()
       const topics = await this.getTopicMappings()
+      const apiMappings = await this.getApiEndpointMappings()
 
       // Build topic producer/consumer relationships
       const topicProducers = new Map<string, string[]>()
@@ -329,6 +348,7 @@ export class DatabaseClient {
         flows,
         stages,
         topics,
+        apiMappings,
         topology: {
           topicProducers: Object.fromEntries(topicProducers),
           topicConsumers: Object.fromEntries(topicConsumers)
@@ -337,6 +357,7 @@ export class DatabaseClient {
           flowCount: flows.length,
           stageCount: stages.length,
           topicCount: topics.length,
+          apiMappingCount: apiMappings.length,
           producerTopicCount: topicProducers.size,
           consumerTopicCount: topicConsumers.size
         },

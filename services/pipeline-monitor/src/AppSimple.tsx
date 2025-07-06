@@ -435,66 +435,55 @@ function SimplePipelineMonitor() {
         topicNameToId.set(topic.topic_name, nodeId) // Store mapping for lookup
       })
 
-      // Create edges from API to raw topics with endpoint details
-      const apiTopicMappings = [
-        { topic: 'device.audio.raw', endpoints: ['/audio/upload', '/audio/stream'] },
-        { topic: 'device.image.camera.raw', endpoint: '/images/upload' },
-        { topic: 'device.image.screenshot.raw', endpoint: '/images/screenshot' },
-        { topic: 'device.video.screen.raw', endpoint: '/images/video' },
-        { topic: 'device.sensor.gps.raw', endpoint: '/sensor/gps' },
-        { topic: 'device.sensor.accelerometer.raw', endpoint: '/sensor/accelerometer' },
-        { topic: 'device.sensor.temperature.raw', endpoint: '/sensor/temperature' },
-        { topic: 'device.sensor.barometer.raw', endpoint: '/sensor/barometer' },
-        { topic: 'device.health.heartrate.raw', endpoint: '/sensor/heartrate' },
-        { topic: 'device.health.steps.raw', endpoint: '/health/steps' },
-        { topic: 'device.state.power.raw', endpoint: '/sensor/power' },
-        { topic: 'device.network.wifi.raw', endpoint: '/sensor/wifi' },
-        { topic: 'device.network.bluetooth.raw', endpoint: '/sensor/bluetooth' },
-        { topic: 'device.system.apps.macos.raw', endpoint: '/system/apps/macos' },
-        { topic: 'device.metadata.raw', endpoint: '/system/metadata' },
-        { topic: 'digital.clipboard.raw', endpoint: '/digital/clipboard' },
-        { topic: 'digital.web_analytics.raw', endpoint: '/digital/web-analytics' },
-        { topic: 'digital.notes.raw', endpoints: ['/notes/upload', '/notes/digital'] },
-        { topic: 'digital.documents.raw', endpoint: '/documents/upload' },
-        { topic: 'os.events.app_lifecycle.raw', endpoint: '/os-events/app-lifecycle' },
-        { topic: 'os.events.system.raw', endpoint: '/os-events/system' },
-        { topic: 'os.events.notifications.raw', endpoint: '/os-events/notifications' },
-        { topic: 'device.system.apps.android.raw', endpoints: ['/system/apps/android', '/system/apps/android/usage'] }
-      ]
+      // Create edges from API to raw topics using database mappings
+      if (topologyData.apiMappings) {
+        // Group API mappings by topic
+        const topicEndpoints = new Map<string, string[]>()
 
-      apiTopicMappings.forEach(mapping => {
-        const topicId = topicNameToId.get(mapping.topic)
-        if (topicId) {
-          const endpoints = mapping.endpoints || [mapping.endpoint]
-          const endpointLabel = endpoints.join(', ')
-          newEdges.push({
-            id: `${apiNodeId}-${topicId}`,
-            source: apiNodeId,
-            target: topicId,
-            label: endpointLabel,
-            type: 'smoothstep',
-            animated: true,
-            style: {
-              stroke: '#9333ea',
-              strokeWidth: 2
-            },
-            labelStyle: {
-              fontSize: 10,
-              fontWeight: 600
-            },
-            labelBgPadding: [8, 4],
-            labelBgBorderRadius: 4,
-            labelBgStyle: {
-              fill: '#ffffff',
-              fillOpacity: 0.9
-            },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: '#9333ea'
-            }
-          })
-        }
-      })
+        topologyData.apiMappings.forEach((mapping: any) => {
+          if (!topicEndpoints.has(mapping.topic_name)) {
+            topicEndpoints.set(mapping.topic_name, [])
+          }
+          topicEndpoints.get(mapping.topic_name)!.push(mapping.api_endpoint)
+        })
+
+        // Create edges for each topic with API endpoints
+        topicEndpoints.forEach((endpoints, topicName) => {
+          const topicId = topicNameToId.get(topicName)
+          if (topicId) {
+            // Remove duplicates and sort endpoints
+            const uniqueEndpoints = [...new Set(endpoints)].sort()
+            const endpointLabel = uniqueEndpoints.join(', ')
+
+            newEdges.push({
+              id: `${apiNodeId}-${topicId}`,
+              source: apiNodeId,
+              target: topicId,
+              label: endpointLabel,
+              type: 'smoothstep',
+              animated: true,
+              style: {
+                stroke: '#9333ea',
+                strokeWidth: 2
+              },
+              labelStyle: {
+                fontSize: 10,
+                fontWeight: 600
+              },
+              labelBgPadding: [8, 4],
+              labelBgBorderRadius: 4,
+              labelBgStyle: {
+                fill: '#ffffff',
+                fillOpacity: 0.9
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#9333ea'
+              }
+            })
+          }
+        })
+      }
 
       // Create edges from fetchers to their output topics
       fetcherConfigs.forEach(fetcher => {

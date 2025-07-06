@@ -77,10 +77,23 @@ app.get('/api/pipelines/topology', async (req, res) => {
       ORDER BY kt.topic_name
     `)
 
+    // Get API endpoint mappings
+    const apiMappingsResult = await pool.query(`
+      SELECT
+        topic_name,
+        api_endpoint,
+        api_method,
+        api_description,
+        is_primary
+      FROM topic_api_endpoints
+      ORDER BY topic_name, api_endpoint
+    `)
+
     res.json({
       flows: flowsResult.rows,
       stages: stagesResult.rows,
-      topics: topicsResult.rows
+      topics: topicsResult.rows,
+      apiMappings: apiMappingsResult.rows
     })
   } catch (error) {
     console.error('Failed to get pipeline topology:', error)
