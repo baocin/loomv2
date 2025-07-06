@@ -252,6 +252,37 @@ const nodeTypes = {
 
 // Layout algorithm - organized in columns
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
+  // Helper function to avoid overlaps
+  const occupiedRegions: Map<number, { y: number, height: number }[]> = new Map()
+
+  const findNonOverlappingY = (x: number, preferredY: number, height: number = 150): number => {
+    if (!occupiedRegions.has(x)) {
+      occupiedRegions.set(x, [])
+    }
+
+    const regions = occupiedRegions.get(x)!
+    let candidateY = preferredY
+    let collision = true
+    let attempts = 0
+
+    while (collision && attempts < 20) {
+      collision = false
+      for (const region of regions) {
+        // Check if there's overlap with padding
+        if (candidateY < region.y + region.height + 20 && candidateY + height + 20 > region.y) {
+          collision = true
+          candidateY = region.y + region.height + 20
+          break
+        }
+      }
+      attempts++
+    }
+
+    // Register this region as occupied
+    regions.push({ y: candidateY, height })
+    return candidateY
+  }
+
   // Categorize nodes by type and flow
   const apiNodes = nodes.filter(n => n.type === 'api')
   const fetcherNodes = nodes.filter(n => n.type === 'fetcher')
@@ -282,16 +313,16 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const columnX = {
     api: 50,
     fetcher: 50,
-    rawTopic: 350,
-    processor: 700,
-    processedTopic: 1100,
-    kafkaToDb: 1450,
-    table: 1750,
-    error: 1100
+    rawTopic: 400,
+    processor: 800,
+    processedTopic: 1300,
+    kafkaToDb: 1700,
+    table: 2100,
+    error: 1300
   }
 
-  const nodeSpacing = 150
-  const sectionSpacing = 100
+  const nodeSpacing = 180
+  const sectionSpacing = 150
 
   // Keep column headers at top
   const headerNodes = nodes.filter(n => n.type === 'column-header')
@@ -305,16 +336,18 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Layout API nodes
   let currentY = 80 // Start below headers
   apiNodes.forEach((node) => {
-    node.position = { x: columnX.api, y: currentY }
-    currentY += nodeSpacing
+    const y = findNonOverlappingY(columnX.api, currentY)
+    node.position = { x: columnX.api, y }
+    currentY = y + nodeSpacing
   })
 
   // Layout Fetcher nodes below API
   currentY += sectionSpacing // Extra spacing between sections
   const fetcherStartY = currentY
   fetcherNodes.forEach((node) => {
-    node.position = { x: columnX.fetcher, y: currentY }
-    currentY += nodeSpacing
+    const y = findNonOverlappingY(columnX.fetcher, currentY)
+    node.position = { x: columnX.fetcher, y }
+    currentY = y + nodeSpacing
   })
 
   // Layout raw topics - group by source
@@ -331,15 +364,17 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   // Position API raw topics
   currentY = 80 // Start below headers
   apiRawTopics.forEach((node) => {
-    node.position = { x: columnX.rawTopic, y: currentY }
-    currentY += nodeSpacing
+    const y = findNonOverlappingY(columnX.rawTopic, currentY)
+    node.position = { x: columnX.rawTopic, y }
+    currentY = y + nodeSpacing
   })
 
   // Position fetcher raw topics aligned with fetchers
   currentY = fetcherStartY
   fetcherRawTopics.forEach((node) => {
-    node.position = { x: columnX.rawTopic, y: currentY }
-    currentY += nodeSpacing
+    const y = findNonOverlappingY(columnX.rawTopic, currentY)
+    node.position = { x: columnX.rawTopic, y }
+    currentY = y + nodeSpacing
   })
 
   // Layout processors based on their input topics
@@ -356,14 +391,16 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
       if (inputNodes.length > 0) {
         const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
-        node.position = { x: columnX.processor, y: avgY }
+        const y = findNonOverlappingY(columnX.processor, avgY)
+        node.position = { x: columnX.processor, y }
         positionedNodes.add(node.id)
       }
     }
 
     if (!positionedNodes.has(node.id)) {
-      node.position = { x: columnX.processor, y: currentY }
-      currentY += nodeSpacing
+      const y = findNonOverlappingY(columnX.processor, currentY)
+      node.position = { x: columnX.processor, y }
+      currentY = y + nodeSpacing
     }
   })
 
@@ -381,14 +418,16 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       const producerNodes = nodes.filter(n => producerIds.includes(n.id) && n.position)
       if (producerNodes.length > 0) {
         const avgY = producerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / producerNodes.length
-        node.position = { x: columnX.processedTopic, y: avgY }
+        const y = findNonOverlappingY(columnX.processedTopic, avgY)
+        node.position = { x: columnX.processedTopic, y }
         positionedNodes.add(node.id)
       }
     }
 
     if (!positionedNodes.has(node.id)) {
-      node.position = { x: columnX.processedTopic, y: currentY }
-      currentY += nodeSpacing
+      const y = findNonOverlappingY(columnX.processedTopic, currentY)
+      node.position = { x: columnX.processedTopic, y }
+      currentY = y + nodeSpacing
     }
   })
 
@@ -406,14 +445,16 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
       if (inputNodes.length > 0) {
         const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
-        node.position = { x: columnX.kafkaToDb, y: avgY }
+        const y = findNonOverlappingY(columnX.kafkaToDb, avgY)
+        node.position = { x: columnX.kafkaToDb, y }
         positionedNodes.add(node.id)
       }
     }
 
     if (!positionedNodes.has(node.id)) {
-      node.position = { x: columnX.kafkaToDb, y: currentY }
-      currentY += nodeSpacing
+      const y = findNonOverlappingY(columnX.kafkaToDb, currentY)
+      node.position = { x: columnX.kafkaToDb, y }
+      currentY = y + nodeSpacing
     }
   })
 
@@ -433,22 +474,25 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
         const consumerNodes = nodes.filter(n => consumerIds.includes(n.id) && n.position)
         if (consumerNodes.length > 0) {
           const avgY = consumerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / consumerNodes.length
-          node.position = { x: columnX.table, y: avgY }
+          const y = findNonOverlappingY(columnX.table, avgY, 100)
+          node.position = { x: columnX.table, y }
         }
       }
     }
 
     if (!node.position) {
-      node.position = { x: columnX.table, y: currentY }
-      currentY += 100
+      const y = findNonOverlappingY(columnX.table, currentY, 100)
+      node.position = { x: columnX.table, y }
+      currentY = y + 120
     }
   })
 
   // Layout error topics at bottom
   currentY = Math.max(...nodes.filter(n => n.position).map(n => (n.position?.y || 0))) + 200
   errorTopics.forEach((node) => {
-    node.position = { x: columnX.error, y: currentY }
-    currentY += 100
+    const y = findNonOverlappingY(columnX.error, currentY, 100)
+    node.position = { x: columnX.error, y }
+    currentY = y + 120
   })
 
   return { nodes, edges }
@@ -486,11 +530,11 @@ function SimplePipelineMonitor() {
       // Add column headers
       const columnHeaders = [
         { id: 'header_sources', label: 'Data Sources', x: 50 },
-        { id: 'header_raw_topics', label: 'Raw Topics', x: 350 },
-        { id: 'header_processors', label: 'Processors', x: 700 },
-        { id: 'header_processed', label: 'Processed Topics', x: 1100 },
-        { id: 'header_db_writers', label: 'DB Writers', x: 1450 },
-        { id: 'header_tables', label: 'Database Tables', x: 1750 }
+        { id: 'header_raw_topics', label: 'Raw Topics', x: 400 },
+        { id: 'header_processors', label: 'Processors', x: 800 },
+        { id: 'header_processed', label: 'Processed Topics', x: 1300 },
+        { id: 'header_db_writers', label: 'DB Writers', x: 1700 },
+        { id: 'header_tables', label: 'Database Tables', x: 2100 }
       ]
 
       columnHeaders.forEach(header => {
