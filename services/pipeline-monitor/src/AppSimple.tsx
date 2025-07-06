@@ -1056,9 +1056,12 @@ function SimplePipelineMonitor() {
         fitView
         fitViewOptions={{
           padding: 0.3,
-          minZoom: 0.1,
-          maxZoom: 1.5
+          minZoom: 0.01,
+          maxZoom: 2
         }}
+        minZoom={0.01}
+        maxZoom={2}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
         defaultEdgeOptions={{
           type: 'smoothstep',
           animated: true
