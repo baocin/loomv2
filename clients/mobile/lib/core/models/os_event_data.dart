@@ -116,3 +116,38 @@ class AndroidAppMonitoring {
     };
   }
 }
+
+class OSNotificationEvent {
+  final String deviceId;
+  final DateTime timestamp;
+  final String notificationId;
+  final String appIdentifier;
+  final String? title;
+  final String? body;
+  final String? action;
+  final Map<String, dynamic>? metadata;
+
+  OSNotificationEvent({
+    required this.deviceId,
+    required this.timestamp,
+    required this.notificationId,
+    required this.appIdentifier,
+    this.title,
+    this.body,
+    this.action,
+    this.metadata,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'device_id': deviceId,
+      'recorded_at': timestamp.toIso8601String(),
+      'notification_id': notificationId,
+      'app_identifier': appIdentifier,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (action != null) 'action': action,
+      if (metadata != null) 'metadata': metadata,
+    };
+  }
+}

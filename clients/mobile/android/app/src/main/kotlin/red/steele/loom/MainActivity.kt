@@ -30,6 +30,9 @@ class MainActivity : FlutterActivity() {
 
         appLifecycleMonitor = AppLifecycleMonitor(this)
 
+        // Setup notification monitoring channels
+        NotificationMonitor.setupChannels(flutterEngine, this)
+
         // Screen State Method Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "red.steele.loom/screen_state").setMethodCallHandler { call, result ->
             when (call.method) {

@@ -8,12 +8,12 @@ import '../models/audio_data.dart';
 class LoomApiClient {
   static const String defaultBaseUrl = 'http://10.0.2.2:8000'; // Android emulator host IP
   static const String defaultApiKey = 'apikeyhere';
-  
+
   late final Dio _dio;
   final String baseUrl;
   final String apiKey;
 
-  LoomApiClient({String? baseUrl, String? apiKey}) 
+  LoomApiClient({String? baseUrl, String? apiKey})
     : baseUrl = baseUrl ?? defaultBaseUrl,
       apiKey = apiKey ?? defaultApiKey {
     _dio = Dio(BaseOptions(
@@ -189,6 +189,11 @@ class LoomApiClient {
 
   Future<ApiResponse> uploadAppLifecycleEvent(Map<String, dynamic> data) async {
     final response = await _dio.post('/os-events/app-lifecycle', data: data);
+    return ApiResponse.fromJson(response.data);
+  }
+
+  Future<ApiResponse> uploadNotificationEvent(Map<String, dynamic> data) async {
+    final response = await _dio.post('/os-events/notifications', data: data);
     return ApiResponse.fromJson(response.data);
   }
 

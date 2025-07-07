@@ -19,6 +19,7 @@ import '../data_sources/camera_data_source.dart';
 import '../data_sources/screen_state_data_source.dart';
 import '../data_sources/app_lifecycle_data_source.dart';
 import '../data_sources/android_app_monitoring_data_source.dart';
+import '../data_sources/notification_data_source.dart';
 
 class DataCollectionService {
   final DeviceManager _deviceManager;
@@ -182,6 +183,12 @@ class DataCollectionService {
     final appMonitoringSource = AndroidAppMonitoringDataSource(_deviceId);
     if (await appMonitoringSource.isAvailable()) {
       _dataSources['android_app_monitoring'] = appMonitoringSource;
+    }
+
+    // Notification Data Source (Android only)
+    final notificationSource = NotificationDataSource();
+    if (await notificationSource.isAvailable()) {
+      _dataSources['notifications'] = notificationSource;
     }
 
     print('Initialized ${_dataSources.length} data sources: ${_dataSources.keys.join(', ')}');
@@ -438,6 +445,18 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadAndroidAppMonitoring(jsonData);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
+          }
+          break;
+
+        case 'notifications':
+          endpoint = '/os-events/notifications';
+          final items = data.cast<OSNotificationEvent>();
+          for (final item in items) {
+            final jsonData = item.toJson();
+            totalBytes += jsonData.toString().length;
+            await _apiClient.uploadNotificationEvent(jsonData);
             _lastSentData[sourceId] = item;
             _lastSentTime[sourceId] = DateTime.now();
           }
