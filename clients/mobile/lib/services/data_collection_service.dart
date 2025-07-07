@@ -186,7 +186,7 @@ class DataCollectionService {
     }
 
     // Notification Data Source (Android only)
-    final notificationSource = NotificationDataSource();
+    final notificationSource = NotificationDataSource(_deviceId);
     if (await notificationSource.isAvailable()) {
       _dataSources['notifications'] = notificationSource;
     }
