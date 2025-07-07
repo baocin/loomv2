@@ -9,6 +9,7 @@ from ..models import (
     AccelerometerReading,
     GPSReading,
     HeartRateReading,
+    LockState,
     PowerState,
     SensorReading,
 )
@@ -197,6 +198,51 @@ async def ingest_power_state(power_state: PowerState) -> JSONResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to ingest power state data",
+        ) from e
+
+
+@router.post("/lock", status_code=status.HTTP_201_CREATED)
+async def ingest_lock_state(lock_state: LockState) -> JSONResponse:
+    """Ingest device lock/unlock state data.
+
+    Args:
+    ----
+        lock_state: Lock state data
+
+    Returns:
+    -------
+        Success response with message ID
+
+    """
+    try:
+        await kafka_producer.send_lock_state(lock_state)
+
+        logger.info(
+            "Lock state data ingested",
+            device_id=lock_state.device_id,
+            message_id=lock_state.message_id,
+            is_locked=lock_state.is_locked,
+            lock_type=lock_state.lock_type,
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": lock_state.message_id,
+                "topic": "device.state.lock.raw",
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to ingest lock state data",
+            device_id=lock_state.device_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest lock state data",
         ) from e
 
 

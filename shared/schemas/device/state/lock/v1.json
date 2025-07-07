@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loom.local/schemas/device/state/lock/v1.json",
+  "title": "Device Lock State",
+  "description": "Schema for device lock/unlock state information",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the lock state was recorded"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for the device"
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique message identifier"
+    },
+    "is_locked": {
+      "type": "boolean",
+      "description": "Whether the device is currently locked"
+    },
+    "lock_type": {
+      "type": "string",
+      "enum": ["screen", "device", "app", "biometric", "pattern", "pin", "password", "none"],
+      "description": "Type of lock mechanism"
+    },
+    "lock_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the lock state last changed"
+    }
+  },
+  "required": [
+    "schema_version",
+    "timestamp",
+    "device_id",
+    "message_id",
+    "is_locked"
+  ],
+  "additionalProperties": false
+}

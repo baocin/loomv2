@@ -65,6 +65,14 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            settings.topic_device_state_lock: {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days
+                    "compression.type": "producer",
+                },
+            },
             # New Sprint 4 topics
             settings.topic_device_system_apps_macos: {
                 "partitions": settings.kafka_default_partitions,

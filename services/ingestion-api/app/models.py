@@ -85,6 +85,20 @@ class PowerState(BaseMessage):
     power_source: str | None = Field(default=None, description="Power source type")
 
 
+class LockState(BaseMessage):
+    """Device lock/unlock state information."""
+
+    is_locked: bool = Field(description="Whether device is currently locked")
+    lock_type: str | None = Field(
+        default=None,
+        description="Type of lock (screen, device, app, etc.)",
+    )
+    lock_timestamp: datetime | None = Field(
+        default=None,
+        description="When the lock state changed",
+    )
+
+
 class ImageData(BaseMessage):
     """Image data from camera or screenshot."""
 

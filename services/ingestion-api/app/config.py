@@ -74,6 +74,12 @@ class Settings(BaseSettings):
         description="Topic for arbitrary device metadata",
     )
 
+    # Topics - Device State
+    topic_device_state_lock: str = Field(
+        default="device.state.lock.raw",
+        description="Topic for device lock/unlock state",
+    )
+
     # App Monitoring Configuration
     app_monitoring_enabled: bool = Field(
         default=True,

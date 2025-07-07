@@ -134,6 +134,13 @@ class KafkaProducerService:
             message=image_data,
         )
 
+    async def send_lock_state(self, lock_state: Any) -> None:
+        """Send lock state data to the lock state topic."""
+        await self.send_message(
+            topic=settings.topic_device_state_lock,
+            message=lock_state,
+        )
+
     @property
     def is_connected(self) -> bool:
         """Check if producer is connected to Kafka."""

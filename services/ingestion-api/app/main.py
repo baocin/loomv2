@@ -11,6 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 
 from .config import settings
 from .kafka_producer import kafka_producer
+from .kafka_consumer import kafka_consumer
 from .kafka_topics import topic_manager
 from .models import HealthCheck
 from .routers import audio, sensors, system
@@ -68,6 +69,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await kafka_producer.start()
         logger.info("Kafka producer started successfully")
 
+        # Start Kafka consumer for database storage
+        await kafka_consumer.start()
+        logger.info("Kafka consumer started successfully")
+
     except Exception as e:
         logger.error("Failed to start dependencies", error=str(e))
         raise
@@ -78,6 +83,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down ingestion API service")
 
     try:
+        # Stop Kafka consumer first
+        await kafka_consumer.stop()
+        logger.info("Kafka consumer stopped successfully")
+
         # Stop Kafka producer
         await kafka_producer.stop()
         logger.info("Kafka producer stopped successfully")

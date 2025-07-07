@@ -11,6 +11,7 @@ from app.models import (
     GPSReading,
     HealthCheck,
     HeartRateReading,
+    LockState,
     PowerState,
     SensorReading,
     WebSocketMessage,
@@ -130,6 +131,36 @@ class TestSensorModels:
         assert power_state.battery_level == 85.5
         assert power_state.is_charging is True
         assert power_state.power_source == "USB"
+
+    def test_lock_state(self):
+        """Test LockState model."""
+        lock_timestamp = datetime(2025, 7, 7, 12, 0, 0)
+        lock_state = LockState(
+            device_id="test-device",
+            is_locked=True,
+            lock_type="biometric",
+            lock_timestamp=lock_timestamp,
+        )
+
+        assert lock_state.device_id == "test-device"
+        assert lock_state.is_locked is True
+        assert lock_state.lock_type == "biometric"
+        assert lock_state.lock_timestamp == lock_timestamp
+        assert lock_state.schema_version == "1.0"
+        assert isinstance(lock_state.timestamp, datetime)
+        assert isinstance(lock_state.message_id, str)
+
+    def test_lock_state_minimal(self):
+        """Test LockState with minimal required fields."""
+        lock_state = LockState(
+            device_id="test-device",
+            is_locked=False,
+        )
+
+        assert lock_state.device_id == "test-device"
+        assert lock_state.is_locked is False
+        assert lock_state.lock_type is None
+        assert lock_state.lock_timestamp is None
 
     def test_generic_sensor_reading(self):
         """Test generic SensorReading model."""
