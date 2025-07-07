@@ -45,7 +45,9 @@ class Settings(BaseSettings):
     silero_model_name: str = "silero_vad"
     silero_model_version: str = "v4.0"
     silero_use_onnx: bool = True  # Use ONNX for better stability
-    silero_model_cache_path: str = "/data/models/silero-vad"  # Path to store models persistently
+    silero_model_cache_path: str = (
+        "/data/models/silero-vad"  # Path to store models persistently
+    )
 
     # Performance settings
     batch_timeout_ms: int = 100

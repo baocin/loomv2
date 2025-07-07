@@ -118,7 +118,7 @@ RETENTION_MS["os.events.notifications.raw"]=2592000000  # 30 days
 for topic in "${TOPICS[@]}"; do
     # Get retention or use default 30 days
     retention=${RETENTION_MS[$topic]:-2592000000}
-    
+
     echo "Creating topic: $topic (partitions=$PARTITIONS, retention=$retention)"
     docker exec $KAFKA_CONTAINER kafka-topics --bootstrap-server $BOOTSTRAP_SERVER \
         --create --topic "$topic" \

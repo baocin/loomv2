@@ -55,7 +55,7 @@ const nodeTypes = {
     const [showExample, setShowExample] = useState(false)
 
     return (
-      <div 
+      <div
         className={`relative bg-blue-100 border-2 border-blue-500 rounded-lg p-4 min-w-[200px] m-2 ${
           data.isFiltered ? 'opacity-30' : ''
         } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -107,7 +107,7 @@ const nodeTypes = {
     const [showLog, setShowLog] = useState(false)
 
     return (
-      <div 
+      <div
         className={`relative bg-green-100 border-2 border-green-500 rounded-lg p-4 min-w-[250px] m-2 ${
           data.isFiltered ? 'opacity-30' : ''
         } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -168,7 +168,7 @@ const nodeTypes = {
     )
   },
   'database': ({ data }: any) => (
-    <div 
+    <div
       className={`bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2 ${
         data.isFiltered ? 'opacity-30' : ''
       } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -180,7 +180,7 @@ const nodeTypes = {
     </div>
   ),
   'table': ({ data }: any) => (
-    <div 
+    <div
       className={`relative bg-orange-100 border-2 border-orange-500 rounded-lg p-4 min-w-[200px] m-2 ${
         data.isFiltered ? 'opacity-30' : ''
       } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -204,7 +204,7 @@ const nodeTypes = {
     </div>
   ),
   'api': ({ data }: any) => (
-    <div 
+    <div
       className={`relative bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2 ${
         data.isFiltered ? 'opacity-30' : ''
       } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -236,7 +236,7 @@ const nodeTypes = {
     </div>
   ),
   'fetcher': ({ data }: any) => (
-    <div 
+    <div
       className={`relative bg-yellow-100 border-2 border-yellow-500 rounded-lg p-4 min-w-[200px] m-2 ${
         data.isFiltered ? 'opacity-30' : ''
       } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
@@ -517,14 +517,14 @@ function SimplePipelineMonitor() {
     // Find directly matched nodes
     nodes.forEach(node => {
       if (node.type === 'column-header') return
-      
+
       const label = node.data.label?.toLowerCase() || ''
       const description = node.data.description?.toLowerCase() || ''
       const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
       const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
       const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
-      
-      if (label.includes(searchLower) || 
+
+      if (label.includes(searchLower) ||
           description.includes(searchLower) ||
           consumerGroup.includes(searchLower) ||
           inputTopics.includes(searchLower) ||
@@ -549,10 +549,10 @@ function SimplePipelineMonitor() {
   // Update node styling when search changes
   useEffect(() => {
     if (!nodes.length) return
-    
+
     const updatedNodes = nodes.map(node => {
       if (node.type === 'column-header') return node
-      
+
       const isMatched = searchTerm.trim() && filteredNodes.has(node.id) && (() => {
         const searchLower = searchTerm.toLowerCase()
         const label = node.data.label?.toLowerCase() || ''
@@ -560,16 +560,16 @@ function SimplePipelineMonitor() {
         const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
         const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
         const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
-        
-        return label.includes(searchLower) || 
+
+        return label.includes(searchLower) ||
                description.includes(searchLower) ||
                consumerGroup.includes(searchLower) ||
                inputTopics.includes(searchLower) ||
                outputTopics.includes(searchLower)
       })()
-      
+
       const isFiltered = searchTerm.trim() && !filteredNodes.has(node.id)
-      
+
       return {
         ...node,
         data: {
@@ -579,15 +579,15 @@ function SimplePipelineMonitor() {
         }
       }
     })
-    
+
     setNodes(updatedNodes)
-    
+
     // Also update edge styling
     const updatedEdges = edges.map(edge => {
       const sourceFiltered = searchTerm.trim() && !filteredNodes.has(edge.source)
       const targetFiltered = searchTerm.trim() && !filteredNodes.has(edge.target)
       const isFiltered = sourceFiltered || targetFiltered
-      
+
       if (isFiltered) {
         return {
           ...edge,
@@ -614,7 +614,7 @@ function SimplePipelineMonitor() {
         }
       }
     })
-    
+
     setEdges(updatedEdges)
   }, [filteredNodes, searchTerm])
 
@@ -1028,7 +1028,7 @@ function SimplePipelineMonitor() {
       // Apply search filtering to nodes
       const nodesWithFiltering = nodesWithSavedPositions.map(node => {
         if (node.type === 'column-header') return node
-        
+
         const isMatched = searchTerm.trim() && filteredNodes.has(node.id) && (() => {
           const searchLower = searchTerm.toLowerCase()
           const label = node.data.label?.toLowerCase() || ''
@@ -1036,16 +1036,16 @@ function SimplePipelineMonitor() {
           const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
           const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
           const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
-          
-          return label.includes(searchLower) || 
+
+          return label.includes(searchLower) ||
                  description.includes(searchLower) ||
                  consumerGroup.includes(searchLower) ||
                  inputTopics.includes(searchLower) ||
                  outputTopics.includes(searchLower)
         })()
-        
+
         const isFiltered = searchTerm.trim() && !filteredNodes.has(node.id)
-        
+
         return {
           ...node,
           data: {
@@ -1055,7 +1055,7 @@ function SimplePipelineMonitor() {
           }
         }
       })
-      
+
       setNodes(nodesWithFiltering)
       setEdges(layouted.edges)
     } catch (err) {
@@ -1252,7 +1252,7 @@ function SimplePipelineMonitor() {
     <div className="h-screen bg-gray-100">
       <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg max-w-sm">
         <h1 className="text-xl font-bold mb-2">Loom Pipeline Structure</h1>
-        
+
         {/* Search Input */}
         <div className="mb-4">
           <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1284,7 +1284,7 @@ function SimplePipelineMonitor() {
             </div>
           )}
         </div>
-        
+
         <div className="text-sm text-gray-600 mb-4 space-y-1">
           <div>Nodes: {nodes.filter(n => n.type !== 'column-header').length}</div>
           <div>Connections: {edges.length}</div>

@@ -40,7 +40,7 @@ RETENTION_MS["os.events.notifications.raw"]=2592000000  # 30 days
 for topic in $TOPICS; do
     # Get retention or use default 30 days
     retention=${RETENTION_MS[$topic]:-2592000000}
-    
+
     echo "Restoring retention for $topic to $retention ms"
     docker exec $KAFKA_CONTAINER kafka-configs --bootstrap-server $BOOTSTRAP_SERVER \
         --alter --entity-type topics --entity-name "$topic" \

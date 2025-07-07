@@ -1,7 +1,7 @@
 # Execute Twitter OCR Processor Fix
 
 ## Issue Status
-- ❌ k3d cluster has connectivity issues 
+- ❌ k3d cluster has connectivity issues
 - ❌ k3s API server not responding
 - ⚠️ Cannot execute Kubernetes commands currently
 

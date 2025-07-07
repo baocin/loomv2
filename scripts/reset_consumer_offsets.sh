@@ -12,15 +12,15 @@ CONSUMER_GROUPS=$(docker exec $KAFKA_CONTAINER kafka-consumer-groups --bootstrap
 
 for group in $CONSUMER_GROUPS; do
     echo -e "\nResetting offsets for consumer group: $group"
-    
+
     # Get topics for this consumer group
     TOPICS=$(docker exec $KAFKA_CONTAINER kafka-consumer-groups --bootstrap-server $BOOTSTRAP_SERVER --describe --group $group 2>/dev/null  < /dev/null |  grep -E "^$group" | awk '{print $2}' | sort -u | grep -v "^$")
-    
+
     if [ -z "$TOPICS" ]; then
         echo "  No topics found for this group"
         continue
     fi
-    
+
     for topic in $TOPICS; do
         echo "  Resetting topic: $topic to latest"
         docker exec $KAFKA_CONTAINER kafka-consumer-groups --bootstrap-server $BOOTSTRAP_SERVER \
