@@ -1,6 +1,5 @@
 """Meta endpoints for system monitoring and activity logging."""
 
-
 import structlog
 from asyncpg import UniqueViolationError
 from fastapi import APIRouter, Depends, HTTPException, status

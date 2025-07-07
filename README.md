@@ -84,7 +84,7 @@ make dev-up
 ```
 
 This will:
-- Create a k3d Kubernetes cluster
+- Start Docker Compose services
 - Deploy Kafka, PostgreSQL, and the Ingestion API
 - Set up port forwarding for local access
 - Enable hot-reload for development
@@ -131,7 +131,6 @@ Once running, the following services are available:
 | **Health Check** | http://localhost:8000/healthz | Service health status |
 | **Metrics** | http://localhost:8000/metrics | Prometheus metrics |
 | **Kafka UI** | http://localhost:8081 | Web-based Kafka monitoring and management |
-| **Tilt Dashboard** | http://localhost:10350 | Development environment UI |
 | **PostgreSQL** | localhost:5432 | Database (loom/loom/loom) |
 | **Kafka** | localhost:9092 | Message broker |
 
@@ -410,8 +409,8 @@ flowchart TB
     end
 
     subgraph "Development Tools"
-        Tilt[Tilt Dashboard<br/>:10350]
-        K3D[k3d Cluster]
+        Compose[Docker Compose<br/>Local Environment]
+        Make[Makefile Commands<br/>Dev Orchestration]
     end
 
     %% Data Flow
@@ -444,10 +443,10 @@ flowchart TB
     API --> Health
     API --> Logs
 
-    K3D --> API
-    K3D --> Kafka
-    K3D --> PG
-    Tilt --> K3D
+    Compose --> API
+    Compose --> Kafka
+    Compose --> PG
+    Make --> Compose
 
     classDef service fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
     classDef storage fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
@@ -461,7 +460,7 @@ flowchart TB
     class Metrics,Health,Logs,KafkaUI monitor
     class AudioTopic,GPSTopic,AccelTopic,HeartTopic,PowerTopic topic
     class Audio,GPS,Accel,Heart,Power device
-    class Tilt,K3D tool
+    class Compose,Make tool
 ```
 
 ### Data Flow
@@ -474,9 +473,9 @@ flowchart TB
 ### Key Technologies
 - **FastAPI**: High-performance async web framework
 - **Kafka**: Event streaming and message queuing
-- **PostgreSQL**: Reliable relational database
+- **PostgreSQL**: Reliable relational database (with TimescaleDB for time-series data)
 - **Kubernetes**: Container orchestration
-- **Tilt**: Development environment automation
+- **Docker Compose**: Alternative development environment
 
 ## 🔧 Configuration
 
@@ -511,29 +510,29 @@ export LOOM_DEBUG=true
 
 ### Common Issues
 
-#### Tilt won't start
+#### Development environment won't start
 ```bash
-# Check k3d cluster
-k3d cluster list
+# Check Docker Compose services
+docker-compose -f docker-compose.local.yml ps
 
-# Verify kubectl context
-kubectl config current-context
+# Check Docker daemon status
+docker info
 
-# Restart cluster if needed
-k3d cluster delete loom-dev
+# Restart services if needed
+make dev-down
 make dev-up
 ```
 
 #### Service crashes
 ```bash
-# Check pod status
-kubectl get pods -n loom-dev
+# Check container status
+docker-compose -f docker-compose.local.yml ps
 
-# View detailed pod info
-kubectl describe pod -n loom-dev <pod-name>
+# View detailed container info
+docker inspect <container-name>
 
 # Check logs
-kubectl logs -n loom-dev <pod-name>
+docker-compose -f docker-compose.local.yml logs <service-name>
 ```
 
 #### Database connection issues
@@ -619,7 +618,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Sprint 0**: ✅ Complete - Infrastructure, pre-commit hooks, k3d environment
 - **Sprint 1**: ✅ Complete - Comprehensive test suite (71 tests), CI/CD
 - **Sprint 2**: ✅ Complete - Core infrastructure, schema validation
-- **Sprint 3**: 🚧 In Progress - Storage abstraction layer, migrations
+- **Sprint 3**: ✅ Complete - Storage abstraction layer, migrations
+- **Sprint 4**: ✅ Complete - Kafka optimization, service architecture
+- **Sprint 5**: ✅ Complete - OS event tracking, mobile app integration
+- **Sprint 6**: 🚧 In Progress - AI model integration, documentation cleanup
 
 ---
 
