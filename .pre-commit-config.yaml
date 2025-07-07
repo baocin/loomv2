@@ -37,8 +37,9 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [--recursive, --format, txt, --exclude, "**/tests/**,**/test_*.py"]
-        pass_filenames: false
+        args: [--recursive, --format, txt, --exclude, "tests,*test*"]
+        files: \.py$
+        exclude: ^(tests/|.*test.*\.py$)
 
 # Global configuration
 default_stages: [pre-commit]
