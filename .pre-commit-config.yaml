@@ -37,7 +37,8 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, ., -f, txt, --exclude, "**/tests/**"]
+        args: [--recursive, --format, txt, --exclude, "**/tests/**,**/test_*.py"]
+        pass_filenames: false
 
 # Global configuration
 default_stages: [pre-commit]
