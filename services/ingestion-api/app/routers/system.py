@@ -5,7 +5,9 @@ import json
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
+from ..api.deps import get_db
 from ..auth import verify_api_key
 from ..config import settings
 from ..kafka_producer import kafka_producer
@@ -15,6 +17,11 @@ from ..models import (
     APIResponse,
     DeviceMetadata,
     MacOSAppMonitoring,
+)
+from ..models.consumer_activity import (
+    ConsumerActivityMonitoring,
+    ConsumerActivityRequest,
+    ConsumerActivityResponse,
 )
 
 logger = structlog.get_logger(__name__)
@@ -471,3 +478,181 @@ async def get_metadata_types() -> JSONResponse:
             "max_size": "1MB",
         },
     )
+
+
+# Consumer Activity Monitoring Endpoints
+
+
+@router.post(
+    "/consumer_activity/log",
+    response_model=ConsumerActivityResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Log consumer activity",
+    description="Log the last consumed and/or produced message for a Kafka consumer",
+)
+async def log_consumer_activity(
+    request: ConsumerActivityRequest,
+    db=Depends(get_db),
+) -> JSONResponse:
+    """Log consumer activity to the database.
+
+    Args:
+    ----
+        request: Consumer activity data including consumer_id and optional message info
+
+    Returns:
+    -------
+        ConsumerActivityResponse with the logged data
+
+    """
+    try:
+        # Use the database function for atomic upsert
+        query = text(
+            """
+            SELECT * FROM upsert_consumer_activity(
+                p_consumer_id := :consumer_id,
+                p_consumed_message := :consumed_message,
+                p_produced_message := :produced_message,
+                p_consumed_at := :consumed_at,
+                p_produced_at := :produced_at
+            )
+        """,
+        )
+
+        result = await db.fetch_one(
+            query=query,
+            values={
+                "consumer_id": request.consumer_id,
+                "consumed_message": (
+                    json.dumps(request.consumed_message)
+                    if request.consumed_message
+                    else None
+                ),
+                "produced_message": (
+                    json.dumps(request.produced_message)
+                    if request.produced_message
+                    else None
+                ),
+                "consumed_at": request.consumed_at,
+                "produced_at": request.produced_at,
+            },
+        )
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to log consumer activity",
+            )
+
+        # Convert result to response model
+        response = ConsumerActivityResponse(
+            id=result["id"],
+            consumer_id=result["consumer_id"],
+            last_consumed_message=(
+                json.loads(result["last_consumed_message"])
+                if result["last_consumed_message"]
+                else None
+            ),
+            last_produced_message=(
+                json.loads(result["last_produced_message"])
+                if result["last_produced_message"]
+                else None
+            ),
+            message_consumed_at=result["message_consumed_at"],
+            message_produced_at=result["message_produced_at"],
+            last_complete_processed_consumed_message=(
+                json.loads(result["last_complete_processed_consumed_message"])
+                if result["last_complete_processed_consumed_message"]
+                else None
+            ),
+            last_complete_processed_produced_message=(
+                json.loads(result["last_complete_processed_produced_message"])
+                if result["last_complete_processed_produced_message"]
+                else None
+            ),
+            created_at=result["created_at"],
+            updated_at=result["updated_at"],
+        )
+
+        logger.info(
+            "Consumer activity logged",
+            consumer_id=request.consumer_id,
+            has_consumed=bool(request.consumed_message),
+            has_produced=bool(request.produced_message),
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=response.model_dump(mode="json"),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to log consumer activity",
+            consumer_id=request.consumer_id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to log consumer activity: {e!s}",
+        )
+
+
+@router.get(
+    "/consumer_activity",
+    response_model=list[ConsumerActivityMonitoring],
+    status_code=status.HTTP_200_OK,
+    summary="Get consumer activity monitoring data",
+    description="Retrieve current consumer activity and health status",
+)
+async def get_consumer_activity_monitoring(
+    db=Depends(get_db),
+) -> list[ConsumerActivityMonitoring]:
+    """Get consumer activity monitoring data.
+
+    Returns a list of all consumers with their current processing status,
+    including:
+    - Last consumed/produced timestamps
+    - Processing time metrics
+    - Health status (inactive, stuck, etc.)
+    """
+    try:
+        query = text(
+            """
+            SELECT * FROM consumer_activity_monitoring
+            ORDER BY
+                health_status = 'inactive' DESC,
+                health_status = 'stuck' DESC,
+                last_update_minutes_ago DESC
+        """,
+        )
+
+        rows = await db.fetch_all(query=query)
+
+        return [
+            ConsumerActivityMonitoring(
+                consumer_id=row["consumer_id"],
+                last_consumed_at=row["last_consumed_at"],
+                last_produced_at=row["last_produced_at"],
+                last_update_minutes_ago=row["last_update_minutes_ago"],
+                consumed_to_produced_seconds=row["consumed_to_produced_seconds"],
+                health_status=row["health_status"],
+                is_active_consumer=row["is_active_consumer"],
+                is_active_producer=row["is_active_producer"],
+            )
+            for row in rows
+        ]
+
+    except Exception as e:
+        logger.error(
+            "Failed to get consumer activity monitoring",
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get consumer activity: {e!s}",
+        )

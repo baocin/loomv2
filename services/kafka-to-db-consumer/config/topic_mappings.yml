@@ -1,50 +1,33 @@
-# Topic to Database Table Mapping Configuration
-# This file defines how Kafka topic messages are mapped to database tables
-# Each topic can specify field mappings, upsert strategy, and data transformations
-
-# Configuration schema version
-schema_version: "v1"
-
-# Global defaults
+schema_version: v1
 defaults:
-  upsert_key: "device_id, timestamp"  # For hypertables - matches TimescaleDB PK
-  conflict_strategy: "ignore"  # ignore, update, replace
-  timestamp_field: "timestamp"
-  device_id_field: "device_id"
-  schema_version_field: "schema_version"
-
-# Topic mappings
+  upsert_key: device_id, timestamp
+  conflict_strategy: ignore
+  timestamp_field: timestamp
+  device_id_field: device_id
+  schema_version_field: schema_version
 topics:
-  # Device Audio/Video/Image Topics
   device.audio.raw:
-    table: "device_audio_raw"
-    description: "Raw microphone audio chunks"
+    table: device_audio_raw
+    description: Raw microphone audio chunks
     field_mappings:
       trace_id: trace_id
       device_id: device_id
       timestamp: timestamp
       schema_version: schema_version
-      # Handle various data field formats
-      chunk_data: audio_data  # Handle old format
-      data: audio_data  # Handle flat data field
-      data.audio_data: audio_data  # Handle nested format
-      data.chunk_data: audio_data  # Handle nested chunk_data
-      # Handle chunk number
+      chunk_data: audio_data
+      data: audio_data
+      data.audio_data: audio_data
+      data.chunk_data: audio_data
       chunk_number: chunk_number
       data.chunk_number: chunk_number
-      # Handle format field
       format: format
       data.format: format
-      # Handle sample rate
       sample_rate: sample_rate
       data.sample_rate: sample_rate
-      # Handle channels
       channels: channels
       data.channels: channels
-      # Handle duration
       duration_ms: duration_ms
       data.duration_ms: duration_ms
-      # Other fields
       metadata: metadata
       file_id: file_id
       message_id: message_id
@@ -57,13 +40,12 @@ topics:
       timestamp: timestamp
       recorded_at: timestamp
     required_fields:
-      - device_id
-      - timestamp
-    conflict_strategy: "ignore"
-
+    - device_id
+    - timestamp
+    conflict_strategy: ignore
   device.video.screen.raw:
-    table: "device_video_screen_raw"
-    description: "Screen recording keyframes"
+    table: device_video_screen_raw
+    description: Screen recording keyframes
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -84,15 +66,13 @@ topics:
       timestamp_ms: integer
       timestamp: timestamp
     transforms:
-      frame_data: "base64_decode"
+      frame_data: base64_decode
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
+    - device_id
+    - timestamp
   device.image.camera.raw:
-    table: "device_image_camera_raw"
-    description: "Photos from cameras and screenshots"
+    table: device_image_camera_raw
+    description: Photos from cameras and screenshots
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -113,16 +93,13 @@ topics:
       longitude: float
       timestamp: timestamp
     transforms:
-      image_data: "base64_decode"
+      image_data: base64_decode
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
-  # Device Sensor Topics
+    - device_id
+    - timestamp
   device.sensor.gps.raw:
-    table: "device_sensor_gps_raw"
-    description: "GPS location data from devices"
+    table: device_sensor_gps_raw
+    description: GPS location data from devices
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -147,15 +124,13 @@ topics:
       battery_level: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.latitude
-      - data.longitude
-
+    - device_id
+    - timestamp
+    - data.latitude
+    - data.longitude
   device.sensor.barometer.raw:
-    table: "device_sensor_barometer_raw"
-    description: "Atmospheric pressure data"
+    table: device_sensor_barometer_raw
+    description: Atmospheric pressure data
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -170,14 +145,12 @@ topics:
       altitude: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.pressure
-
+    - device_id
+    - timestamp
+    - data.pressure
   device.sensor.temperature.raw:
-    table: "device_sensor_temperature_raw"
-    description: "Device temperature readings"
+    table: device_sensor_temperature_raw
+    description: Device temperature readings
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -191,19 +164,21 @@ topics:
       temperature: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.temperature
-
+    - device_id
+    - timestamp
+    - data.temperature
   device.sensor.accelerometer.raw:
-    table: "device_sensor_accelerometer_raw"
-    description: "3-axis motion sensor data"
+    table: device_sensor_accelerometer_raw
+    description: 3-axis motion sensor data
     field_mappings:
       trace_id: trace_id
       device_id: device_id
       timestamp: timestamp
       schema_version: schema_version
+      # Support both root-level and nested data fields
+      x: x_axis
+      y: y_axis
+      z: z_axis
       data.x: x_axis
       data.y: y_axis
       data.z: z_axis
@@ -219,14 +194,11 @@ topics:
       sample_rate: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
-  # Device Health Topics
+    - device_id
+    - timestamp
   device.health.heartrate.raw:
-    table: "device_health_heartrate_raw"
-    description: "Heart rate measurements"
+    table: device_health_heartrate_raw
+    description: Heart rate measurements
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -244,14 +216,12 @@ topics:
       variability: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.heart_rate
-
+    - device_id
+    - timestamp
+    - data.heart_rate
   device.health.steps.raw:
-    table: "device_health_steps_raw"
-    description: "Step count data"
+    table: device_health_steps_raw
+    description: Step count data
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -271,15 +241,12 @@ topics:
       floor_count: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.step_count
-
-  # Device State Topics
+    - device_id
+    - timestamp
+    - data.step_count
   device.state.power.raw:
-    table: "device_state_power_raw"
-    description: "Device power and battery status"
+    table: device_state_power_raw
+    description: Device power and battery status
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -299,16 +266,13 @@ topics:
       voltage: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.battery_level
-      - data.is_charging
-
-  # Device System Topics
+    - device_id
+    - timestamp
+    - data.battery_level
+    - data.is_charging
   device.system.apps.macos.raw:
-    table: "device_system_apps_macos_raw"
-    description: "macOS app monitoring data"
+    table: device_system_apps_macos_raw
+    description: macOS app monitoring data
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -328,14 +292,12 @@ topics:
       memory_usage_mb: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.app_name
-
+    - device_id
+    - timestamp
+    - data.app_name
   device.system.apps.android.raw:
-    table: "device_system_apps_android_raw"
-    description: "Android app monitoring data"
+    table: device_system_apps_android_raw
+    description: Android app monitoring data
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -354,14 +316,12 @@ topics:
       data_usage_mb: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.app_name
-
+    - device_id
+    - timestamp
+    - data.app_name
   device.metadata.raw:
-    table: "device_metadata_raw"
-    description: "Arbitrary device metadata"
+    table: device_metadata_raw
+    description: Arbitrary device metadata
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -375,16 +335,13 @@ topics:
       value: json
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.key
-      - data.value
-
-  # OS Event Topics
+    - device_id
+    - timestamp
+    - data.key
+    - data.value
   os.events.app_lifecycle.raw:
-    table: "os_events_app_lifecycle_raw"
-    description: "Application lifecycle events"
+    table: os_events_app_lifecycle_raw
+    description: Application lifecycle events
     field_mappings:
       trace_id: id
       device_id: device_id
@@ -399,14 +356,13 @@ topics:
       duration_seconds: integer
       timestamp: timestamp
     required_fields:
-      - device_id
-      - timestamp
-      - data.app_identifier
-      - data.event_type
-
+    - device_id
+    - timestamp
+    - data.app_identifier
+    - data.event_type
   os.events.system.raw:
-    table: "os_events_system_raw"
-    description: "System-level OS events"
+    table: os_events_system_raw
+    description: System-level OS events
     field_mappings:
       trace_id: id
       device_id: device_id
@@ -420,13 +376,12 @@ topics:
     data_types:
       timestamp: timestamp
     required_fields:
-      - device_id
-      - timestamp
-      - data.event_type
-
+    - device_id
+    - timestamp
+    - data.event_type
   os.events.notifications.raw:
-    table: "os_events_notifications_raw"
-    description: "System notification events"
+    table: os_events_notifications_raw
+    description: System notification events
     field_mappings:
       trace_id: id
       device_id: device_id
@@ -441,28 +396,24 @@ topics:
     data_types:
       timestamp: timestamp
     required_fields:
-      - device_id
-      - timestamp
-      - data.notification_id
-      - data.app_identifier
-
-  # Network Topics
+    - device_id
+    - timestamp
+    - data.notification_id
+    - data.app_identifier
   device.network.wifi.raw:
-    table: "device_network_wifi_raw"
-    description: "Wi-Fi connection state"
+    table: device_network_wifi_raw
+    description: Wi-Fi connection state
     field_mappings:
       trace_id: trace_id
       device_id: device_id
       timestamp: timestamp
       schema_version: schema_version
-      # Try nested fields first
       data.ssid: ssid
       data.bssid: bssid
       data.signal_strength: signal_strength
       data.link_speed_mbps: link_speed_mbps
       data.frequency_mhz: frequency_mhz
       data.is_connected: is_connected
-      # Also check flat fields (top level)
       ssid: ssid
       bssid: bssid
       signal_strength: signal_strength
@@ -473,8 +424,7 @@ topics:
       ip_address: ip_address
       link_speed: link_speed
       is_connected: is_connected
-      connected: is_connected  # Field name variant
-      # Metadata fields
+      connected: is_connected
       metadata.ip_address: ip_address
       metadata.security_type: security_type
     data_types:
@@ -484,15 +434,13 @@ topics:
       is_connected: boolean
       timestamp: timestamp
     defaults:
-      is_connected: false  # Default to disconnected if not specified
+      is_connected: false
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
+    - device_id
+    - timestamp
   device.network.bluetooth.raw:
-    table: "device_network_bluetooth_raw"
-    description: "Nearby Bluetooth devices"
+    table: device_network_bluetooth_raw
+    description: Nearby Bluetooth devices
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -510,14 +458,11 @@ topics:
       services: array
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
-  # Digital Data Topics
+    - device_id
+    - timestamp
   digital.clipboard.raw:
-    table: "digital_clipboard_raw"
-    description: "Clipboard content"
+    table: digital_clipboard_raw
+    description: Clipboard content
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -533,16 +478,13 @@ topics:
       has_formatting: boolean
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
-  # External Data Topics - Updated to use twitter_posts
+    - device_id
+    - timestamp
   external.twitter.liked.raw:
-    table: "twitter_posts"
-    description: "Liked tweets from Twitter/X"
-    upsert_key: "tweet_id"  # Twitter posts use tweet_id as unique key
-    conflict_strategy: "update"
+    table: twitter_posts
+    description: Liked tweets from Twitter/X
+    upsert_key: tweet_id
+    conflict_strategy: update
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -573,15 +515,13 @@ topics:
       liked_at: timestamp
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.tweet_id
-      - data.tweet_text
-
+    - device_id
+    - timestamp
+    - data.tweet_id
+    - data.tweet_text
   external.calendar.events.raw:
-    table: "external_calendar_events_raw"
-    description: "Calendar events"
+    table: external_calendar_events_raw
+    description: Calendar events
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -603,14 +543,12 @@ topics:
       is_recurring: boolean
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.event_id
-
+    - device_id
+    - timestamp
+    - data.event_id
   external.email.events.raw:
-    table: "external_email_events_raw"
-    description: "Email events from all IMAP accounts"
+    table: external_email_events_raw
+    description: Email events from all IMAP accounts
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -629,15 +567,12 @@ topics:
       has_attachments: boolean
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.email_id
-
-  # Media Processing Topics
+    - device_id
+    - timestamp
+    - data.email_id
   media.audio.vad_filtered:
-    table: "media_audio_voice_segments_raw"
-    description: "Audio segments identified as containing speech"
+    table: media_audio_voice_segments_raw
+    description: Audio segments identified as containing speech
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -663,15 +598,13 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     transforms:
-      segment_audio_data: "base64_decode"
+      segment_audio_data: base64_decode
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
+    - device_id
+    - timestamp
   media.text.transcribed.words:
-    table: "media_text_word_timestamps_raw"
-    description: "Word-by-word speech transcription with timestamps"
+    table: media_text_word_timestamps_raw
+    description: Word-by-word speech transcription with timestamps
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -688,9 +621,8 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     array_mappings:
-      # Special handling for arrays - expand each element to separate rows
       data.words:
-        table_column_prefix: "word_"
+        table_column_prefix: word_
         element_mappings:
           word: word_text
           start: start_time_ms
@@ -698,13 +630,11 @@ topics:
           confidence: confidence_score
         sequence_field: word_sequence
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
+    - device_id
+    - timestamp
   media.image.analysis.minicpm_results:
-    table: "media_image_analysis_minicpm_results"
-    description: "Vision-language analysis results"
+    table: media_image_analysis_minicpm_results
+    description: Vision-language analysis results
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -722,14 +652,11 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
-  # Analysis Result Topics
+    - device_id
+    - timestamp
   analysis.audio.emotion_results:
-    table: "analysis_audio_emotion_scores_raw"
-    description: "Speech emotion recognition results"
+    table: analysis_audio_emotion_scores_raw
+    description: Speech emotion recognition results
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -747,15 +674,13 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-
+    - device_id
+    - timestamp
   analysis.text.embedded.emails:
-    table: "emails_with_embeddings"
-    description: "Email content with text embeddings"
-    upsert_key: "email_id"
-    conflict_strategy: "update"
+    table: emails_with_embeddings
+    description: Email content with text embeddings
+    upsert_key: email_id
+    conflict_strategy: update
     field_mappings:
       trace_id: trace_id
       email_id: email_id
@@ -773,15 +698,13 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - email_id
-      - data.embedding
-
+    - email_id
+    - data.embedding
   analysis.text.embedded.twitter:
-    table: "twitter_posts"
-    description: "Twitter content with text embeddings - updates existing records"
-    upsert_key: "tweet_id"  # Match the raw table's unique constraint
-    conflict_strategy: "update"
+    table: twitter_posts
+    description: Twitter content with text embeddings - updates existing records
+    upsert_key: tweet_id
+    conflict_strategy: update
     field_mappings:
       trace_id: trace_id
       tweet_id: tweet_id
@@ -797,13 +720,11 @@ topics:
       processing_time_ms: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - tweet_id
-      - data.embedding
-
+    - tweet_id
+    - data.embedding
   analysis.text.embedded.notifications:
-    table: "analysis_text_embedded_notifications"
-    description: "System notification embeddings"
+    table: analysis_text_embedded_notifications
+    description: System notification embeddings
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -822,15 +743,13 @@ topics:
       embedding_dimensions: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.content
-      - data.embedding
-      
+    - device_id
+    - timestamp
+    - data.content
+    - data.embedding
   analysis.text.embedded.notes:
-    table: "analysis_text_embedded_notes"
-    description: "Digital notes embeddings including OCR results"
+    table: analysis_text_embedded_notes
+    description: Digital notes embeddings including OCR results
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -850,16 +769,13 @@ topics:
       embedding_dimensions: integer
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.content
-      - data.embedding
-      
-  # Add digital notes raw topic
+    - device_id
+    - timestamp
+    - data.content
+    - data.embedding
   digital.notes.raw:
-    table: "digital_notes_raw"
-    description: "Raw digital notes from various apps"
+    table: digital_notes_raw
+    description: Raw digital notes from various apps
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -883,17 +799,14 @@ topics:
       tags: array
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.note_id
-      - data.content
-      
-  # Task Topics
+    - device_id
+    - timestamp
+    - data.note_id
+    - data.content
   task.url.ingest:
-    table: "task_url_ingest"
-    description: "URLs to be processed"
-    upsert_key: "trace_id"  # Non-hypertable
+    table: task_url_ingest
+    description: URLs to be processed
+    upsert_key: trace_id
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -909,15 +822,12 @@ topics:
       tags: array
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.url
-
-  # Location Processing Topics
+    - device_id
+    - timestamp
+    - data.url
   location.address.geocoded:
-    table: "location_address_geocoded"
-    description: "Geocoded addresses from GPS coordinates"
+    table: location_address_geocoded
+    description: Geocoded addresses from GPS coordinates
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -941,17 +851,14 @@ topics:
       confidence: float
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.latitude
-      - data.longitude
-      - data.formatted_address
-
-  # Motion and Activity Topics
+    - device_id
+    - timestamp
+    - data.latitude
+    - data.longitude
+    - data.formatted_address
   motion.events.significant:
-    table: "motion_events_significant"
-    description: "Significant motion events detected from accelerometer"
+    table: motion_events_significant
+    description: Significant motion events detected from accelerometer
     field_mappings:
       trace_id: event_id
       device_id: device_id
@@ -981,14 +888,13 @@ topics:
       end_time: timestamp
       timestamp: timestamp
     required_fields:
-      - device_id
-      - timestamp
-      - data.motion_type
-      - data.confidence
-
+    - device_id
+    - timestamp
+    - data.motion_type
+    - data.confidence
   motion.classification.activity:
-    table: "motion_classification_activity"
-    description: "Classified user activities from combined sensor data"
+    table: motion_classification_activity
+    description: Classified user activities from combined sensor data
     field_mappings:
       trace_id: message_id
       device_id: device_id
@@ -1025,14 +931,13 @@ topics:
       end_time: timestamp
       timestamp: timestamp
     required_fields:
-      - device_id
-      - timestamp
-      - data.activity_type
-      - data.confidence
-
+    - device_id
+    - timestamp
+    - data.activity_type
+    - data.confidence
   location.georegion.detected:
-    table: "location_georegion_detected"
-    description: "Detected presence in saved georegions"
+    table: location_georegion_detected
+    description: Detected presence in saved georegions
     field_mappings:
       trace_id: trace_id
       device_id: device_id
@@ -1057,39 +962,32 @@ topics:
       exit_time: timestamp
       timestamp: timestamp
     required_fields:
-      - trace_id
-      - device_id
-      - timestamp
-      - data.georegion_id
-      - data.georegion_name
-      - data.latitude
-      - data.longitude
-
-# Global transformations
+    - device_id
+    - timestamp
+    - data.georegion_id
+    - data.georegion_name
+    - data.latitude
+    - data.longitude
 transformations:
   base64_decode:
-    description: "Decode base64 string to bytes"
-    input_type: "string"
-    output_type: "bytes"
-
+    description: Decode base64 string to bytes
+    input_type: string
+    output_type: bytes
   timestamp_parse:
-    description: "Parse ISO timestamp string to PostgreSQL timestamp"
-    input_type: "string"
-    output_type: "timestamp"
-
+    description: Parse ISO timestamp string to PostgreSQL timestamp
+    input_type: string
+    output_type: timestamp
   json_stringify:
-    description: "Convert object to JSON string"
-    input_type: "object"
-    output_type: "string"
-
-# Data type mappings
+    description: Convert object to JSON string
+    input_type: object
+    output_type: string
 data_type_mappings:
-  string: "TEXT"
-  integer: "INTEGER"
-  float: "REAL"
-  boolean: "BOOLEAN"
-  timestamp: "TIMESTAMPTZ"
-  bytes: "BYTEA"
-  array: "TEXT[]"
-  float_array: "REAL[]"
-  json: "JSONB"
+  string: TEXT
+  integer: INTEGER
+  float: REAL
+  boolean: BOOLEAN
+  timestamp: TIMESTAMPTZ
+  bytes: BYTEA
+  array: TEXT[]
+  float_array: REAL[]
+  json: JSONB

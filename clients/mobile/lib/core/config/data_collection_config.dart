@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Configuration for data collection with duty cycles and sending rates
 class DataCollectionConfig {
   static const String _configKey = 'data_collection_config';
-  
+
   // Default configurations per data type (optimized for battery life)
   static const Map<String, DataSourceConfigParams> _defaultConfigs = {
     'gps': DataSourceConfigParams(
@@ -42,6 +42,27 @@ class DataCollectionConfig {
       uploadIntervalMs: 120000, // 2 minutes
       priority: DataPriority.high,
     ),
+    'screen_state': DataSourceConfigParams(
+      enabled: true,
+      collectionIntervalMs: 0, // Event-driven, no polling
+      uploadBatchSize: 20,
+      uploadIntervalMs: 60000, // 1 minute
+      priority: DataPriority.medium,
+    ),
+    'app_lifecycle': DataSourceConfigParams(
+      enabled: true,
+      collectionIntervalMs: 0, // Event-driven, no polling
+      uploadBatchSize: 20,
+      uploadIntervalMs: 60000, // 1 minute
+      priority: DataPriority.medium,
+    ),
+    'android_app_monitoring': DataSourceConfigParams(
+      enabled: true,
+      collectionIntervalMs: 300000, // 5 minutes
+      uploadBatchSize: 1,
+      uploadIntervalMs: 300000, // 5 minutes
+      priority: DataPriority.low,
+    ),
   };
 
   Map<String, DataSourceConfigParams> _configs = {};
@@ -55,7 +76,7 @@ class DataCollectionConfig {
     final config = DataCollectionConfig();
     final prefs = await SharedPreferences.getInstance();
     final configJson = prefs.getString(_configKey);
-    
+
     if (configJson != null) {
       try {
         final Map<String, dynamic> data = json.decode(configJson);
@@ -69,7 +90,7 @@ class DataCollectionConfig {
         print('Error loading config: $e, using defaults');
       }
     }
-    
+
     return config;
   }
 
@@ -84,7 +105,7 @@ class DataCollectionConfig {
 
   /// Get configuration for a data source
   DataSourceConfigParams getConfig(String sourceId) {
-    return _configs[sourceId] ?? _defaultConfigs[sourceId] ?? 
+    return _configs[sourceId] ?? _defaultConfigs[sourceId] ??
            const DataSourceConfigParams();
   }
 
@@ -104,7 +125,7 @@ class DataCollectionConfig {
   List<String> get sourceIds => _configs.keys.toList();
 
   /// Get enabled source IDs
-  List<String> get enabledSourceIds => 
+  List<String> get enabledSourceIds =>
       _configs.entries
           .where((e) => e.value.enabled)
           .map((e) => e.key)
@@ -229,6 +250,24 @@ class BatteryProfileManager {
         uploadBatchSize: 1,  // Performance mode = immediate upload
         uploadIntervalMs: 60000,
       ),
+      'screen_state': DataSourceConfigParams(
+        enabled: true,
+        collectionIntervalMs: 0, // Event-driven
+        uploadBatchSize: 1,  // Performance mode = immediate upload
+        uploadIntervalMs: 30000,
+      ),
+      'app_lifecycle': DataSourceConfigParams(
+        enabled: true,
+        collectionIntervalMs: 0, // Event-driven
+        uploadBatchSize: 1,  // Performance mode = immediate upload
+        uploadIntervalMs: 30000,
+      ),
+      'android_app_monitoring': DataSourceConfigParams(
+        enabled: true,
+        collectionIntervalMs: 60000, // 1 minute
+        uploadBatchSize: 1,
+        uploadIntervalMs: 60000,
+      ),
     },
     BatteryProfile.powersaver: {
       'gps': DataSourceConfigParams(
@@ -252,19 +291,34 @@ class BatteryProfileManager {
       'audio': DataSourceConfigParams(
         enabled: false,
       ),
+      'screen_state': DataSourceConfigParams(
+        enabled: true,
+        collectionIntervalMs: 0, // Event-driven
+        uploadBatchSize: 50,  // Batch many events
+        uploadIntervalMs: 600000, // 10 minutes
+      ),
+      'app_lifecycle': DataSourceConfigParams(
+        enabled: true,
+        collectionIntervalMs: 0, // Event-driven
+        uploadBatchSize: 50,  // Batch many events
+        uploadIntervalMs: 600000, // 10 minutes
+      ),
+      'android_app_monitoring': DataSourceConfigParams(
+        enabled: false, // Disabled in power saver
+      ),
     },
   };
 
   static DataCollectionConfig getProfileConfig(BatteryProfile profile) {
     final config = DataCollectionConfig();
     final profileConfigs = _profiles[profile];
-    
+
     if (profileConfigs != null) {
       for (final entry in profileConfigs.entries) {
         config._configs[entry.key] = entry.value;
       }
     }
-    
+
     return config;
   }
 }

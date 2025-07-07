@@ -9,6 +9,7 @@ import psutil
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 from loom_common.kafka.consumer_config_loader import KafkaConsumerConfigLoader
 
 from app.models import ImageMessage, VisionAnalysisResult
@@ -17,7 +18,7 @@ from app.vision_processor import VisionProcessor
 logger = structlog.get_logger()
 
 
-class KafkaImageConsumer:
+class KafkaImageConsumer(ConsumerActivityLogger):
     """Consumes image messages from Kafka and processes them."""
 
     def __init__(
@@ -41,6 +42,9 @@ class KafkaImageConsumer:
             service_name: Service name for configuration
             database_url: Database URL for config loader
         """
+        # Initialize activity logger
+        super().__init__(service_name=service_name)
+
         self.bootstrap_servers = bootstrap_servers
         self.input_topics = input_topics
         self.output_topic = output_topic
@@ -107,6 +111,9 @@ class KafkaImageConsumer:
             await self.consumer.start()
             await self.producer.start()
 
+            # Initialize activity logger
+            await self.init_activity_logger()
+
             # Load the vision model
             await self.vision_processor.load_model()
 
@@ -136,6 +143,9 @@ class KafkaImageConsumer:
 
         if self.db_pool:
             await self.db_pool.close()
+
+        # Close activity logger
+        await self.close_activity_logger()
 
         logger.info("Kafka consumer and producer stopped")
 
@@ -193,6 +203,9 @@ class KafkaImageConsumer:
                     offset=msg.offset,
                 )
 
+                # Log consumption
+                await self.log_consumption(msg)
+
                 # Process the message
                 start_time = time.time()
                 result = await self.process_message(msg.value)
@@ -200,10 +213,16 @@ class KafkaImageConsumer:
 
                 if result:
                     # Send result to output topic
+                    result_data = result.model_dump(mode="json")
                     await self.producer.send_and_wait(
                         self.output_topic,
-                        value=result.model_dump(mode="json"),
+                        value=result_data,
                         key=result.device_id.encode("utf-8"),
+                    )
+
+                    # Log production
+                    await self.log_production(
+                        self.output_topic, result_data, result.device_id
                     )
 
                     logger.info(

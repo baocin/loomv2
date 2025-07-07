@@ -4,13 +4,16 @@ from kafka import KafkaProducer as KP
 from kafka.errors import KafkaError
 import os
 from typing import Any, Optional
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 
-class KafkaProducer:
-    def __init__(self):
+class KafkaProducer(ConsumerActivityLogger):
+    def __init__(self, consumer=None):
         """Initialize Kafka producer"""
+        super().__init__(service_name="hackernews-url-processor")
         self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.topic_prefix = os.getenv("KAFKA_TOPIC_PREFIX", "")
+        self.consumer = consumer  # Reference to consumer for shared activity logger
 
         self.producer = KP(
             bootstrap_servers=self.bootstrap_servers,
@@ -24,7 +27,7 @@ class KafkaProducer:
             f"Kafka producer initialized with servers: {self.bootstrap_servers}"
         )
 
-    def send_message(self, topic: str, value: Any, key: Optional[str] = None):
+    async def send_message(self, topic: str, value: Any, key: Optional[str] = None):
         """Send message to Kafka topic"""
         try:
             # Add topic prefix if configured
@@ -35,6 +38,16 @@ class KafkaProducer:
 
             # Wait for message to be sent
             record_metadata = future.get(timeout=10)
+
+            # Log production using consumer's activity logger if available
+            if self.consumer and hasattr(self.consumer, "log_production"):
+                await self.consumer.log_production(
+                    topic=full_topic,
+                    partition=record_metadata.partition,
+                    offset=record_metadata.offset,
+                    key=key,
+                    value=value,
+                )
 
             logging.debug(
                 f"Message sent to {full_topic} at partition {record_metadata.partition}, offset {record_metadata.offset}"

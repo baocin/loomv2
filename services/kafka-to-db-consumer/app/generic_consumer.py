@@ -10,14 +10,15 @@ import structlog
 from aiokafka import AIOKafkaConsumer
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
-from .mapping_engine import MappingEngine
 from .db_mapping_engine import DatabaseMappingEngine
+from .mapping_engine import MappingEngine
 
 logger = structlog.get_logger(__name__)
 
 
-class GenericKafkaToDBConsumer:
+class GenericKafkaToDBConsumer(ConsumerActivityLogger):
     """Generic consumer that uses YAML mapping configuration to route messages to database tables."""
 
     def __init__(
@@ -28,6 +29,9 @@ class GenericKafkaToDBConsumer:
         use_database_config: bool = False,
     ):
         """Initialize the generic consumer."""
+        # Initialize activity logger
+        super().__init__(service_name=group_id)
+
         self.database_url = database_url
         self.kafka_bootstrap_servers = kafka_bootstrap_servers
         self.group_id = group_id
@@ -94,6 +98,9 @@ class GenericKafkaToDBConsumer:
         await self.consumer.start()
         self.running = True
 
+        # Initialize activity logger
+        await self.init_activity_logger()
+
         logger.info(
             "Generic Kafka to DB consumer started",
             topics=self.supported_topics,
@@ -111,6 +118,9 @@ class GenericKafkaToDBConsumer:
         if self.db_pool:
             await self.db_pool.close()
 
+        # Close activity logger
+        await self.close_activity_logger()
+
         logger.info("Generic Kafka to DB consumer stopped")
 
     async def consume_messages(self):
@@ -126,6 +136,9 @@ class GenericKafkaToDBConsumer:
                     break
 
                 try:
+                    # Log consumption
+                    await self.log_consumption(message)
+
                     await self._process_message(message)
                 except Exception as e:
                     logger.error(

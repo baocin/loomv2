@@ -27,7 +27,9 @@ class DataCollectionService {
   final Map<String, StreamSubscription> _subscriptions = {};
   final Map<String, List<dynamic>> _uploadQueues = {};
   final Map<String, Timer> _uploadTimers = {};
-  
+  final Map<String, dynamic> _lastSentData = {};
+  final Map<String, DateTime> _lastSentTime = {};
+
   DataCollectionConfig? _config;
   bool _isRunning = false;
   String? _deviceId;
@@ -42,12 +44,12 @@ class DataCollectionService {
     } catch (e) {
       print('Warning: Could not register device (offline?): $e');
     }
-    
+
     _deviceId = await _deviceManager.getDeviceId();
 
     // Load configuration
     _config = await DataCollectionConfig.load();
-    
+
     // Check permissions before initializing data sources
     final permissionSummary = await PermissionManager.getPermissionSummary();
     if (!permissionSummary.readyForDataCollection) {
@@ -56,7 +58,7 @@ class DataCollectionService {
 
     // Initialize all available data sources
     await _initializeDataSources();
-    
+
     // Set up upload timers for each source
     _setupUploadTimers();
   }
@@ -66,13 +68,13 @@ class DataCollectionService {
     if (_isRunning) return;
 
     _isRunning = true;
-    
+
     final enabledSources = _config?.enabledSourceIds ?? [];
-    
+
     for (final sourceId in enabledSources) {
       final dataSource = _dataSources[sourceId];
       final config = _config?.getConfig(sourceId);
-      
+
       // Only start if explicitly enabled in config
       if (dataSource != null && config != null && config.enabled) {
         // Check permissions first
@@ -96,7 +98,7 @@ class DataCollectionService {
     if (!_isRunning) return;
 
     _isRunning = false;
-    
+
     // Stop all subscriptions
     for (final subscription in _subscriptions.values) {
       await subscription.cancel();
@@ -196,15 +198,15 @@ class DataCollectionService {
           'enabled': config.enabled,
         });
       }
-      
+
       await dataSource.start();
-      
+
       // Subscribe to data stream
       final subscription = dataSource.dataStream.listen(
         (data) => _onDataReceived(sourceId, data),
         onError: (error) => print('Error from $sourceId: $error'),
       );
-      
+
       _subscriptions[sourceId] = subscription;
       print('Started data source: $sourceId with interval ${config?.collectionIntervalMs}ms');
     } catch (e) {
@@ -221,7 +223,7 @@ class DataCollectionService {
         print('AUDIO: AudioChunk details - fileId: ${data.fileId}, size: ${data.chunkData.length} bytes, duration: ${data.durationMs}ms');
       }
     }
-    
+
     final queue = _uploadQueues[sourceId] ?? [];
     queue.add(data);
     _uploadQueues[sourceId] = queue;
@@ -237,7 +239,7 @@ class DataCollectionService {
         print('AUDIO: Added to queue - current size: ${queue.length}/${config?.uploadBatchSize ?? 'unknown'} (batch size)');
       }
     }
-    
+
     // Update background service with queue information
     _updateBackgroundServiceQueues();
   }
@@ -245,11 +247,11 @@ class DataCollectionService {
   /// Set up upload timers for each data source
   void _setupUploadTimers() {
     if (_config == null) return;
-    
+
     for (final sourceId in _config!.sourceIds) {
       final config = _config!.getConfig(sourceId);
       final uploadInterval = Duration(milliseconds: config.uploadIntervalMs);
-      
+
       _uploadTimers[sourceId] = Timer.periodic(uploadInterval, (_) {
         _uploadQueuedDataForSource(sourceId);
       });
@@ -277,24 +279,24 @@ class DataCollectionService {
       await _uploadDataByType(sourceId, dataToUpload);
       // Update background service after successful upload
       _updateBackgroundServiceQueues();
-      
+
       if (sourceId == 'audio') {
         print('AUDIO: Upload completed successfully');
       }
     } catch (e) {
       print('Error uploading $sourceId data: $e');
-      
+
       if (sourceId == 'audio') {
         print('AUDIO: Upload failed, re-adding to queue');
       }
-      
+
       // Re-add failed uploads to queue (with a limit)
       if (queue.length < 1000) {
         queue.addAll(dataToUpload);
       }
     }
   }
-  
+
   /// Upload all queued data from all sources
   Future<void> _uploadAllQueuedData() async {
     for (final sourceId in _uploadQueues.keys) {
@@ -303,13 +305,23 @@ class DataCollectionService {
   }
 
 
+  /// Get the last sent data for a data source
+  dynamic getLastSentData(String sourceId) {
+    return _lastSentData[sourceId];
+  }
+
+  /// Get the last sent time for a data source
+  DateTime? getLastSentTime(String sourceId) {
+    return _lastSentTime[sourceId];
+  }
+
   /// Upload data based on its type
   Future<void> _uploadDataByType(String sourceId, List<dynamic> data) async {
     if (data.isEmpty) return;
-    
+
     int totalBytes = 0;
     String endpoint = '';
-    
+
     try {
       switch (sourceId) {
         case 'gps':
@@ -319,9 +331,11 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadGPSReading(item);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'accelerometer':
           endpoint = '/sensor/accelerometer';
           final items = data.cast<AccelerometerReading>();
@@ -329,9 +343,11 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadAccelerometerReading(item);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'battery':
           endpoint = '/sensor/power';
           final items = data.cast<PowerState>();
@@ -339,9 +355,11 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadPowerState(item);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'network':
           endpoint = '/sensor/wifi';
           final items = data.cast<NetworkWiFiReading>();
@@ -349,24 +367,28 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadWiFiReading(item);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'audio':
           endpoint = '/audio/upload';
           final items = data.cast<AudioChunk>();
           print('AUDIO: Starting upload of ${items.length} audio chunks...');
-          
+
           for (int i = 0; i < items.length; i++) {
             final item = items[i];
             print('AUDIO: Uploading chunk ${i + 1}/${items.length} - fileId: ${item.fileId}, size: ${item.chunkData.length} bytes');
-            
+
             // Audio data is in bytes
             totalBytes += item.chunkData.length;
-            
+
             try {
               await _apiClient.uploadAudioChunk(item);
               print('AUDIO: Successfully uploaded chunk ${item.fileId}');
+              _lastSentData[sourceId] = item;
+              _lastSentTime[sourceId] = DateTime.now();
             } catch (e) {
               print('AUDIO: ERROR uploading chunk ${item.fileId}: $e');
               rethrow;
@@ -374,17 +396,17 @@ class DataCollectionService {
           }
           print('AUDIO: Completed upload of all ${items.length} audio chunks');
           break;
-          
+
         case 'screenshot':
           // Screenshots are uploaded immediately by the data source itself
           print('Screenshot data handled by data source directly');
           return;
-          
+
         case 'camera':
           // Camera photos are uploaded immediately by the data source itself
           print('Camera data handled by data source directly');
           return;
-          
+
         case 'screen_state':
           endpoint = '/os-events/system';
           final items = data.cast<OSSystemEvent>();
@@ -392,9 +414,11 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadSystemEvent(jsonData);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'app_lifecycle':
           endpoint = '/os-events/app-lifecycle';
           final items = data.cast<OSAppLifecycleEvent>();
@@ -402,9 +426,11 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadAppLifecycleEvent(jsonData);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         case 'android_app_monitoring':
           endpoint = '/system/apps/android';
           final items = data.cast<AndroidAppMonitoring>();
@@ -412,17 +438,19 @@ class DataCollectionService {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
             await _apiClient.uploadAndroidAppMonitoring(jsonData);
+            _lastSentData[sourceId] = item;
+            _lastSentTime[sourceId] = DateTime.now();
           }
           break;
-          
+
         default:
           print('Unknown data source: $sourceId');
           return;
       }
-      
+
       // Log the upload
       print('UPLOAD: $endpoint | batch_size: ${data.length} | payload_size: $totalBytes bytes | source: $sourceId');
-      
+
     } catch (e) {
       print('Error uploading $sourceId data: $e');
       rethrow;
@@ -433,9 +461,9 @@ class DataCollectionService {
   /// Enable/disable a data source
   Future<void> setDataSourceEnabled(String sourceId, bool enabled) async {
     if (_config == null) return;
-    
+
     await _config!.setEnabled(sourceId, enabled);
-    
+
     // If currently running, start/stop the source immediately
     if (_isRunning) {
       final dataSource = _dataSources[sourceId];
@@ -462,12 +490,12 @@ class DataCollectionService {
   /// Update configuration for a data source
   Future<void> updateDataSourceConfig(String sourceId, DataSourceConfigParams config) async {
     if (_config == null) return;
-    
+
     // Check if the source was previously enabled before updating config
     final wasEnabled = _config!.getConfig(sourceId).enabled;
-    
+
     await _config!.updateConfig(sourceId, config);
-    
+
     // Only restart the source if it was previously enabled AND still enabled
     // This prevents accidentally starting sources when switching profiles
     if (_isRunning && _dataSources.containsKey(sourceId) && wasEnabled && config.enabled) {
@@ -481,7 +509,7 @@ class DataCollectionService {
       print('DEBUG: NOT auto-starting $sourceId - was disabled before profile change');
     }
   }
-  
+
   /// Get configuration for a data source
   DataSourceConfigParams? getDataSourceConfig(String sourceId) {
     return _config?.getConfig(sourceId);
@@ -495,7 +523,7 @@ class DataCollectionService {
 
   /// Get current queue size for all sources
   int get queueSize => _uploadQueues.values.fold(0, (sum, queue) => sum + queue.length);
-  
+
   /// Get queue size for a specific source
   int getQueueSizeForSource(String sourceId) => _uploadQueues[sourceId]?.length ?? 0;
 
@@ -516,7 +544,7 @@ class DataCollectionService {
       final lastData = getLastDataPointForSource(sourceId);
       return lastData != null ? [lastData] : [];
     }
-    
+
     // Return the most recent items from the queue (up to limit)
     final startIndex = queue.length > limit ? queue.length - limit : 0;
     return queue.sublist(startIndex).reversed.toList();
@@ -526,7 +554,7 @@ class DataCollectionService {
   Future<void> uploadNow() async {
     await _uploadAllQueuedData();
   }
-  
+
   /// Manually trigger data upload for a specific source
   Future<void> uploadNowForSource(String sourceId) async {
     await _uploadQueuedDataForSource(sourceId);
@@ -537,35 +565,35 @@ class DataCollectionService {
     final results = await PermissionManager.requestAllCriticalPermissions();
     return results.map((key, value) => MapEntry(key, value.granted));
   }
-  
+
   /// Request permissions for a specific data source
   Future<bool> requestPermissionForSource(String sourceId) async {
     final result = await PermissionManager.requestDataSourcePermissions(sourceId);
     return result.granted;
   }
-  
+
   /// Get permission summary
   Future<PermissionSummary> getPermissionSummary() async {
     return await PermissionManager.getPermissionSummary();
   }
-  
+
   /// Get current configuration
   DataCollectionConfig? get config => _config;
-  
+
   /// Update background service with current queue sizes
   void _updateBackgroundServiceQueues() {
     final service = FlutterBackgroundService();
     final queueData = <String, int>{};
-    
+
     _uploadQueues.forEach((sourceId, queue) {
       if (queue.isNotEmpty) {
         queueData[sourceId] = queue.length;
       }
     });
-    
+
     service.invoke('updateQueues', {'queues': queueData});
   }
-  
+
   /// Dispose the service
   void dispose() {
     stopDataCollection();

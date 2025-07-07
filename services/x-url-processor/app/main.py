@@ -21,7 +21,7 @@ logging.basicConfig(
 class XUrlProcessorService:
     def __init__(self):
         self.kafka_consumer = KafkaConsumer()
-        self.kafka_producer = KafkaProducer()
+        self.kafka_producer = KafkaProducer(consumer=self.kafka_consumer)
         self.tweet_processor = XTweetProcessor()
 
     async def process_message(self, message):
@@ -93,7 +93,7 @@ class XUrlProcessorService:
                     ),
                 }
 
-                self.kafka_producer.send_message(
+                await self.kafka_producer.send_message(
                     topic=output_topic,
                     key=tweet_data.get("tweet_id", url),
                     value=output_message,

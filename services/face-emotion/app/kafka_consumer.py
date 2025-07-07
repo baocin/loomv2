@@ -4,32 +4,11 @@ import asyncio
 import json
 from typing import Any, Dict, Optional
 
-
-# Create optimized consumer with database config
-async def create_optimized_consumer():
-    db_url = os.getenv("DATABASE_URL", "postgresql://loom:loom@postgres:5432/loom")
-    db_pool = await asyncpg.create_pool(db_url)
-    loader = KafkaConsumerConfigLoader(db_pool)
-
-    consumer = await loader.create_consumer(
-        service_name="face-emotion",
-        topics=["media.image.analysis.minicpm_results"],  # Update with actual topics
-        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
-    )
-
-    return consumer, loader, db_pool
-
-
-# Use it in your main function:
-# consumer, loader, db_pool = await create_optimized_consumer()
-
-import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 # Kafka consumer optimization
-from loom_common.kafka_utils.consumer_config_loader import KafkaConsumerConfigLoader
-
 from app.config import settings
 from app.face_processor import FaceEmotionProcessor
 from app.models import VisionAnnotation
@@ -37,10 +16,13 @@ from app.models import VisionAnnotation
 logger = structlog.get_logger(__name__)
 
 
-class KafkaFaceEmotionConsumer:
+class KafkaFaceEmotionConsumer(ConsumerActivityLogger):
     """Kafka consumer that processes vision annotations through face emotion analysis."""
 
     def __init__(self):
+        # Initialize activity logger
+        super().__init__(service_name="face-emotion")
+
         self.consumer: Optional[AIOKafkaConsumer] = None
         self.producer: Optional[AIOKafkaProducer] = None
         self.face_processor = FaceEmotionProcessor()
@@ -76,6 +58,9 @@ class KafkaFaceEmotionConsumer:
             await self.consumer.start()
             await self.producer.start()
 
+            # Initialize activity logger
+            await self.init_activity_logger()
+
             self._running = True
             logger.info(
                 "Kafka face emotion consumer started",
@@ -108,6 +93,9 @@ class KafkaFaceEmotionConsumer:
 
         # Cleanup face processor
         await self.face_processor.cleanup()
+
+        # Close activity logger
+        await self.close_activity_logger()
 
         logger.info("Kafka face emotion consumer stopped")
 
@@ -143,6 +131,9 @@ class KafkaFaceEmotionConsumer:
     async def _process_message(self, message) -> None:
         """Process a single message."""
         try:
+            # Log consumption
+            await self.log_consumption(message)
+
             # Parse the vision annotation message
             annotation = VisionAnnotation(**message.value)
 
@@ -168,10 +159,19 @@ class KafkaFaceEmotionConsumer:
 
             # Send each face emotion analysis to output topic
             for face_analysis in face_analyses:
-                await self.producer.send(
+                result = await self.producer.send(
                     settings.kafka_output_topic,
                     value=face_analysis.model_dump(mode="json"),
                     key=annotation.device_id.encode("utf-8"),
+                )
+
+                # Log production
+                await self.log_production(
+                    topic=settings.kafka_output_topic,
+                    partition=result.partition,
+                    offset=result.offset,
+                    key=annotation.device_id,
+                    value=face_analysis.model_dump(mode="json"),
                 )
 
                 logger.info(

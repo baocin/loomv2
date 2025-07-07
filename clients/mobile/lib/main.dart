@@ -266,7 +266,7 @@ class _HomePageState extends State<HomePage> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
+                  builder: (context) => SettingsScreen(dataService: widget.dataService),
                 ),
               );
             },
@@ -387,9 +387,12 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      leading: Icon(
-                        _getDataSourceIcon(sourceId),
-                        color: isEnabled ? Colors.green : Colors.grey,
+                      leading: GestureDetector(
+                        onTap: () => _showLastSentData(sourceId),
+                        child: Icon(
+                          _getDataSourceIcon(sourceId),
+                          color: isEnabled ? Colors.green : Colors.grey,
+                        ),
                       ),
                       trailing: Switch(
                         value: isEnabled,
@@ -823,6 +826,78 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _formatLastUpdate(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return '${difference.inHours}h ago';
+    }
+  }
+
+  void _showLastSentData(String sourceId) {
+    final lastData = widget.dataService.getLastSentData(sourceId);
+    final lastTime = widget.dataService.getLastSentTime(sourceId);
+
+    if (lastData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No data sent yet for ${widget.dataService.availableDataSources[sourceId]?.displayName ?? sourceId}')),
+      );
+      return;
+    }
+
+    String dataJson = '';
+    try {
+      dataJson = const JsonEncoder.withIndent('  ').convert(lastData.toJson());
+    } catch (e) {
+      dataJson = lastData.toString();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Last Sent: ${widget.dataService.availableDataSources[sourceId]?.displayName ?? sourceId}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (lastTime != null) ...[
+                Text(
+                  'Sent: ${_formatLastUpdate(lastTime)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: SelectableText(
+                  dataJson,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> _getDataSourceStats(String sourceId) async {
     // Get average size based on data type
     // These are estimated average sizes in bytes
@@ -933,18 +1008,4 @@ class _HomePageState extends State<HomePage> {
     return Color(int.parse(hex.substring(1), radix: 16) + 0xFF000000);
   }
 
-  String _formatLastUpdate(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inSeconds < 60) {
-      return '${difference.inSeconds}s ago';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${difference.inDays}d ago';
-    }
-  }
 }

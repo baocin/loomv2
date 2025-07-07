@@ -4,9 +4,11 @@ Base Kafka consumer with common functionality
 
 import asyncio
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 import asyncpg
+import httpx
 import orjson
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, ConsumerRecord
@@ -48,6 +50,9 @@ class BaseKafkaConsumer(ABC):
         self._last_commit_time = 0.0
         self._commit_interval = 5.0  # Commit every 5 seconds
         self._commit_batch_size = 100  # Or every 100 messages
+        self._activity_logging_enabled = True
+        self._activity_logging_url = None
+        self._http_client: Optional[httpx.AsyncClient] = None
 
     async def start(self) -> None:
         """Start the consumer and producer"""
@@ -115,6 +120,25 @@ class BaseKafkaConsumer(ABC):
         await self.consumer.start()
         await self.producer.start()
 
+        # Initialize HTTP client for activity logging
+        if self._activity_logging_enabled:
+            # Determine the ingestion API URL
+            ingestion_host = getattr(self.settings, "ingestion_api_host", "localhost")
+            ingestion_port = getattr(self.settings, "ingestion_api_port", 8000)
+            self._activity_logging_url = (
+                f"http://{ingestion_host}:{ingestion_port}/meta/log_activity"
+            )
+
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(connect=5.0, read=5.0, write=5.0, pool=5.0)
+            )
+
+            logger.info(
+                "Activity logging enabled",
+                url=self._activity_logging_url,
+                service_name=self.service_name,
+            )
+
         # Initialize commit tracking
         import time
 
@@ -160,6 +184,10 @@ class BaseKafkaConsumer(ABC):
         if self.producer:
             await self.producer.stop()
 
+        # Close HTTP client
+        if self._http_client:
+            await self._http_client.aclose()
+
         logger.info("Kafka consumer stopped")
 
     async def run(self) -> None:
@@ -199,6 +227,9 @@ class BaseKafkaConsumer(ABC):
         start_time = time.time()
 
         try:
+            # Log consumption activity
+            await self._log_consumption(message)
+
             await self.process_message(message)
 
             # Track successful processing
@@ -326,6 +357,9 @@ class BaseKafkaConsumer(ABC):
             headers=list(headers.items()) if headers else None,
         )
 
+        # Log production activity
+        await self._log_production(full_topic, value, key)
+
     def _get_memory_usage_mb(self) -> float:
         """Get current memory usage in MB"""
         import os
@@ -376,3 +410,79 @@ class BaseKafkaConsumer(ABC):
             message: The Kafka message to process
         """
         pass
+
+    async def _log_consumption(self, message: ConsumerRecord) -> None:
+        """Log that a message was consumed."""
+        if not self._activity_logging_enabled or not self._http_client:
+            return
+
+        if not self.service_name:
+            return
+
+        try:
+            payload = {
+                "consumer_id": self.service_name,
+                "consumed_message": message.value,
+                "consumed_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            response = await self._http_client.post(
+                self._activity_logging_url,
+                json=payload,
+            )
+
+            if response.status_code != 200:
+                logger.debug(
+                    "Failed to log consumption activity",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+
+        except Exception as e:
+            # Don't let logging failures affect message processing
+            logger.debug(
+                "Error logging consumption activity",
+                error=str(e),
+                service_name=self.service_name,
+            )
+
+    async def _log_production(
+        self, topic: str, value: Dict[str, Any], key: Optional[str] = None
+    ) -> None:
+        """Log that a message was produced."""
+        if not self._activity_logging_enabled or not self._http_client:
+            return
+
+        if not self.service_name:
+            return
+
+        try:
+            payload = {
+                "consumer_id": self.service_name,
+                "produced_message": {
+                    "topic": topic,
+                    "key": key,
+                    "value": value,
+                },
+                "produced_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            response = await self._http_client.post(
+                self._activity_logging_url,
+                json=payload,
+            )
+
+            if response.status_code != 200:
+                logger.debug(
+                    "Failed to log production activity",
+                    status_code=response.status_code,
+                    response=response.text,
+                )
+
+        except Exception as e:
+            # Don't let logging failures affect message processing
+            logger.debug(
+                "Error logging production activity",
+                error=str(e),
+                service_name=self.service_name,
+            )

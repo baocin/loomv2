@@ -49,7 +49,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_NUM_PARTITIONS: ${LOOM_KAFKA_DEFAULT_PARTITIONS:-3}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -106,6 +106,8 @@ services:
       LOOM_PORT: 8000
       LOOM_LOG_LEVEL: INFO
       LOOM_ENVIRONMENT: development
+      LOOM_KAFKA_DEFAULT_PARTITIONS: ${LOOM_KAFKA_DEFAULT_PARTITIONS:-3}
+      LOOM_KAFKA_DEFAULT_REPLICATION_FACTOR: ${LOOM_KAFKA_DEFAULT_REPLICATION_FACTOR:-1}
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
@@ -690,6 +692,7 @@ services:
       LOOM_LOG_LEVEL: INFO
       CONSUMER_TYPE: generic  # Use new generic consumer
       KAFKA_GROUP_ID: generic-kafka-to-db-consumer
+      USE_DATABASE_CONFIG: true  # Source topics from database instead of YAML
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive

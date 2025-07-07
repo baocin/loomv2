@@ -186,6 +186,7 @@ app.include_router(system.router)  # System monitoring (app monitoring, device m
 app.include_router(
     unified_ingestion.router,
 )  # Unified data ingestion with message type mapping
+# app.include_router(meta.router, prefix="/meta", tags=["meta"])  # Meta endpoints moved to system router
 # app.include_router(urls.router)  # TODO: Check if this requires database
 
 
@@ -246,6 +247,10 @@ async def root() -> JSONResponse:
                     "app_lifecycle": "/os-events/app-lifecycle",
                     "system": "/os-events/system",
                     "notifications": "/os-events/notifications",
+                },
+                "meta": {
+                    "log_activity": "/meta/log_activity",
+                    "consumer_activity": "/meta/consumer_activity",
                 },
                 "metrics": "/metrics",
                 "docs": "/docs",

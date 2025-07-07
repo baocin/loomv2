@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api/loom_api_client.dart';
+import '../services/data_collection_service.dart';
+import '../core/config/data_collection_config.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final DataCollectionService? dataService;
+
+  const SettingsScreen({super.key, this.dataService});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -50,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final url = _urlController.text.trim();
     final apiKey = _apiKeyController.text.trim();
-    
+
     // Basic URL validation
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       _showSnackBar('URL must start with http:// or https://', isError: true);
@@ -65,13 +69,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('loom_api_base_url', url);
       await prefs.setString('loom_api_key', apiKey.isEmpty ? LoomApiClient.defaultApiKey : apiKey);
-      
+
       setState(() {
         _currentUrl = url;
         _currentApiKey = apiKey.isEmpty ? LoomApiClient.defaultApiKey : apiKey;
         _isLoading = false;
       });
-      
+
       _showSnackBar('Settings updated successfully! Restart the app for changes to take effect.');
     } catch (e) {
       setState(() {
@@ -102,14 +106,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Create a test API client with the new URL and API key
       final testClient = LoomApiClient(
         baseUrl: _urlController.text.trim(),
-        apiKey: _apiKeyController.text.trim().isEmpty 
-          ? LoomApiClient.defaultApiKey 
+        apiKey: _apiKeyController.text.trim().isEmpty
+          ? LoomApiClient.defaultApiKey
           : _apiKeyController.text.trim(),
       );
-      
+
       // Use the health check endpoint which returns 200 when server is healthy
       final response = await testClient.getHealthz();
-      
+
       if (response['status'] == 'healthy') {
         _showSnackBar('Connection test successful! Server is healthy.');
       } else {
@@ -133,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -141,6 +145,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
         duration: Duration(seconds: isError ? 4 : 2),
       ),
     );
+  }
+
+  Future<void> _enableDevMode() async {
+    if (widget.dataService == null) {
+      _showSnackBar('Data service not available', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get all available data sources
+      final dataSources = widget.dataService!.availableDataSources;
+
+      // Set all data sources to minimum collection interval and batch size 1
+      for (final sourceId in dataSources.keys) {
+        final config = widget.dataService!.config?.getConfig(sourceId) ?? const DataSourceConfigParams();
+
+        // Create dev mode config: batch size 1, minimum interval
+        final devConfig = config.copyWith(
+          uploadBatchSize: 1,
+          collectionIntervalMs: sourceId == 'audio' ? 5000 : 1000, // Audio needs longer chunks
+          uploadIntervalMs: 5000, // Upload every 5 seconds
+        );
+
+        await widget.dataService!.updateDataSourceConfig(sourceId, devConfig);
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      _showSnackBar('Dev Mode enabled! All sources set to immediate upload.');
+
+      // Show confirmation dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Dev Mode Enabled'),
+          content: const Text(
+            'All data sources have been configured for immediate upload:\n\n'
+            '• Upload batch size: 1\n'
+            '• Collection interval: 1 second\n'
+            '• Upload interval: 5 seconds\n\n'
+            'This will increase battery usage but provides real-time data visibility.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showSnackBar('Failed to enable Dev Mode: $e', isError: true);
+    }
   }
 
   @override
@@ -168,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Current URL display
             Card(
               child: ListTile(
@@ -177,15 +243,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text(_currentUrl),
                 trailing: Icon(
                   Icons.circle,
-                  color: _currentUrl == LoomApiClient.defaultBaseUrl 
-                      ? Colors.blue 
+                  color: _currentUrl == LoomApiClient.defaultBaseUrl
+                      ? Colors.blue
                       : Colors.orange,
                   size: 12,
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // URL input field
             TextField(
               controller: _urlController,
@@ -200,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               enabled: !_isLoading,
             ),
             const SizedBox(height: 16),
-            
+
             // API Key input field
             TextField(
               controller: _apiKeyController,
@@ -223,14 +289,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               enabled: !_isLoading,
             ),
             const SizedBox(height: 16),
-            
+
             // Action buttons
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _testConnection,
-                    icon: _isLoading 
+                    icon: _isLoading
                         ? const SizedBox(
                             width: 16,
                             height: 16,
@@ -255,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Reset button
             SizedBox(
               width: double.infinity,
@@ -265,8 +331,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: const Text('Reset to Default'),
               ),
             ),
+            const SizedBox(height: 24),
+
+            // Settings Guide
+            const Text(
+              'Settings Guide',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'For local development:\n'
+              '• Android Emulator: Use 10.0.2.2:8000\n'
+              '• Real Device: Use your computer\'s IP address\n'
+              '• iOS Simulator: Use localhost:8000',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Dev Mode button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _enableDevMode,
+                icon: const Icon(Icons.developer_mode),
+                label: const Text('Dev Mode'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
             const Spacer(),
-            
+
             // App info
             Center(
               child: Text(

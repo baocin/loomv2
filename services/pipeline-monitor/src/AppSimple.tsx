@@ -55,7 +55,7 @@ const nodeTypes = {
     const [showExample, setShowExample] = useState(false)
 
     return (
-      <div className="relative bg-blue-100 border-2 border-blue-500 rounded-lg p-4 min-w-[200px]">
+      <div className="relative bg-blue-100 border-2 border-blue-500 rounded-lg p-4 min-w-[200px] m-2">
         <Handle
           type="target"
           position={Position.Left}
@@ -103,7 +103,7 @@ const nodeTypes = {
     const [showLog, setShowLog] = useState(false)
 
     return (
-      <div className="relative bg-green-100 border-2 border-green-500 rounded-lg p-4 min-w-[250px]">
+      <div className="relative bg-green-100 border-2 border-green-500 rounded-lg p-4 min-w-[250px] m-2">
         <Handle
           type="target"
           position={Position.Left}
@@ -160,7 +160,7 @@ const nodeTypes = {
     )
   },
   'database': ({ data }: any) => (
-    <div className="bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px]">
+    <div className="bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2">
       <div className="font-bold text-sm">{data.label}</div>
       {data.description && (
         <div className="text-xs text-gray-600 mt-1">{data.description}</div>
@@ -168,7 +168,7 @@ const nodeTypes = {
     </div>
   ),
   'table': ({ data }: any) => (
-    <div className="relative bg-orange-100 border-2 border-orange-500 rounded-lg p-4 min-w-[200px]">
+    <div className="relative bg-orange-100 border-2 border-orange-500 rounded-lg p-4 min-w-[200px] m-2">
       <Handle
         type="target"
         position={Position.Left}
@@ -188,7 +188,7 @@ const nodeTypes = {
     </div>
   ),
   'api': ({ data }: any) => (
-    <div className="relative bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px]">
+    <div className="relative bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2">
       <div className="font-bold text-sm flex items-center">
         <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
@@ -216,7 +216,7 @@ const nodeTypes = {
     </div>
   ),
   'fetcher': ({ data }: any) => (
-    <div className="relative bg-yellow-100 border-2 border-yellow-500 rounded-lg p-4 min-w-[200px]">
+    <div className="relative bg-yellow-100 border-2 border-yellow-500 rounded-lg p-4 min-w-[200px] m-2">
       <div className="font-bold text-sm flex items-center">
         <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
@@ -244,256 +244,180 @@ const nodeTypes = {
     </div>
   ),
   'column-header': ({ data }: any) => (
-    <div className="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg">
+    <div className="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg m-2">
       <div className="font-bold text-lg text-center">{data.label}</div>
     </div>
   )
 }
 
-// Layout algorithm - organized in columns
+// Simplified layout algorithm with better organization
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  // Helper function to avoid overlaps
-  const occupiedRegions: Map<number, { y: number, height: number }[]> = new Map()
+  // Group nodes by type
+  const nodeGroups: { [key: string]: Node[] } = {
+    api: [],
+    fetcher: [],
+    rawTopic: [],
+    processor: [],
+    processedTopic: [],
+    kafkaToDb: [],
+    table: [],
+    header: [],
+    error: []
+  }
 
-  const findNonOverlappingY = (x: number, preferredY: number, height: number = 150): number => {
-    if (!occupiedRegions.has(x)) {
-      occupiedRegions.set(x, [])
-    }
-
-    const regions = occupiedRegions.get(x)!
-    let candidateY = preferredY
-    let collision = true
-    let attempts = 0
-
-    while (collision && attempts < 20) {
-      collision = false
-      for (const region of regions) {
-        // Check if there's overlap with padding
-        if (candidateY < region.y + region.height + 20 && candidateY + height + 20 > region.y) {
-          collision = true
-          candidateY = region.y + region.height + 20
-          break
-        }
+  // Categorize nodes
+  nodes.forEach(node => {
+    if (node.type === 'column-header') {
+      nodeGroups.header.push(node)
+    } else if (node.type === 'api') {
+      nodeGroups.api.push(node)
+    } else if (node.type === 'fetcher') {
+      nodeGroups.fetcher.push(node)
+    } else if (node.type === 'kafka-topic') {
+      if (node.data.label.includes('error')) {
+        nodeGroups.error.push(node)
+      } else if (node.data.label.includes('.raw')) {
+        nodeGroups.rawTopic.push(node)
+      } else {
+        nodeGroups.processedTopic.push(node)
       }
-      attempts++
+    } else if (node.type === 'processor') {
+      if (node.data.label.includes('kafka-to-db') ||
+          node.data.label.includes('timescale-writer') ||
+          node.data.label.includes('generic-kafka-to-db')) {
+        nodeGroups.kafkaToDb.push(node)
+      } else {
+        nodeGroups.processor.push(node)
+      }
+    } else if (node.type === 'table') {
+      nodeGroups.table.push(node)
     }
+  })
 
-    // Register this region as occupied
-    regions.push({ y: candidateY, height })
-    return candidateY
-  }
-
-  // Categorize nodes by type and flow
-  const apiNodes = nodes.filter(n => n.type === 'api')
-  const fetcherNodes = nodes.filter(n => n.type === 'fetcher')
-  const topicNodes = nodes.filter(n => n.type === 'kafka-topic')
-  const processorNodes = nodes.filter(n => n.type === 'processor')
-  const tableNodes = nodes.filter(n => n.type === 'table')
-
-  // Separate topics by category
-  const rawTopics = topicNodes.filter(n => n.data.label.includes('.raw'))
-  const processedTopics = topicNodes.filter(n => !n.data.label.includes('.raw') && !n.data.label.includes('error'))
-  const errorTopics = topicNodes.filter(n => n.data.label.includes('error'))
-
-  // Find kafka-to-db consumers
-  const kafkaToDbConsumers = processorNodes.filter(n =>
-    n.data.label.includes('kafka-to-db') ||
-    n.data.label.includes('timescale-writer') ||
-    n.data.label.includes('generic-kafka-to-db')
-  )
-
-  // Find other processors
-  const otherProcessors = processorNodes.filter(n =>
-    !n.data.label.includes('kafka-to-db') &&
-    !n.data.label.includes('timescale-writer') &&
-    !n.data.label.includes('generic-kafka-to-db')
-  )
-
-  // Column positions
-  const columnX = {
+  // Column X positions with more spacing (about a node width = ~250px between columns)
+  const columns = {
     api: 50,
-    fetcher: 50,
-    rawTopic: 400,
-    processor: 800,
-    processedTopic: 1300,
-    kafkaToDb: 1700,
-    table: 2100,
-    error: 1300
+    fetcher: 400,  // Separate column for fetchers
+    rawTopic: 750,
+    processor: 1350,
+    processedTopic: 1950,
+    kafkaToDb: 2550,
+    table: 3150,
+    error: 1950  // Same as processedTopic
   }
 
-  const nodeSpacing = 180
-  const sectionSpacing = 150
+  // Heights for different node types
+  const nodeHeights = {
+    api: 150,
+    fetcher: 150,
+    topic: 150,
+    processor: 250,
+    table: 100,
+    header: 50
+  }
 
-  // Keep column headers at top
-  const headerNodes = nodes.filter(n => n.type === 'column-header')
-  headerNodes.forEach(node => {
-    // Position is already set, just ensure y is 0
+  // Vertical spacing
+  const verticalSpacing = 60
+  const sectionSpacing = 100
+
+  // Position headers
+  nodeGroups.header.forEach(node => {
     if (node.position) {
       node.position.y = 0
     }
   })
 
-  // Layout API nodes
-  let currentY = 80 // Start below headers
-  apiNodes.forEach((node) => {
-    const y = findNonOverlappingY(columnX.api, currentY)
-    node.position = { x: columnX.api, y }
-    currentY = y + nodeSpacing
+  // Create a connection graph for better positioning
+  const connectionGraph: { [nodeId: string]: { sources: string[], targets: string[] } } = {}
+
+  nodes.forEach(node => {
+    connectionGraph[node.id] = { sources: [], targets: [] }
   })
 
-  // Layout Fetcher nodes below API
-  currentY += sectionSpacing // Extra spacing between sections
-  const fetcherStartY = currentY
-  fetcherNodes.forEach((node) => {
-    const y = findNonOverlappingY(columnX.fetcher, currentY)
-    node.position = { x: columnX.fetcher, y }
-    currentY = y + nodeSpacing
+  edges.forEach(edge => {
+    if (connectionGraph[edge.source]) {
+      connectionGraph[edge.source].targets.push(edge.target)
+    }
+    if (connectionGraph[edge.target]) {
+      connectionGraph[edge.target].sources.push(edge.source)
+    }
   })
 
-  // Layout raw topics - group by source
-  const apiRawTopics = rawTopics.filter(t => {
-    // Check if topic has incoming edge from API
-    return edges.some(e => e.target === t.id && e.source === 'api_ingestion')
+  // Position nodes in a more organized way
+  let currentY = 80
+
+  // API nodes in their own column
+  nodeGroups.api.forEach((node, index) => {
+    node.position = { x: columns.api, y: currentY + index * (nodeHeights.api + verticalSpacing) }
   })
 
-  const fetcherRawTopics = rawTopics.filter(t => {
-    // Check if topic has incoming edge from fetcher
-    return edges.some(e => e.target === t.id && e.source.startsWith('fetcher_'))
+  // Fetcher nodes in their own column
+  nodeGroups.fetcher.forEach((node, index) => {
+    node.position = { x: columns.fetcher, y: currentY + index * (nodeHeights.fetcher + verticalSpacing) }
   })
 
-  // Position API raw topics
-  currentY = 80 // Start below headers
-  apiRawTopics.forEach((node) => {
-    const y = findNonOverlappingY(columnX.rawTopic, currentY)
-    node.position = { x: columnX.rawTopic, y }
-    currentY = y + nodeSpacing
-  })
-
-  // Position fetcher raw topics aligned with fetchers
-  currentY = fetcherStartY
-  fetcherRawTopics.forEach((node) => {
-    const y = findNonOverlappingY(columnX.rawTopic, currentY)
-    node.position = { x: columnX.rawTopic, y }
-    currentY = y + nodeSpacing
-  })
-
-  // Layout processors based on their input topics
-  currentY = 80 // Start below headers
+  // Raw topics - position based on their sources
   const positionedNodes = new Set<string>()
+  const positionNodeGroup = (group: Node[], columnX: number, defaultHeight: number) => {
+    const sortedNodes = [...group].sort((a, b) => {
+      // Sort by number of connections for better layout
+      const aConnections = (connectionGraph[a.id]?.sources.length || 0) + (connectionGraph[a.id]?.targets.length || 0)
+      const bConnections = (connectionGraph[b.id]?.sources.length || 0) + (connectionGraph[b.id]?.targets.length || 0)
+      return bConnections - aConnections
+    })
 
-  otherProcessors.forEach((node) => {
-    // Try to align with input topics
-    const inputTopicIds = edges
-      .filter(e => e.target === node.id)
-      .map(e => e.source)
+    const columnNodes: { node: Node, preferredY: number }[] = []
 
-    if (inputTopicIds.length > 0) {
-      const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
-      if (inputNodes.length > 0) {
-        const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
-        const y = findNonOverlappingY(columnX.processor, avgY)
-        node.position = { x: columnX.processor, y }
-        positionedNodes.add(node.id)
-      }
-    }
+    sortedNodes.forEach(node => {
+      let preferredY = currentY
 
-    if (!positionedNodes.has(node.id)) {
-      const y = findNonOverlappingY(columnX.processor, currentY)
-      node.position = { x: columnX.processor, y }
-      currentY = y + nodeSpacing
-    }
-  })
+      // Try to align with source nodes
+      const sources = connectionGraph[node.id]?.sources || []
+      const positionedSources = sources.filter(id => positionedNodes.has(id))
 
-  // Layout processed topics
-  currentY = 80 // Start below headers
-  positionedNodes.clear()
+      if (positionedSources.length > 0) {
+        const sourcePositions = positionedSources
+          .map(id => nodes.find(n => n.id === id))
+          .filter(n => n && n.position)
+          .map(n => n!.position!.y)
 
-  processedTopics.forEach((node) => {
-    // Try to align with producing processors
-    const producerIds = edges
-      .filter(e => e.target === node.id)
-      .map(e => e.source)
-
-    if (producerIds.length > 0) {
-      const producerNodes = nodes.filter(n => producerIds.includes(n.id) && n.position)
-      if (producerNodes.length > 0) {
-        const avgY = producerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / producerNodes.length
-        const y = findNonOverlappingY(columnX.processedTopic, avgY)
-        node.position = { x: columnX.processedTopic, y }
-        positionedNodes.add(node.id)
-      }
-    }
-
-    if (!positionedNodes.has(node.id)) {
-      const y = findNonOverlappingY(columnX.processedTopic, currentY)
-      node.position = { x: columnX.processedTopic, y }
-      currentY = y + nodeSpacing
-    }
-  })
-
-  // Layout kafka-to-db consumers
-  currentY = 80 // Start below headers
-  positionedNodes.clear()
-
-  kafkaToDbConsumers.forEach((node) => {
-    // Try to align with input topics that have tables
-    const inputTopicIds = edges
-      .filter(e => e.target === node.id)
-      .map(e => e.source)
-
-    if (inputTopicIds.length > 0) {
-      const inputNodes = nodes.filter(n => inputTopicIds.includes(n.id) && n.position)
-      if (inputNodes.length > 0) {
-        const avgY = inputNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / inputNodes.length
-        const y = findNonOverlappingY(columnX.kafkaToDb, avgY)
-        node.position = { x: columnX.kafkaToDb, y }
-        positionedNodes.add(node.id)
-      }
-    }
-
-    if (!positionedNodes.has(node.id)) {
-      const y = findNonOverlappingY(columnX.kafkaToDb, currentY)
-      node.position = { x: columnX.kafkaToDb, y }
-      currentY = y + nodeSpacing
-    }
-  })
-
-  // Layout table nodes aligned with their kafka-to-db consumers
-  tableNodes.forEach((node) => {
-    // Find the kafka-to-db consumer that reads the topic for this table
-    const topicName = node.data.topic
-    const topicNode = nodes.find(n => n.type === 'kafka-topic' && n.data.label === topicName)
-
-    if (topicNode) {
-      // Find kafka-to-db consumers that read this topic
-      const consumerIds = edges
-        .filter(e => e.source === topicNode.id && kafkaToDbConsumers.some(k => k.id === e.target))
-        .map(e => e.target)
-
-      if (consumerIds.length > 0) {
-        const consumerNodes = nodes.filter(n => consumerIds.includes(n.id) && n.position)
-        if (consumerNodes.length > 0) {
-          const avgY = consumerNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / consumerNodes.length
-          const y = findNonOverlappingY(columnX.table, avgY, 100)
-          node.position = { x: columnX.table, y }
+        if (sourcePositions.length > 0) {
+          preferredY = sourcePositions.reduce((sum, y) => sum + y, 0) / sourcePositions.length
         }
       }
-    }
 
-    if (!node.position) {
-      const y = findNonOverlappingY(columnX.table, currentY, 100)
-      node.position = { x: columnX.table, y }
-      currentY = y + 120
-    }
-  })
+      columnNodes.push({ node, preferredY })
+    })
 
-  // Layout error topics at bottom
-  currentY = Math.max(...nodes.filter(n => n.position).map(n => (n.position?.y || 0))) + 200
-  errorTopics.forEach((node) => {
-    const y = findNonOverlappingY(columnX.error, currentY, 100)
-    node.position = { x: columnX.error, y }
-    currentY = y + 120
-  })
+    // Sort by preferred Y position
+    columnNodes.sort((a, b) => a.preferredY - b.preferredY)
+
+    // Position nodes avoiding overlaps
+    let lastY = 80
+    columnNodes.forEach(({ node, preferredY }) => {
+      const minY = Math.max(preferredY, lastY)
+      node.position = { x: columnX, y: minY }
+      lastY = minY + defaultHeight + verticalSpacing
+      positionedNodes.add(node.id)
+    })
+
+    return lastY
+  }
+
+  // Position each column in order
+  positionNodeGroup(nodeGroups.rawTopic, columns.rawTopic, nodeHeights.topic)
+  positionNodeGroup(nodeGroups.processor, columns.processor, nodeHeights.processor)
+  positionNodeGroup(nodeGroups.processedTopic, columns.processedTopic, nodeHeights.topic)
+  positionNodeGroup(nodeGroups.kafkaToDb, columns.kafkaToDb, nodeHeights.processor)
+  positionNodeGroup(nodeGroups.table, columns.table, nodeHeights.table)
+
+  // Position error topics at the bottom
+  if (nodeGroups.error.length > 0) {
+    const maxY = Math.max(...nodes.filter(n => n.position && n.type !== 'column-header').map(n => n.position!.y))
+    nodeGroups.error.forEach((node, index) => {
+      node.position = { x: columns.error, y: maxY + sectionSpacing + index * (nodeHeights.topic + verticalSpacing) }
+    })
+  }
 
   return { nodes, edges }
 }
@@ -504,6 +428,50 @@ function SimplePipelineMonitor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [topology, setTopology] = useState<any>(null)
+
+  // Load saved positions from localStorage
+  const loadSavedPositions = (): { [nodeId: string]: { x: number, y: number } } => {
+    try {
+      const saved = localStorage.getItem('loom-pipeline-node-positions')
+      return saved ? JSON.parse(saved) : {}
+    } catch (e) {
+      console.error('Failed to load saved positions:', e)
+      return {}
+    }
+  }
+
+  // Save positions to localStorage
+  const savePositions = (nodesToSave: Node[]) => {
+    try {
+      const positions: { [nodeId: string]: { x: number, y: number } } = {}
+      nodesToSave.forEach(node => {
+        if (node.position) {
+          positions[node.id] = { x: node.position.x, y: node.position.y }
+        }
+      })
+      localStorage.setItem('loom-pipeline-node-positions', JSON.stringify(positions))
+    } catch (e) {
+      console.error('Failed to save positions:', e)
+    }
+  }
+
+  // Handle node changes (including drags)
+  const handleNodesChange = (changes: any) => {
+    onNodesChange(changes)
+
+    // If any node was dragged, save the new positions
+    const hasPositionChange = changes.some((change: any) =>
+      change.type === 'position' && change.dragging === false
+    )
+
+    if (hasPositionChange) {
+      // Get the current nodes state after the change
+      setNodes(currentNodes => {
+        savePositions(currentNodes)
+        return currentNodes
+      })
+    }
+  }
 
   useEffect(() => {
     fetchPipelineStructure()
@@ -529,12 +497,13 @@ function SimplePipelineMonitor() {
 
       // Add column headers
       const columnHeaders = [
-        { id: 'header_sources', label: 'Data Sources', x: 50 },
-        { id: 'header_raw_topics', label: 'Raw Topics', x: 400 },
-        { id: 'header_processors', label: 'Processors', x: 800 },
-        { id: 'header_processed', label: 'Processed Topics', x: 1300 },
-        { id: 'header_db_writers', label: 'DB Writers', x: 1700 },
-        { id: 'header_tables', label: 'Database Tables', x: 2100 }
+        { id: 'header_api', label: 'API Endpoints', x: 50 },
+        { id: 'header_fetchers', label: 'Data Fetchers', x: 400 },
+        { id: 'header_raw_topics', label: 'Raw Topics', x: 750 },
+        { id: 'header_processors', label: 'Processors', x: 1350 },
+        { id: 'header_processed', label: 'Processed Topics', x: 1950 },
+        { id: 'header_db_writers', label: 'DB Writers', x: 2550 },
+        { id: 'header_tables', label: 'Database Tables', x: 3150 }
       ]
 
       columnHeaders.forEach(header => {
@@ -807,7 +776,6 @@ function SimplePipelineMonitor() {
           const targetId = topicNameToId.get(topicName) || `topic_${topicName.replace(/\./g, '_')}`
           const edgeId = `${nodeId}-${targetId}`
 
-          // Check if edge already exists
           if (nodeMap.has(targetId) && !newEdges.find(e => e.id === edgeId)) {
             const shortServiceName = stage.service_name.replace('loom-', '').substring(0, 20)
             const shortTopicName = topicName.split('.').slice(-2).join('.')
@@ -839,61 +807,41 @@ function SimplePipelineMonitor() {
             })
           }
         })
-      })
 
-      // Create table nodes for topics that have database tables
-      const tableNodeSet = new Set<string>()
-      const topicToTable = new Map<string, string>() // Map topic names to table node IDs
-
-      topologyData.topics?.forEach((topic: any) => {
-        if (topic.table_name) {
-          const tableNodeId = `table_${topic.table_name.replace(/[\._]/g, '_')}`
-
-          if (!tableNodeSet.has(tableNodeId)) {
-            tableNodeSet.add(tableNodeId)
-            const tableNode: Node = {
-              id: tableNodeId,
-              type: 'table',
-              position: { x: 0, y: 0 },
-              data: {
-                label: topic.table_name,
-                topic: topic.topic_name
-              }
-            }
-            newNodes.push(tableNode)
-            nodeMap.set(tableNodeId, tableNode)
-          }
-
-          topicToTable.set(topic.topic_name, tableNodeId)
-        }
-      })
-
-      // Find kafka-to-db consumers and connect them to tables
-      topologyData.stages?.forEach((stage: any) => {
-        // Check if this is a kafka-to-db consumer (has inputs but no outputs)
+        // Handle processors that write to DB (tables)
         if (stage.service_name.includes('kafka-to-db') ||
             stage.service_name.includes('timescale-writer') ||
-            stage.service_name.includes('kafka-to-db-saver') ||
             (stage.input_topics && stage.input_topics.length > 0 &&
              (!stage.output_topics || stage.output_topics.length === 0))) {
 
-          // For each input topic, check if it has a table
+          // Create table nodes for each input topic
           stage.input_topics?.forEach((topicName: string) => {
-            const tableId = topicToTable.get(topicName)
-            if (tableId) {
-              const processorId = `processor_${stage.service_name.replace(/[\.-]/g, '_')}`
-              const edgeId = `${processorId}-${tableId}`
+            const tableName = topologyData.topics?.find((t: any) => t.topic_name === topicName)?.table_name
+            if (tableName) {
+              const tableNodeId = `table_${tableName}`
 
+              if (!nodeMap.has(tableNodeId)) {
+                const tableNode: Node = {
+                  id: tableNodeId,
+                  type: 'table',
+                  position: { x: 0, y: 0 },
+                  data: {
+                    label: tableName,
+                    topic: topicName
+                  }
+                }
+                newNodes.push(tableNode)
+                nodeMap.set(tableNodeId, tableNode)
+              }
+
+              // Create edge from processor to table
+              const edgeId = `${nodeId}-${tableNodeId}`
               if (!newEdges.find(e => e.id === edgeId)) {
-                const processorNode = nodeMap.get(processorId)
-                const tableNode = nodeMap.get(tableId)
-                const shortServiceName = processorNode?.data?.label?.replace('loom-', '').substring(0, 20) || 'processor'
-                const tableName = tableNode?.data?.label || 'table'
                 newEdges.push({
                   id: edgeId,
-                  source: processorId,
-                  target: tableId,
-                  label: `${shortServiceName} → ${tableName}`,
+                  source: nodeId,
+                  target: tableNodeId,
+                  label: `Write to ${tableName}`,
                   type: 'smoothstep',
                   animated: false,
                   style: {
@@ -921,195 +869,268 @@ function SimplePipelineMonitor() {
         }
       })
 
-      // Layout the graph
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges)
-      setNodes(layoutedNodes)
-      setEdges(layoutedEdges)
-      setLoading(false)
+      // Layout the elements
+      const layouted = getLayoutedElements(newNodes, newEdges)
+
+      // Apply saved positions if they exist
+      const savedPositions = loadSavedPositions()
+      const nodesWithSavedPositions = layouted.nodes.map(node => {
+        if (savedPositions[node.id]) {
+          return {
+            ...node,
+            position: savedPositions[node.id]
+          }
+        }
+        return node
+      })
+
+      setNodes(nodesWithSavedPositions)
+      setEdges(layouted.edges)
     } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
       console.error('Error fetching pipeline structure:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load pipeline structure')
+    } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchPipelineStructure()
+  }
+
+  const handleDownloadStructure = () => {
+    const structure = {
+      metadata: {
+        exportDate: new Date().toISOString(),
+        totalNodes: nodes.length,
+        totalEdges: edges.length,
+        apiEndpoints: nodes.filter(n => n.type === 'api').length,
+        fetchers: nodes.filter(n => n.type === 'fetcher').length,
+        topics: nodes.filter(n => n.type === 'kafka-topic').length,
+        processors: nodes.filter(n => n.type === 'processor').length,
+        tables: nodes.filter(n => n.type === 'table').length
+      },
+      apiEndpoints: nodes.filter(n => n.type === 'api').map(n => ({
+        id: n.id,
+        label: n.data.label,
+        description: n.data.description,
+        endpoints: n.data.endpoints
+      })),
+      fetchers: nodes.filter(n => n.type === 'fetcher').map(n => ({
+        id: n.id,
+        label: n.data.label,
+        description: n.data.description,
+        sources: n.data.sources,
+        outputTopics: n.data.outputTopics
+      })),
+      topics: nodes.filter(n => n.type === 'kafka-topic').map(n => ({
+        id: n.id,
+        name: n.data.label,
+        description: n.data.description,
+        hasTable: n.data.hasTable,
+        tableName: n.data.tableName
+      })),
+      processors: nodes.filter(n => n.type === 'processor').map(n => ({
+        id: n.id,
+        name: n.data.label,
+        description: n.data.description,
+        consumerGroup: n.data.consumerGroup,
+        inputTopics: n.data.inputTopics,
+        outputTopics: n.data.outputTopics
+      })),
+      tables: nodes.filter(n => n.type === 'table').map(n => ({
+        id: n.id,
+        name: n.data.label,
+        sourceTopic: n.data.topic
+      })),
+      connections: edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        label: e.label,
+        sourceNode: nodes.find(n => n.id === e.source)?.data.label,
+        targetNode: nodes.find(n => n.id === e.target)?.data.label
+      })),
+      topology: topology,
+      nodes: nodes,
+      edges: edges
+    }
+
+    const dataStr = JSON.stringify(structure, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+
+    const exportFileDefaultName = `loom-pipeline-structure-${new Date().toISOString().split('T')[0]}.json`
+
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+  }
+
+  const handleExportPositions = () => {
+    const positions: { [nodeId: string]: { x: number, y: number } } = {}
+    nodes.forEach(node => {
+      if (node.position) {
+        positions[node.id] = { x: node.position.x, y: node.position.y }
+      }
+    })
+
+    const exportData = {
+      metadata: {
+        exportDate: new Date().toISOString(),
+        version: '1.0',
+        nodeCount: Object.keys(positions).length
+      },
+      positions: positions
+    }
+
+    const dataStr = JSON.stringify(exportData, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+
+    const exportFileDefaultName = `loom-pipeline-positions-${new Date().toISOString().split('T')[0]}.json`
+
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+  }
+
+  const handleImportPositions = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'application/json'
+
+    input.onchange = async (event: any) => {
+      const file = event.target.files[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text)
+
+        if (data.positions && typeof data.positions === 'object') {
+          // Apply the imported positions to current nodes
+          const updatedNodes = nodes.map(node => {
+            if (data.positions[node.id]) {
+              return {
+                ...node,
+                position: data.positions[node.id]
+              }
+            }
+            return node
+          })
+
+          setNodes(updatedNodes)
+          savePositions(updatedNodes)
+
+          alert(`Successfully imported positions for ${Object.keys(data.positions).length} nodes`)
+        } else {
+          alert('Invalid positions file format')
+        }
+      } catch (error) {
+        console.error('Failed to import positions:', error)
+        alert('Failed to import positions file')
+      }
+    }
+
+    input.click()
+  }
+
+  const handleResetPositions = () => {
+    if (confirm('Are you sure you want to reset all node positions to default layout?')) {
+      localStorage.removeItem('loom-pipeline-node-positions')
+      fetchPipelineStructure() // Re-fetch and re-layout
     }
   }
 
   if (loading) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center">
-        <div className="text-xl">Loading pipeline structure...</div>
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading pipeline structure...</p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center">
-        <div className="text-xl text-red-600">Error: {error}</div>
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+          <div className="text-red-600 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Error Loading Pipeline</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="w-screen h-screen" style={{ width: '100vw', height: '100vh' }}>
-      <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg" style={{ maxWidth: '300px' }}>
+    <div className="h-screen bg-gray-100">
+      <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg">
         <h1 className="text-xl font-bold mb-2">Loom Pipeline Structure</h1>
-        <div className="text-sm text-gray-600">
-          <div>API Endpoints: 1</div>
-          <div>External Fetchers: {nodes.filter(n => n.type === 'fetcher').length}</div>
-          <div>Topics: {nodes.filter(n => n.type === 'kafka-topic').length}</div>
-          <div>Processors: {nodes.filter(n => n.type === 'processor').length}</div>
-          <div>Tables: {nodes.filter(n => n.type === 'table').length}</div>
+        <div className="text-sm text-gray-600 mb-4 space-y-1">
+          <div>Nodes: {nodes.filter(n => n.type !== 'column-header').length}</div>
           <div>Connections: {edges.length}</div>
         </div>
+        <div className="space-y-2">
+          <button
+            onClick={handleRefresh}
+            className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          >
+            Refresh Structure
+          </button>
+          <button
+            onClick={handleDownloadStructure}
+            className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+          >
+            Download Structure as JSON
+          </button>
 
-        {/* Color Guide */}
-        <div className="mt-4 pt-3 border-t border-gray-200">
-          <div className="text-xs font-semibold text-gray-700 mb-2">Color Guide:</div>
-          <div className="space-y-1">
-            <div className="flex items-center text-xs">
-              <div className="w-4 h-4 bg-purple-100 border-2 border-purple-500 rounded mr-2"></div>
-              <span>Ingestion API</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-500 rounded mr-2"></div>
-              <span>External Fetchers</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-4 h-4 bg-blue-100 border-2 border-blue-500 rounded mr-2"></div>
-              <span>Kafka Topics</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-4 h-4 bg-green-100 border-2 border-green-500 rounded mr-2"></div>
-              <span>Processors/Consumers</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-4 h-4 bg-orange-100 border-2 border-orange-500 rounded mr-2"></div>
-              <span>Database Tables</span>
-            </div>
-            <div className="flex items-center text-xs mt-2">
-              <div className="w-8 h-0.5 bg-purple-500 mr-2"></div>
-              <span>API → Topic</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-8 h-0.5 bg-yellow-500 mr-2"></div>
-              <span>Fetcher → Topic</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-8 h-0.5 bg-blue-500 mr-2"></div>
-              <span>Topic → Consumer</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-8 h-0.5 bg-green-500 mr-2"></div>
-              <span>Consumer → Topic</span>
-            </div>
-            <div className="flex items-center text-xs">
-              <div className="w-8 h-0.5 bg-orange-500 mr-2"></div>
-              <span>Consumer → Table</span>
-            </div>
+          <div className="border-t pt-2 mt-2">
+            <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Layout Positions</div>
+            <button
+              onClick={handleExportPositions}
+              className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition mb-2"
+            >
+              Export Positions
+            </button>
+            <button
+              onClick={handleImportPositions}
+              className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition mb-2"
+            >
+              Import Positions
+            </button>
+            <button
+              onClick={handleResetPositions}
+              className="w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition"
+            >
+              Reset to Default Layout
+            </button>
           </div>
         </div>
-
-        <button
-          onClick={fetchPipelineStructure}
-          className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md"
-        >
-          Refresh
-        </button>
-
-        <button
-          onClick={() => {
-            // Create a comprehensive structure object
-            const structure = {
-              metadata: {
-                exportDate: new Date().toISOString(),
-                totalNodes: nodes.length,
-                totalEdges: edges.length,
-                apiEndpoints: 1,
-                fetchers: nodes.filter(n => n.type === 'fetcher').length,
-                topics: nodes.filter(n => n.type === 'kafka-topic').length,
-                processors: nodes.filter(n => n.type === 'processor').length,
-                tables: nodes.filter(n => n.type === 'table').length
-              },
-              apiEndpoints: nodes.filter(n => n.type === 'api').map(n => ({
-                id: n.id,
-                label: n.data.label,
-                description: n.data.description,
-                endpoints: n.data.endpoints
-              })),
-              fetchers: nodes.filter(n => n.type === 'fetcher').map(n => ({
-                id: n.id,
-                label: n.data.label,
-                description: n.data.description,
-                sources: n.data.sources,
-                outputTopics: n.data.outputTopics
-              })),
-              topics: nodes.filter(n => n.type === 'kafka-topic').map(n => ({
-                id: n.id,
-                name: n.data.label,
-                description: n.data.description,
-                hasTable: n.data.hasTable,
-                tableName: n.data.tableName
-              })),
-              processors: nodes.filter(n => n.type === 'processor').map(n => ({
-                id: n.id,
-                serviceName: n.data.label,
-                description: n.data.description,
-                consumerGroup: n.data.consumerGroup,
-                inputTopics: n.data.inputTopics,
-                outputTopics: n.data.outputTopics
-              })),
-              tables: nodes.filter(n => n.type === 'table').map(n => ({
-                id: n.id,
-                tableName: n.data.label,
-                sourceTopic: n.data.topic
-              })),
-              connections: edges.map(e => ({
-                id: e.id,
-                source: e.source,
-                target: e.target,
-                label: e.label,
-                type: e.type
-              })),
-              rawTopology: topology
-            }
-
-            // Convert to JSON and download
-            const dataStr = JSON.stringify(structure, null, 2)
-            const dataBlob = new Blob([dataStr], { type: 'application/json' })
-            const url = URL.createObjectURL(dataBlob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = `loom-pipeline-structure-${new Date().toISOString().split('T')[0]}.json`
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            URL.revokeObjectURL(url)
-          }}
-          className="mt-2 w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md"
-        >
-          Download Structure as JSON
-        </button>
       </div>
-
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{
-          padding: 0.3,
-          minZoom: 0.01,
-          maxZoom: 2
-        }}
         minZoom={0.01}
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-          animated: true
-        }}
       >
         <Background variant={BackgroundVariant.Dots} />
         <Controls />
@@ -1119,12 +1140,10 @@ function SimplePipelineMonitor() {
   )
 }
 
-function AppSimple() {
+export default function App() {
   return (
     <ReactFlowProvider>
       <SimplePipelineMonitor />
     </ReactFlowProvider>
   )
 }
-
-export default AppSimple

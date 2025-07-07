@@ -4,13 +4,14 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 # Configure structured logging
 structlog.configure(
@@ -41,6 +42,12 @@ DATABASE_URL = os.getenv(
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_GROUP_ID = "kafka-to-db-consumer"
 
+# Batch processing configuration
+BATCH_SIZE = int(os.getenv("LOOM_KAFKA_BATCH_SIZE", "100"))
+BATCH_TIMEOUT = float(os.getenv("LOOM_KAFKA_BATCH_TIMEOUT", "1.0"))  # seconds
+DB_MIN_POOL_SIZE = int(os.getenv("LOOM_DB_MIN_POOL_SIZE", "10"))
+DB_MAX_POOL_SIZE = int(os.getenv("LOOM_DB_MAX_POOL_SIZE", "50"))
+
 # Topic to table mappings
 TOPIC_TABLE_MAPPINGS = {
     "media.audio.voice_segments": "media_audio_voice_segments_raw",
@@ -56,10 +63,13 @@ TOPIC_TABLE_MAPPINGS = {
 }
 
 
-class KafkaToDBConsumer:
+class KafkaToDBConsumer(ConsumerActivityLogger):
     """Consumer that reads from Kafka topics and writes to TimescaleDB."""
 
     def __init__(self):
+        # Initialize activity logger
+        super().__init__(service_name="kafka-to-db-consumer")
+
         self.consumer: AIOKafkaConsumer | None = None
         self.db_pool: asyncpg.Pool | None = None
         self.running = False
@@ -68,12 +78,17 @@ class KafkaToDBConsumer:
         """Start the consumer service."""
         logger.info("Starting Kafka to DB consumer service")
 
-        # Initialize database connection pool
+        # Initialize database connection pool with optimized settings
         self.db_pool = await asyncpg.create_pool(
             DATABASE_URL,
-            min_size=2,
-            max_size=10,
+            min_size=DB_MIN_POOL_SIZE,
+            max_size=DB_MAX_POOL_SIZE,
             command_timeout=60,
+            # Performance optimizations
+            server_settings={
+                "jit": "off",  # Disable JIT for predictable performance
+                "synchronous_commit": "off",  # Async commits for better throughput
+            },
         )
 
         # Initialize Kafka consumer
@@ -83,11 +98,18 @@ class KafkaToDBConsumer:
             group_id=KAFKA_GROUP_ID,
             auto_offset_reset="earliest",
             enable_auto_commit=True,
+            auto_commit_interval_ms=5000,  # Commit every 5 seconds
+            max_poll_records=500,  # Batch size for processing
+            fetch_max_bytes=52428800,  # 50MB max fetch
+            session_timeout_ms=60000,  # 60 second timeout
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         )
 
         await self.consumer.start()
         self.running = True
+
+        # Initialize activity logger
+        await self.init_activity_logger()
 
         logger.info(
             "Kafka to DB consumer started",
@@ -106,35 +128,225 @@ class KafkaToDBConsumer:
         if self.db_pool:
             await self.db_pool.close()
 
+        # Close activity logger
+        await self.close_activity_logger()
+
         logger.info("Kafka to DB consumer stopped")
 
     async def consume_messages(self):
-        """Main message consumption loop."""
+        """Main message consumption loop with batch processing."""
         if not self.consumer or not self.db_pool:
             raise RuntimeError("Consumer not properly initialized")
 
-        logger.info("Starting message consumption loop")
+        logger.info("Starting message consumption loop with batch processing")
+
+        # Batch processing configuration
+        batch_size = BATCH_SIZE
+        batch_timeout = BATCH_TIMEOUT
+        message_batch = []
+        last_batch_time = asyncio.get_event_loop().time()
 
         try:
             async for message in self.consumer:
                 if not self.running:
                     break
 
-                try:
-                    await self._process_message(message)
-                except Exception as e:
-                    logger.error(
-                        "Failed to process message",
-                        topic=message.topic,
-                        partition=message.partition,
-                        offset=message.offset,
-                        error=str(e),
-                        exc_info=True,
-                    )
+                # Add message to batch
+                message_batch.append(message)
+
+                # Process batch if size limit reached or timeout exceeded
+                current_time = asyncio.get_event_loop().time()
+                if (
+                    len(message_batch) >= batch_size
+                    or (current_time - last_batch_time) >= batch_timeout
+                ):
+                    try:
+                        await self._process_batch(message_batch)
+                        message_batch = []
+                        last_batch_time = current_time
+                    except Exception as e:
+                        logger.error(
+                            "Failed to process batch",
+                            batch_size=len(message_batch),
+                            error=str(e),
+                            exc_info=True,
+                        )
+                        # Process messages individually on batch failure
+                        for msg in message_batch:
+                            try:
+                                await self._process_message(msg)
+                            except Exception as ind_e:
+                                logger.error(
+                                    "Failed to process individual message",
+                                    topic=msg.topic,
+                                    partition=msg.partition,
+                                    offset=msg.offset,
+                                    error=str(ind_e),
+                                )
+                        message_batch = []
+                        last_batch_time = current_time
+
+            # Process any remaining messages
+            if message_batch:
+                await self._process_batch(message_batch)
 
         except Exception as e:
             logger.error("Error in consumption loop", error=str(e), exc_info=True)
             raise
+
+    async def _process_batch(self, messages):
+        """Process a batch of messages efficiently."""
+        # Log consumption for all messages in batch
+        for message in messages:
+            await self.log_consumption(message)
+
+        # Group messages by topic for batch processing
+        messages_by_topic = {}
+        for message in messages:
+            if message.topic not in messages_by_topic:
+                messages_by_topic[message.topic] = []
+            messages_by_topic[message.topic].append(message)
+
+        # Process each topic's batch
+        for topic, topic_messages in messages_by_topic.items():
+            try:
+                await self._process_topic_batch(topic, topic_messages)
+            except Exception as e:
+                logger.error(
+                    "Failed to process topic batch",
+                    topic=topic,
+                    batch_size=len(topic_messages),
+                    error=str(e),
+                    exc_info=True,
+                )
+                # Fall back to individual processing
+                for msg in topic_messages:
+                    try:
+                        await self._process_message(msg)
+                    except Exception as ind_e:
+                        logger.error(
+                            "Failed to process individual message in batch fallback",
+                            topic=msg.topic,
+                            partition=msg.partition,
+                            offset=msg.offset,
+                            error=str(ind_e),
+                        )
+
+    async def _process_topic_batch(self, topic: str, messages):
+        """Process a batch of messages for a specific topic."""
+        table_name = TOPIC_TABLE_MAPPINGS[topic]
+
+        # Extract data from all messages
+        all_data = [msg.value for msg in messages]
+
+        logger.debug(
+            "Processing topic batch",
+            topic=topic,
+            table=table_name,
+            batch_size=len(messages),
+        )
+
+        # Use topic-specific batch insert methods
+        if topic == "media.text.word_timestamps":
+            await self._batch_insert_word_timestamps(table_name, all_data)
+        elif topic == "device.network.wifi.raw":
+            await self._batch_insert_generic_data(table_name, all_data)
+        else:
+            # For topics without specialized batch methods, use individual processing
+            for message in messages:
+                await self._process_message(message)
+
+        logger.debug(
+            "Topic batch processed successfully",
+            topic=topic,
+            table=table_name,
+            batch_size=len(messages),
+        )
+
+    async def _batch_insert_word_timestamps(
+        self, table_name: str, data_list: List[Dict[str, Any]]
+    ):
+        """Batch insert word timestamp data."""
+        if not data_list:
+            return
+
+        # Prepare all values for batch insert
+        all_values = []
+        placeholders_per_record = []
+
+        for i, data in enumerate(data_list):
+            offset = i * 13  # 13 columns per record
+            placeholders = [f"${j+offset+1}" for j in range(13)]
+            placeholders_per_record.append(f"({', '.join(placeholders)})")
+
+            all_values.extend(
+                [
+                    data["device_id"],
+                    data["timestamp"],
+                    data.get("schema_version", "v1"),
+                    data["message_id"],
+                    data["word_sequence"],
+                    data["word_text"],
+                    data["start_time_ms"],
+                    data["end_time_ms"],
+                    data["confidence_score"],
+                    data.get("speaker_id"),
+                    data.get("language_code", "en"),
+                    data.get("phonetic_transcription"),
+                    json.dumps(data.get("word_boundaries")),
+                ]
+            )
+
+        query = f"""
+        INSERT INTO {table_name} (
+            device_id, timestamp, schema_version, message_id,
+            word_sequence, word_text, start_time_ms, end_time_ms, confidence_score,
+            speaker_id, language_code, phonetic_transcription, word_boundaries
+        ) VALUES {', '.join(placeholders_per_record)}
+        ON CONFLICT (device_id, message_id, word_sequence, timestamp) DO NOTHING
+        """
+
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(query, *all_values)
+
+    async def _batch_insert_generic_data(
+        self, table_name: str, data_list: List[Dict[str, Any]]
+    ):
+        """Generic batch insert for simple data structures."""
+        if not data_list:
+            return
+
+        # Get all unique columns from all records
+        all_columns = set()
+        for data in data_list:
+            all_columns.update(data.keys())
+        columns = sorted(list(all_columns))
+
+        # Prepare values
+        all_values = []
+        placeholders_per_record = []
+
+        for i, data in enumerate(data_list):
+            offset = i * len(columns)
+            placeholders = [f"${j+offset+1}" for j in range(len(columns))]
+            placeholders_per_record.append(f"({', '.join(placeholders)})")
+
+            # Add values in column order
+            for col in columns:
+                value = data.get(col)
+                # Convert dicts/lists to JSON
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value)
+                all_values.append(value)
+
+        query = f"""
+        INSERT INTO {table_name} ({', '.join(columns)})
+        VALUES {', '.join(placeholders_per_record)}
+        ON CONFLICT DO NOTHING
+        """
+
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(query, *all_values)
 
     async def _process_message(self, message):
         """Process a single Kafka message and insert into database."""
@@ -536,7 +748,11 @@ class KafkaToDBConsumer:
                 json.dumps(data.get("attachments", [])),
                 data.get("folder"),
                 data.get("email_source"),
-                f"[{','.join(map(str, data.get('embedding', [])))}]" if data.get('embedding') else None,  # Convert list to PostgreSQL array format
+                (
+                    f"[{','.join(map(str, data.get('embedding', [])))}]"
+                    if data.get("embedding")
+                    else None
+                ),  # Convert list to PostgreSQL array format
                 data.get("embedding_model"),
                 embedding_timestamp,
                 json.dumps(data.get("metadata", {})),
@@ -643,7 +859,11 @@ class KafkaToDBConsumer:
                 data.get("author_username"),
                 data.get("author_name"),
                 data.get("author_profile_url"),
-                f"[{','.join(map(str, data.get('embedding', [])))}]" if data.get('embedding') else None,  # Convert list to PostgreSQL array format
+                (
+                    f"[{','.join(map(str, data.get('embedding', [])))}]"
+                    if data.get("embedding")
+                    else None
+                ),  # Convert list to PostgreSQL array format
                 data.get("embedding_model"),
                 embedding_timestamp,
                 data.get("screenshot_url"),

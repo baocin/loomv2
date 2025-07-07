@@ -10,11 +10,12 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from app.embedder import TextEmbedder
 from app.db_handler import DatabaseHandler
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 logger = structlog.get_logger()
 
 
-class TextEmbeddingConsumer:
+class TextEmbeddingConsumer(ConsumerActivityLogger):
     """Consumes emails and tweets from Kafka, embeds them, and stores in DB."""
 
     def __init__(
@@ -28,6 +29,7 @@ class TextEmbeddingConsumer:
         database_url: str,
         embedder: TextEmbedder,
     ):
+        super().__init__(service_name="text-embedder")
         self.bootstrap_servers = bootstrap_servers
         self.email_topic = email_topic
         self.twitter_topic = twitter_topic
@@ -67,6 +69,9 @@ class TextEmbeddingConsumer:
             await self.db_handler.connect()
             await self.embedder.load_model()
 
+            # Initialize activity logger
+            await self.init_activity_logger()
+
             self.running = True
             logger.info("Text embedding consumer started successfully")
 
@@ -83,6 +88,9 @@ class TextEmbeddingConsumer:
         if self.producer:
             await self.producer.stop()
         await self.db_handler.disconnect()
+
+        # Close activity logger
+        await self.close_activity_logger()
 
         logger.info("Text embedding consumer stopped")
 
@@ -134,11 +142,13 @@ class TextEmbeddingConsumer:
 
             # Extract the data payload (support both nested and flat structures)
             data = message.get("data", message)
-            
+
             # Extract tweet ID from URL or use the provided tweet_id
             tweet_url = data.get("url", data.get("tweetLink", ""))
-            tweet_id = data.get("tweet_id") or (tweet_url.split("/")[-1] if tweet_url else str(uuid.uuid4()))
-            
+            tweet_id = data.get("tweet_id") or (
+                tweet_url.split("/")[-1] if tweet_url else str(uuid.uuid4())
+            )
+
             # Extract author username from profile_link if not provided
             if not data.get("author") and data.get("profile_link"):
                 data["author"] = data["profile_link"].rstrip("/").split("/")[-1]
@@ -156,15 +166,15 @@ class TextEmbeddingConsumer:
                     "device_id": message.get("device_id"),
                     "timestamp": message.get("timestamp"),
                     "trace_id": trace_id,
-                }, 
-                embedding, 
-                trace_id, 
-                tweet_id
+                },
+                embedding,
+                trace_id,
+                tweet_id,
             )
 
             # Send to X URL processor for screenshot/extraction
             if self.producer:
-                await self.producer.send_and_wait(
+                url_result = await self.producer.send_and_wait(
                     "task.url.ingest",
                     value={
                         "url": tweet_url,
@@ -177,6 +187,14 @@ class TextEmbeddingConsumer:
                             "text": data.get("text"),
                         },
                     },
+                )
+                # Log this production too
+                await self.log_production(
+                    topic="task.url.ingest",
+                    partition=url_result.partition,
+                    offset=url_result.offset,
+                    key=None,
+                    value={"url": tweet_url, "tweet_id": tweet_id},
                 )
 
             # Prepare embedded message with full original content
@@ -210,22 +228,41 @@ class TextEmbeddingConsumer:
                 break
 
             try:
+                # Log consumption
+                await self.log_consumption(msg)
+
                 topic = msg.topic
                 message = msg.value
 
                 if topic == self.email_topic:
                     result = await self.process_email(message)
                     if result and self.producer:
-                        await self.producer.send_and_wait(
+                        send_result = await self.producer.send_and_wait(
                             self.embedded_email_topic,
+                            value=result,
+                        )
+                        # Log production
+                        await self.log_production(
+                            topic=self.embedded_email_topic,
+                            partition=send_result.partition,
+                            offset=send_result.offset,
+                            key=None,
                             value=result,
                         )
 
                 elif topic == self.twitter_topic:
                     result = await self.process_twitter(message)
                     if result and self.producer:
-                        await self.producer.send_and_wait(
+                        send_result = await self.producer.send_and_wait(
                             self.embedded_twitter_topic,
+                            value=result,
+                        )
+                        # Log production
+                        await self.log_production(
+                            topic=self.embedded_twitter_topic,
+                            partition=send_result.partition,
+                            offset=send_result.offset,
+                            key=None,
                             value=result,
                         )
 

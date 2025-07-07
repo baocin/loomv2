@@ -26,11 +26,18 @@ class ActivityClassifier:
     ) -> Optional[ActivityClassification]:
         """Add an event and check if we should classify."""
         # Store event
+        # Try multiple timestamp fields in order of preference
+        timestamp_value = (
+            event_data.get("timestamp")
+            or event_data.get("recorded_at")
+            or event_data.get("created_at")
+        )
+
         self.event_buffer[device_id].append(
             {
                 "type": event_type,
                 "data": event_data,
-                "timestamp": self._parse_timestamp(event_data.get("timestamp")),
+                "timestamp": self._parse_timestamp(timestamp_value),
             }
         )
 
@@ -63,7 +70,20 @@ class ActivityClassifier:
                 return ts.replace(tzinfo=timezone.utc)
             return ts
         elif isinstance(ts, str):
-            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            try:
+                # Handle ISO format with Z suffix
+                if ts.endswith("Z"):
+                    return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                # Handle standard ISO format
+                parsed = datetime.fromisoformat(ts)
+                # Ensure timezone-aware
+                if parsed.tzinfo is None:
+                    return parsed.replace(tzinfo=timezone.utc)
+                return parsed
+            except ValueError:
+                # Fallback for other formats
+                logger.warning(f"Failed to parse timestamp: {ts}, using current time")
+                return datetime.now(timezone.utc)
         else:
             return datetime.now(timezone.utc)
 

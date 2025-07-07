@@ -8,6 +8,7 @@ from typing import Any
 import asyncpg
 import structlog
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 from loom_common.kafka.consumer_config_loader import KafkaConsumerConfigLoader
 
 from app.config import settings
@@ -18,10 +19,13 @@ from app.vad_processor import VADProcessor
 logger = structlog.get_logger(__name__)
 
 
-class KafkaVADConsumer:
+class KafkaVADConsumer(ConsumerActivityLogger):
     """Kafka consumer that processes audio chunks through VAD."""
 
     def __init__(self):
+        # Initialize activity logger
+        super().__init__(service_name="silero-vad")
+
         self.consumer: AIOKafkaConsumer | None = None
         self.producer: AIOKafkaProducer | None = None
         self.vad_processor = VADProcessor()
@@ -74,6 +78,9 @@ class KafkaVADConsumer:
             await self.consumer.start()
             await self.producer.start()
 
+            # Initialize activity logger
+            await self.init_activity_logger()
+
             # Initialize DLQ handler
             self.dlq_handler = DLQHandler(self.producer, "silero-vad")
 
@@ -124,6 +131,9 @@ class KafkaVADConsumer:
         # Close database pool
         if self.db_pool:
             await self.db_pool.close()
+
+        # Close activity logger
+        await self.close_activity_logger()
 
         logger.info("Kafka consumer stopped")
 
@@ -194,6 +204,9 @@ class KafkaVADConsumer:
         # Use a loop instead of recursion to avoid stack overflow
         while retry_count <= max_retries:
             try:
+                # Log consumption
+                await self.log_consumption(message)
+
                 await self._process_message(message)
 
                 # Success - remove from retry tracking
@@ -321,10 +334,16 @@ class KafkaVADConsumer:
                 filtered_audio.encode_audio(segment["audio_data"])
 
                 # Send to output topic
+                output_data = filtered_audio.model_dump(mode="json")
                 await self.producer.send(
                     settings.kafka_output_topic,
-                    value=filtered_audio.model_dump(mode="json"),
+                    value=output_data,
                     key=audio_chunk.device_id.encode("utf-8"),
+                )
+
+                # Log production
+                await self.log_production(
+                    settings.kafka_output_topic, output_data, audio_chunk.device_id
                 )
 
                 logger.info(

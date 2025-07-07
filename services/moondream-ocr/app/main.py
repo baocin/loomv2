@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Moondream OCR service for processing Twitter screenshots."""
 
+import asyncio
 import base64
 import json
 import logging
@@ -18,6 +19,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from kafka import KafkaConsumer, KafkaProducer
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 # Configure logging
 logging.basicConfig(
@@ -29,10 +31,11 @@ logging.basicConfig(
 app = FastAPI(title="Moondream OCR Service", version="1.0.0")
 
 
-class MoondreamOCR:
+class MoondreamOCR(ConsumerActivityLogger):
     """Moondream-based OCR processor for Twitter images."""
 
     def __init__(self):
+        super().__init__(service_name="moondream-ocr")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = None
         self.tokenizer = None
@@ -41,6 +44,8 @@ class MoondreamOCR:
             os.getenv("MOONDREAM_MODEL_CACHE", "~/.loom/moondream")
         ).expanduser()
         self.model_cache_dir.mkdir(parents=True, exist_ok=True)
+        # Create async event loop for activity logging
+        self._loop = None
 
     def load_model(self):
         """Load Moondream model and tokenizer."""
@@ -116,9 +121,9 @@ ocr_processor: Optional[MoondreamOCR] = None
 # Pydantic models for API
 class OCRRequest(BaseModel):
     image_data: str  # Base64 encoded image
-    prompt: Optional[str] = (
-        "Extract all text from this image. Include tweets, usernames, timestamps, and any other visible text."
-    )
+    prompt: Optional[
+        str
+    ] = "Extract all text from this image. Include tweets, usernames, timestamps, and any other visible text."
 
 
 class OCRResponse(BaseModel):
@@ -209,6 +214,13 @@ def kafka_consumer_thread():
         logging.error("OCR processor not initialized for Kafka consumer")
         return
 
+    # Create event loop for async operations
+    ocr_processor._loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(ocr_processor._loop)
+
+    # Initialize activity logger
+    ocr_processor._loop.run_until_complete(ocr_processor.init_activity_logger())
+
     # Kafka configuration
     bootstrap_servers = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
     input_topic = "external.twitter.images.raw"
@@ -244,6 +256,11 @@ def kafka_consumer_thread():
                 start_time = time.time()
                 msg_data = message.value
 
+                # Log consumption
+                ocr_processor._loop.run_until_complete(
+                    ocr_processor.log_consumption(message)
+                )
+
                 # Extract image data
                 data = msg_data.get("data", {})
                 image_data = data.get("image_data")
@@ -275,7 +292,20 @@ def kafka_consumer_thread():
                 }
 
                 # Send to output topic
-                producer.send(output_topic, value=output_message)
+                future = producer.send(output_topic, value=output_message)
+                # Wait for send to complete
+                record_metadata = future.get(timeout=10)
+
+                # Log production
+                ocr_processor._loop.run_until_complete(
+                    ocr_processor.log_production(
+                        topic=output_topic,
+                        partition=record_metadata.partition,
+                        offset=record_metadata.offset,
+                        key=None,
+                        value=output_message,
+                    )
+                )
 
                 processing_time = (time.time() - start_time) * 1000
                 logging.info(
@@ -283,7 +313,7 @@ def kafka_consumer_thread():
                     f"OCR length: {len(result['ocr_text'])} chars - "
                     f"Processing time: {processing_time:.0f}ms"
                 )
-                
+
                 # Manually commit offset after successful processing
                 consumer.commit()
 
@@ -293,6 +323,13 @@ def kafka_consumer_thread():
 
     except Exception as e:
         logging.error(f"Error in Kafka consumer thread: {e}")
+    finally:
+        # Close activity logger
+        if ocr_processor and ocr_processor._loop:
+            ocr_processor._loop.run_until_complete(
+                ocr_processor.close_activity_logger()
+            )
+            ocr_processor._loop.close()
 
 
 if __name__ == "__main__":

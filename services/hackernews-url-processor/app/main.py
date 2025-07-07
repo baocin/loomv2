@@ -17,7 +17,7 @@ logging.basicConfig(
 class HackerNewsUrlProcessorService:
     def __init__(self):
         self.kafka_consumer = KafkaConsumer()
-        self.kafka_producer = KafkaProducer()
+        self.kafka_producer = KafkaProducer(consumer=self.kafka_consumer)
         self.url_processor = URLProcessor()
 
     async def process_message(self, message):
@@ -59,7 +59,7 @@ class HackerNewsUrlProcessorService:
                     "LOOM_KAFKA_OUTPUT_TOPIC", "task.url.processed.hackernews_archived"
                 )
 
-                self.kafka_producer.send_message(
+                await self.kafka_producer.send_message(
                     topic=output_topic, key=url, value=output_message
                 )
 

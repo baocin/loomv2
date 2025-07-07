@@ -4,16 +4,19 @@ import asyncio
 from kafka import KafkaConsumer as KC
 import os
 from typing import AsyncGenerator, Dict, Any
+from loom_common.kafka.activity_logger import ConsumerActivityLogger
 
 
-class KafkaConsumer:
+class KafkaConsumer(ConsumerActivityLogger):
     def __init__(self):
         """Initialize Kafka consumer"""
+        super().__init__(service_name="x-url-processor")
         self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.topic_prefix = os.getenv("LOOM_KAFKA_TOPIC_PREFIX", "")
         self.group_id = os.getenv("LOOM_KAFKA_CONSUMER_GROUP", "x-url-processor")
 
         self.consumer = None
+        self._loop = None
 
     async def start(self):
         """Start the Kafka consumer"""
@@ -26,6 +29,13 @@ class KafkaConsumer:
                 enable_auto_commit=True,
                 consumer_timeout_ms=1000,
             )
+
+            # Create event loop for async operations
+            self._loop = asyncio.get_event_loop()
+
+            # Initialize activity logger
+            await self.init_activity_logger()
+
             logging.info(f"Kafka consumer started with group_id: {self.group_id}")
         except Exception as e:
             logging.error(f"Failed to start Kafka consumer: {e}")
@@ -55,6 +65,10 @@ class KafkaConsumer:
                                 logging.debug(
                                     f"Received message from {topic_partition.topic} at offset {message.offset}"
                                 )
+
+                                # Log consumption
+                                await self.log_consumption(message)
+
                                 yield message.value
                             except Exception as e:
                                 logging.error(f"Error processing message: {e}")
@@ -72,3 +86,6 @@ class KafkaConsumer:
         if self.consumer:
             self.consumer.close()
             logging.info("Kafka consumer stopped")
+
+        # Close activity logger
+        await self.close_activity_logger()
