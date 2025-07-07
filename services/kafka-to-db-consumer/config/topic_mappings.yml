@@ -257,6 +257,9 @@ topics:
       data.is_plugged_in: is_plugged_in
       data.temperature_celsius: battery_temperature
       data.voltage: voltage
+      data.power_source: power_source
+      data.lid_closed: lid_closed
+      data.thermal_state: thermal_state
       metadata: metadata
     data_types:
       battery_level: integer
@@ -264,6 +267,7 @@ topics:
       is_plugged_in: boolean
       battery_temperature: float
       voltage: float
+      lid_closed: boolean
       timestamp: timestamp
     required_fields:
     - device_id

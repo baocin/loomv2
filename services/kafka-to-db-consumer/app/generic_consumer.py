@@ -91,7 +91,10 @@ class GenericKafkaToDBConsumer(ConsumerActivityLogger):
             bootstrap_servers=self.kafka_bootstrap_servers,
             group_id=self.group_id,
             auto_offset_reset="earliest",
-            enable_auto_commit=True,
+            enable_auto_commit=False,  # Use manual commits for better control
+            max_poll_records=50,  # Smaller batch size for faster processing
+            session_timeout_ms=30000,  # 30 second session timeout
+            heartbeat_interval_ms=10000,  # 10 second heartbeat
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         )
 
@@ -124,11 +127,16 @@ class GenericKafkaToDBConsumer(ConsumerActivityLogger):
         logger.info("Generic Kafka to DB consumer stopped")
 
     async def consume_messages(self):
-        """Main message consumption loop."""
+        """Main message consumption loop with manual commits."""
         if not self.consumer or not self.db_pool:
             raise RuntimeError("Consumer not properly initialized")
 
-        logger.info("Starting generic message consumption loop")
+        logger.info("Starting generic message consumption loop with manual commits")
+
+        processed_count = 0
+        last_commit_time = asyncio.get_event_loop().time()
+        commit_interval = 5.0  # Commit every 5 seconds
+        batch_size = 10  # Commit after processing this many messages
 
         try:
             async for message in self.consumer:
@@ -140,6 +148,31 @@ class GenericKafkaToDBConsumer(ConsumerActivityLogger):
                     await self.log_consumption(message)
 
                     await self._process_message(message)
+                    processed_count += 1
+
+                    # Commit offsets based on time or batch size
+                    current_time = asyncio.get_event_loop().time()
+                    if (
+                        processed_count >= batch_size
+                        or (current_time - last_commit_time) >= commit_interval
+                    ):
+                        try:
+                            await self.consumer.commit()
+                            logger.debug(
+                                "Committed offsets",
+                                processed_count=processed_count,
+                                time_since_last_commit=current_time - last_commit_time,
+                            )
+                            processed_count = 0
+                            last_commit_time = current_time
+                        except Exception as commit_error:
+                            logger.error(
+                                "Failed to commit offsets",
+                                error=str(commit_error),
+                                processed_count=processed_count,
+                                exc_info=True,
+                            )
+
                 except Exception as e:
                     logger.error(
                         "Failed to process message",
@@ -149,6 +182,18 @@ class GenericKafkaToDBConsumer(ConsumerActivityLogger):
                         error=str(e),
                         exc_info=True,
                     )
+                    # Don't commit on processing errors
+
+            # Final commit for any remaining processed messages
+            if processed_count > 0:
+                try:
+                    await self.consumer.commit()
+                    logger.info(
+                        "Final commit of remaining offsets",
+                        processed_count=processed_count,
+                    )
+                except Exception as commit_error:
+                    logger.error("Failed final commit", error=str(commit_error))
 
         except Exception as e:
             logger.error("Error in consumption loop", error=str(e), exc_info=True)
