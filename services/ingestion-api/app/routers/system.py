@@ -12,13 +12,15 @@ from ..auth import verify_api_key
 from ..config import settings
 from ..kafka_producer import kafka_producer
 from ..models import (
+    AndroidAppCategoryStats,
+    AndroidAppEvent,
     AndroidAppMonitoring,
     AndroidAppUsageAggregated,
     APIResponse,
     DeviceMetadata,
     MacOSAppMonitoring,
 )
-from ..models.consumer_activity import (
+from ..schemas.consumer_activity import (
     ConsumerActivityMonitoring,
     ConsumerActivityRequest,
     ConsumerActivityResponse,
@@ -279,6 +281,172 @@ async def upload_android_usage_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process Android usage stats: {e!s}",
+        )
+
+
+@router.post(
+    "/apps/android/events",
+    status_code=status.HTTP_201_CREATED,
+    response_model=APIResponse,
+)
+async def upload_android_app_event(
+    event_data: AndroidAppEvent,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Upload individual Android app event.
+
+    This endpoint accepts individual app events from Android's UsageEvents API,
+    including app state changes, configuration changes, and user interactions.
+
+    Args:
+    ----
+        event_data: Individual Android app event data
+
+    Returns:
+    -------
+        API response with message ID and topic information
+
+    Raises:
+    ------
+        HTTPException: If app monitoring is disabled or Kafka publishing fails
+
+    """
+    if not settings.app_monitoring_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="App monitoring is currently disabled",
+        )
+
+    try:
+        # Send to Kafka
+        await kafka_producer.send_message(
+            topic="device.app_usage.android.events",
+            key=event_data.device_id,
+            message=event_data,
+        )
+
+        logger.info(
+            "Android app event sent to Kafka",
+            device_id=event_data.device_id,
+            message_id=event_data.message_id,
+            package_name=event_data.package_name,
+            event_type=event_data.event_type,
+            topic="device.app_usage.android.events",
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": event_data.message_id,
+                "topic": "device.app_usage.android.events",
+                "event": {
+                    "package_name": event_data.package_name,
+                    "event_type": event_data.event_type,
+                    "timestamp": event_data.recorded_at.isoformat(),
+                },
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to process Android app event",
+            device_id=event_data.device_id,
+            package_name=event_data.package_name,
+            event_type=event_data.event_type,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process Android app event: {e!s}",
+        )
+
+
+@router.post(
+    "/apps/android/categories",
+    status_code=status.HTTP_201_CREATED,
+    response_model=APIResponse,
+)
+async def upload_android_category_stats(
+    category_data: AndroidAppCategoryStats,
+    api_key: str = Depends(verify_api_key),
+) -> JSONResponse:
+    """Upload Android app usage statistics grouped by category.
+
+    This endpoint accepts screen time and usage statistics aggregated by app category
+    (e.g., SOCIAL, PRODUCTIVITY, GAME, etc.), providing insights into usage patterns.
+
+    Args:
+    ----
+        category_data: App usage statistics grouped by category
+
+    Returns:
+    -------
+        API response with message ID and topic information
+
+    Raises:
+    ------
+        HTTPException: If app monitoring is disabled or Kafka publishing fails
+
+    """
+    if not settings.app_monitoring_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="App monitoring is currently disabled",
+        )
+
+    try:
+        # Send to Kafka
+        await kafka_producer.send_message(
+            topic="device.app_usage.android.categories",
+            key=category_data.device_id,
+            message=category_data,
+        )
+
+        logger.info(
+            "Android category stats sent to Kafka",
+            device_id=category_data.device_id,
+            message_id=category_data.message_id,
+            aggregation_start=category_data.aggregation_period_start,
+            aggregation_end=category_data.aggregation_period_end,
+            total_screen_time_ms=category_data.total_screen_time_ms,
+            category_count=len(category_data.category_stats),
+            topic="device.app_usage.android.categories",
+        )
+
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status": "success",
+                "message_id": category_data.message_id,
+                "topic": "device.app_usage.android.categories",
+                "aggregation_period": {
+                    "start": category_data.aggregation_period_start.isoformat(),
+                    "end": category_data.aggregation_period_end.isoformat(),
+                },
+                "stats": {
+                    "total_screen_time_ms": category_data.total_screen_time_ms,
+                    "category_count": len(category_data.category_stats),
+                    "device_unlocks": category_data.device_unlocks,
+                },
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to process Android category stats",
+            device_id=category_data.device_id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process Android category stats: {e!s}",
         )
 
 

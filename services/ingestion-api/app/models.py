@@ -596,6 +596,64 @@ class AndroidNotificationStats(BaseModel):
     )
 
 
+# Individual App Event Models
+
+
+class AndroidAppEvent(BaseMessage):
+    """Individual Android app event data."""
+
+    package_name: str = Field(description="Android package name")
+    app_name: str | None = Field(default=None, description="Human-readable app name")
+    event_type: str = Field(
+        description="Event type (MOVE_TO_FOREGROUND, MOVE_TO_BACKGROUND, ACTIVITY_PAUSED, ACTIVITY_RESUMED, APP_COMPONENT_USED, etc.)",
+    )
+    class_name: str | None = Field(
+        default=None,
+        description="Activity or component class name",
+    )
+    configuration: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration changes if applicable",
+    )
+    shortcut_id: str | None = Field(
+        default=None,
+        description="Shortcut ID if event is shortcut-related",
+    )
+    standby_bucket: int | None = Field(default=None, description="App standby bucket")
+    notification_channel_id: str | None = Field(
+        default=None,
+        description="Notification channel ID if applicable",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional event metadata",
+    )
+
+
+class AndroidAppCategoryStats(BaseMessage):
+    """Screen time statistics by app category."""
+
+    aggregation_period_start: datetime = Field(
+        description="Start of aggregation period",
+    )
+    aggregation_period_end: datetime = Field(description="End of aggregation period")
+    category_stats: list[AndroidScreenTimeStats] = Field(
+        description="Screen time statistics by category",
+        max_items=50,
+    )
+    total_screen_time_ms: int = Field(
+        description="Total screen time across all categories",
+    )
+    device_unlocks: int = Field(
+        default=0,
+        description="Number of device unlocks during period",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional aggregation metadata",
+    )
+
+
 class AndroidAppUsageAggregated(BaseMessage):
     """Pre-aggregated Android app usage data."""
 

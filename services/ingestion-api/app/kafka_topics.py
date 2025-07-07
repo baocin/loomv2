@@ -190,6 +190,24 @@ class KafkaTopicManager:
                     "compression.type": "producer",
                 },
             },
+            # Android app usage individual events
+            "device.app_usage.android.events": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "2592000000",  # 30 days (high volume individual events)
+                    "compression.type": "producer",
+                },
+            },
+            # Android app usage by category
+            "device.app_usage.android.categories": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "7776000000",  # 90 days
+                    "compression.type": "producer",
+                },
+            },
             # Sprint 5.5: New data ingestion topics
             "digital.notes.raw": {
                 "partitions": settings.kafka_default_partitions,
@@ -220,6 +238,14 @@ class KafkaTopicManager:
                 "replication_factor": settings.kafka_default_replication_factor,
                 "config": {
                     "retention.ms": "1296000000",  # 15 days (images are large)
+                    "compression.type": "producer",
+                },
+            },
+            "device.image.screenshot.raw": {
+                "partitions": settings.kafka_default_partitions,
+                "replication_factor": settings.kafka_default_replication_factor,
+                "config": {
+                    "retention.ms": "604800000",  # 7 days (screenshots)
                     "compression.type": "producer",
                 },
             },

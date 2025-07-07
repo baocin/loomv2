@@ -241,6 +241,9 @@ async def root() -> JSONResponse:
                     "macos": "/system/apps/macos",
                     "android": "/system/apps/android",
                     "android_usage": "/system/apps/android/usage",
+                    "android_events": "/system/apps/android/events",
+                    "android_categories": "/system/apps/android/categories",
+                    "stats": "/system/apps/stats",
                 },
                 "device_metadata": "/system/metadata",
                 "os_events": {

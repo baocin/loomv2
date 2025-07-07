@@ -1,6 +1,5 @@
 """Meta endpoints for system monitoring and activity logging."""
 
-from typing import List
 
 import structlog
 from asyncpg import UniqueViolationError
@@ -8,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 
 from app.api.deps import get_db
-from app.models.consumer_activity import (
+from app.schemas.consumer_activity import (
     ConsumerActivityMonitoring,
     ConsumerActivityRequest,
     ConsumerActivityResponse,
@@ -30,8 +29,7 @@ async def log_consumer_activity(
     request: ConsumerActivityRequest,
     db=Depends(get_db),
 ) -> ConsumerActivityResponse:
-    """
-    Log consumer activity including consumed and produced messages.
+    """Log consumer activity including consumed and produced messages.
 
     This endpoint is called by Kafka consumers to track their processing activity:
     - When a message is consumed: Send consumed_message and consumed_at
@@ -50,7 +48,7 @@ async def log_consumer_activity(
                 p_consumed_at := :consumed_at,
                 p_produced_at := :produced_at
             )
-            """
+            """,
         )
 
         result = await db.fetch_one(
@@ -102,22 +100,21 @@ async def log_consumer_activity(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to log consumer activity: {str(e)}",
+            detail=f"Failed to log consumer activity: {e!s}",
         )
 
 
 @router.get(
     "/consumer_activity",
-    response_model=List[ConsumerActivityMonitoring],
+    response_model=list[ConsumerActivityMonitoring],
     status_code=status.HTTP_200_OK,
     summary="Get consumer activity monitoring data",
     description="Retrieve current consumer activity and health status",
 )
 async def get_consumer_activity_monitoring(
     db=Depends(get_db),
-) -> List[ConsumerActivityMonitoring]:
-    """
-    Get consumer activity monitoring data.
+) -> list[ConsumerActivityMonitoring]:
+    """Get consumer activity monitoring data.
 
     Returns a list of all consumers with their current processing status,
     including:
@@ -130,7 +127,7 @@ async def get_consumer_activity_monitoring(
             """
             SELECT * FROM v_consumer_activity_monitoring
             ORDER BY is_stuck DESC, is_inactive DESC, seconds_since_consumed DESC
-            """
+            """,
         )
 
         results = await db.fetch_all(query)
@@ -145,7 +142,7 @@ async def get_consumer_activity_monitoring(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch consumer activity: {str(e)}",
+            detail=f"Failed to fetch consumer activity: {e!s}",
         )
 
 
@@ -160,8 +157,7 @@ async def get_consumer_activity(
     consumer_id: str,
     db=Depends(get_db),
 ) -> ConsumerActivityResponse:
-    """
-    Get activity details for a specific consumer.
+    """Get activity details for a specific consumer.
 
     Returns the full activity log entry including last consumed and produced messages.
     """
@@ -170,7 +166,7 @@ async def get_consumer_activity(
             """
             SELECT * FROM logged_consumer_activity
             WHERE consumer_id = :consumer_id
-            """
+            """,
         )
 
         result = await db.fetch_one(query, values={"consumer_id": consumer_id})
@@ -198,5 +194,5 @@ async def get_consumer_activity(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch consumer activity: {str(e)}",
+            detail=f"Failed to fetch consumer activity: {e!s}",
         )

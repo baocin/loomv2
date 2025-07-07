@@ -151,10 +151,21 @@ async def root():
     """Root endpoint with service info."""
     return {
         "service": "Moondream OCR",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "running",
         "model": "vikhyatk/moondream2",
         "device": ocr_processor.device if ocr_processor else "not initialized",
+        "supported_sources": [
+            "external.twitter.images.raw",
+            "device.image.screenshot.raw",
+            "device.video.screen.raw",
+        ],
+        "output_topic": "media.image.analysis.moondream_results",
+        "capabilities": [
+            "OCR text extraction",
+            "Image description",
+            "Multi-source processing",
+        ],
     }
 
 
@@ -223,13 +234,17 @@ def kafka_consumer_thread():
 
     # Kafka configuration
     bootstrap_servers = os.getenv("LOOM_KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
-    input_topic = "external.twitter.images.raw"
+    input_topics = [
+        "external.twitter.images.raw",
+        "device.image.screenshot.raw",
+        "device.video.screen.raw",
+    ]
     output_topic = "media.image.analysis.moondream_results"
 
     try:
         # Create Kafka consumer and producer
         consumer = KafkaConsumer(
-            input_topic,
+            *input_topics,  # Subscribe to multiple topics
             bootstrap_servers=bootstrap_servers.split(","),
             auto_offset_reset="earliest",
             enable_auto_commit=False,
@@ -247,7 +262,7 @@ def kafka_consumer_thread():
         )
 
         logging.info("Kafka consumer thread started")
-        logging.info(f"Consuming from: {input_topic}")
+        logging.info(f"Consuming from: {input_topics}")
         logging.info(f"Producing to: {output_topic}")
 
         # Process messages
@@ -261,25 +276,40 @@ def kafka_consumer_thread():
                     ocr_processor.log_consumption(message)
                 )
 
-                # Extract image data
-                data = msg_data.get("data", {})
-                image_data = data.get("image_data")
+                # Extract image data based on topic and message format
+                topic = message.topic
+                image_data = None
+                source_type = "unknown"
+
+                if topic == "external.twitter.images.raw":
+                    # Twitter format: nested in data object
+                    data = msg_data.get("data", {})
+                    image_data = data.get("image_data")
+                    source_type = "twitter"
+                elif topic == "device.image.screenshot.raw":
+                    # Screenshot format: direct image_data field
+                    image_data = msg_data.get("image_data")
+                    source_type = "screenshot"
+                elif topic == "device.video.screen.raw":
+                    # Video frame format: frame_data field
+                    image_data = msg_data.get("frame_data")
+                    source_type = "video_frame"
 
                 if not image_data:
-                    logging.warning("No image data in message")
+                    logging.warning(f"No image data in message from topic {topic}")
                     continue
 
                 # Process image
                 result = ocr_processor.process_image(image_data)
 
-                # Create output message
-                output_message = {
+                # Create output message with dynamic content based on source type
+                base_output = {
                     "schema_version": "v1",
                     "trace_id": msg_data.get("trace_id"),
-                    "tweet_id": data.get("tweet_id"),
-                    "tweet_url": data.get("tweet_url"),
                     "device_id": msg_data.get("device_id"),
                     "recorded_at": msg_data.get("recorded_at"),
+                    "source_topic": topic,
+                    "source_type": source_type,
                     "ocr_results": {
                         "full_text": result["ocr_text"],
                         "description": result["description"],
@@ -288,8 +318,46 @@ def kafka_consumer_thread():
                     },
                     "processing_time_ms": (time.time() - start_time) * 1000,
                     "model_version": "moondream2",
-                    "metadata": data.get("metadata", {}),
                 }
+
+                # Add source-specific fields
+                if source_type == "twitter":
+                    data = msg_data.get("data", {})
+                    base_output.update(
+                        {
+                            "tweet_id": data.get("tweet_id"),
+                            "tweet_url": data.get("tweet_url"),
+                            "metadata": data.get("metadata", {}),
+                        }
+                    )
+                elif source_type == "screenshot":
+                    base_output.update(
+                        {
+                            "image_metadata": {
+                                "format": msg_data.get("format"),
+                                "width": msg_data.get("width"),
+                                "height": msg_data.get("height"),
+                                "file_size": msg_data.get("file_size"),
+                                "camera_type": msg_data.get("camera_type"),
+                            },
+                            "metadata": msg_data.get("metadata", {}),
+                        }
+                    )
+                elif source_type == "video_frame":
+                    base_output.update(
+                        {
+                            "frame_metadata": {
+                                "frame_number": msg_data.get("frame_number"),
+                                "format": msg_data.get("format"),
+                                "width": msg_data.get("width"),
+                                "height": msg_data.get("height"),
+                                "fps": msg_data.get("fps"),
+                            },
+                            "metadata": msg_data.get("metadata", {}),
+                        }
+                    )
+
+                output_message = base_output
 
                 # Send to output topic
                 future = producer.send(output_topic, value=output_message)
@@ -308,8 +376,20 @@ def kafka_consumer_thread():
                 )
 
                 processing_time = (time.time() - start_time) * 1000
+
+                # Create source-specific log message
+                if source_type == "twitter":
+                    data = msg_data.get("data", {})
+                    log_id = f"tweet {data.get('tweet_id')}"
+                elif source_type == "screenshot":
+                    log_id = f"screenshot from device {msg_data.get('device_id')}"
+                elif source_type == "video_frame":
+                    log_id = f"video frame {msg_data.get('frame_number')} from device {msg_data.get('device_id')}"
+                else:
+                    log_id = f"image from {topic}"
+
                 logging.info(
-                    f"Processed image for tweet {data.get('tweet_id')} - "
+                    f"Processed {source_type} image ({log_id}) - "
                     f"OCR length: {len(result['ocr_text'])} chars - "
                     f"Processing time: {processing_time:.0f}ms"
                 )

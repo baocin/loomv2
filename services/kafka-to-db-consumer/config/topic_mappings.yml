@@ -972,6 +972,147 @@ topics:
     - data.georegion_name
     - data.latitude
     - data.longitude
+  device.app_usage.android.aggregated:
+    table: device_app_usage_android_aggregated
+    description: Pre-aggregated Android app usage statistics
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      message_id: message_id
+      aggregation_period_start: aggregation_period_start
+      aggregation_period_end: aggregation_period_end
+      aggregation_interval_minutes: aggregation_interval_minutes
+      total_screen_time_ms: total_screen_time_ms
+      total_unlocks: total_unlocks
+      services_encountered: services_encountered
+    data_types:
+      aggregation_interval_minutes: integer
+      total_screen_time_ms: integer
+      total_unlocks: integer
+      aggregation_period_start: timestamp
+      aggregation_period_end: timestamp
+      services_encountered: array
+      timestamp: timestamp
+    array_mappings:
+      app_usage_stats:
+        table: device_app_usage_android_stats
+        foreign_key_mapping:
+          device_id: device_id
+          aggregation_period_start: aggregation_period_start
+        element_mappings:
+          package_name: package_name
+          app_name: app_name
+          total_time_foreground_ms: total_time_foreground_ms
+          last_time_used: last_time_used
+          last_time_foreground_service_used: last_time_foreground_service_used
+          total_time_foreground_service_used_ms: total_time_foreground_service_used_ms
+          launch_count: launch_count
+      app_event_stats:
+        table: device_app_usage_android_events
+        foreign_key_mapping:
+          device_id: device_id
+          aggregation_period_start: aggregation_period_start
+        element_mappings:
+          package_name: package_name
+          event_type: event_type
+          event_count: event_count
+          last_event_time: last_event_time
+      screen_time_by_category:
+        table: device_app_usage_android_categories
+        foreign_key_mapping:
+          device_id: device_id
+          aggregation_period_start: aggregation_period_start
+        element_mappings:
+          category: category
+          total_time_ms: total_time_ms
+          app_count: app_count
+          percentage_of_total: percentage_of_total
+      notification_stats:
+        table: device_app_usage_android_notifications
+        foreign_key_mapping:
+          device_id: device_id
+          aggregation_period_start: aggregation_period_start
+        element_mappings:
+          package_name: package_name
+          notification_count: notification_count
+          interaction_count: interaction_count
+          dismissal_count: dismissal_count
+    required_fields:
+    - device_id
+    - timestamp
+    - aggregation_period_start
+    - aggregation_period_end
+    - total_screen_time_ms
+  device.app_usage.android.events:
+    table: device_app_usage_android_events_individual
+    description: Individual Android app event data
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      message_id: message_id
+      recorded_at: recorded_at
+      package_name: package_name
+      app_name: app_name
+      event_type: event_type
+      class_name: class_name
+      configuration: configuration
+      shortcut_id: shortcut_id
+      standby_bucket: standby_bucket
+      notification_channel_id: notification_channel_id
+      metadata: metadata
+    data_types:
+      standby_bucket: integer
+      configuration: json
+      metadata: json
+      recorded_at: timestamp
+      timestamp: timestamp
+    required_fields:
+    - device_id
+    - timestamp
+    - package_name
+    - event_type
+  device.app_usage.android.categories:
+    table: device_app_usage_android_categories_aggregated
+    description: Android app usage statistics grouped by category
+    field_mappings:
+      trace_id: trace_id
+      device_id: device_id
+      timestamp: timestamp
+      schema_version: schema_version
+      message_id: message_id
+      aggregation_period_start: aggregation_period_start
+      aggregation_period_end: aggregation_period_end
+      total_screen_time_ms: total_screen_time_ms
+      device_unlocks: device_unlocks
+      metadata: metadata
+    data_types:
+      aggregation_period_start: timestamp
+      aggregation_period_end: timestamp
+      total_screen_time_ms: integer
+      device_unlocks: integer
+      metadata: json
+      timestamp: timestamp
+    array_mappings:
+      category_stats:
+        table: device_app_usage_android_categories_detail
+        foreign_key_mapping:
+          device_id: device_id
+          aggregation_period_start: aggregation_period_start
+        element_mappings:
+          category: category
+          total_time_ms: total_time_ms
+          app_count: app_count
+          percentage_of_total: percentage_of_total
+    required_fields:
+    - device_id
+    - timestamp
+    - aggregation_period_start
+    - aggregation_period_end
+    - total_screen_time_ms
 transformations:
   base64_decode:
     description: Decode base64 string to bytes
