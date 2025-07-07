@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-**Loom v2** is a personal informatics data pipeline built with a microservices architecture, designed to ingest, process, and store data from various devices (audio, sensors, health metrics). The system uses an event-driven architecture with Kafka for message streaming and TimescaleDB for data persistence.
+**Loom v2** is a personal informatics data pipeline built with a microservices architecture, designed to ingest, process, and store data from various devices (audio, sensors, health metrics). The system uses an event-driven architecture with Kafka for message streaming and PostgreSQL for data persistence.
 
 ### Architecture Summary
 - **Ingestion API**: FastAPI-based service for real-time data ingestion via REST and WebSocket
 - **Event Streaming**: Kafka for reliable message queuing and processing
-- **Storage**: TimescaleDB for time-series data persistence
-- **Deployment**: Kubernetes-native with Helm charts and k3d for local development
+- **Storage**: PostgreSQL for data persistence (with TimescaleDB planned for time-series optimization)
+- **Deployment**: Docker Compose for development, Kubernetes-native with Helm charts for production
 - **Observability**: Structured logging, Prometheus metrics, health probes
 
 ## Core Technologies
@@ -16,18 +16,18 @@
 - **Python 3.11+** - Primary language
 - **FastAPI** - High-performance async web framework
 - **Kafka** - Event streaming platform
-- **TimescaleDB** - Time-series database built on PostgreSQL 15
-- **Kubernetes** - Container orchestration
-- **Docker** - Containerization
-- **Tilt** - Local development environment with hot-reload
+- **PostgreSQL** - Relational database (with TimescaleDB extension for future time-series optimization)
+- **Kubernetes** - Container orchestration for production
+- **Docker & Docker Compose** - Containerization and local development
 - **uv** - Fast Python package management
+- **Helm** - Kubernetes package management
 
 ## Project Structure
 
 ```
 /Users/mpedersen/code/loomv2/
 ├── Makefile                 # Main development commands
-├── Tiltfile                 # Local K8s dev environment
+├── docker-compose.local.yml # Local development environment
 ├── deploy/                  # Kubernetes manifests and Helm charts
 │   ├── dev/                 # Development K8s configs
 │   └── helm/                # Production Helm charts
@@ -57,7 +57,7 @@
 make setup                   # Install dependencies, pre-commit hooks
 
 # Start/stop local development
-make dev-up                  # Start Tilt development environment
+make dev-up                  # Start Docker Compose development environment
 make dev-down                # Stop development environment
 
 # Testing
@@ -71,7 +71,7 @@ make format                  # Format code with black and ruff
 make security-scan           # Run security scans (bandit, safety)
 
 # Database operations
-make db-connect              # Connect to local TimescaleDB
+make db-connect              # Connect to local PostgreSQL
 export DATABASE_URL="postgresql://loom:loom@localhost:5432/loom"
 
 # Kafka operations
@@ -83,7 +83,7 @@ make topics-list             # List existing topics
 
 # Monitoring
 make logs                    # View service logs
-make status                  # Show K8s pod/service status
+make status                  # Show container status
 
 # Docker
 make docker                  # Build all Docker images
@@ -157,7 +157,7 @@ make docker-run              # Run container locally
   - Event types: `launch`, `foreground`, `background`, `terminate`, `crash`
   - Includes app identifier, name, event duration
   - Tracks both Loom app and other apps on device
-- `POST /os-events/system` - System events  
+- `POST /os-events/system` - System events
   - Event types: `screen_on`, `screen_off`, `device_lock`, `device_unlock`, `power_connected`, `power_disconnected`
   - Categories: `screen`, `lock`, `power`, `system`
   - Includes metadata about current device state
@@ -392,12 +392,42 @@ This table details the core data processing pipeline, showing how raw data flows
 
 ## 🚀 Sprint Planning & Development Status
 
-### Current Sprint: Sprint 6 - AI Model Integration
-**Duration**: August 4 - August 31, 2024
-**Focus**: Integrate AI models for audio, vision, and context analysis
+### Current Sprint: Sprint 7 - Documentation & Production Readiness
+**Duration**: December 2024
+**Focus**: Documentation cleanup, production deployment strategies, and system improvements
+
+#### Sprint 7 Accomplishments (In Progress)
+1. **Documentation Overhaul**:
+   - Fixed critical README.md inconsistencies
+   - Updated CLAUDE.md to reflect actual project state
+   - Created comprehensive system improvement recommendations (rec.md)
+   - Researched and documented production deployment strategies (findings.md)
+
+2. **Development Infrastructure**:
+   - Fixed git pre-commit hooks (bandit configuration)
+   - Cleaned up outdated references to Tilt
+   - Updated documentation to reflect Docker Compose workflow
+
+3. **Mobile Integration**:
+   - Added Bluetooth device scanning capability
+   - Created bluetooth_data_source.dart for Flutter app
+   - Verified existing API endpoints and Kafka integration
+
+#### Sprint 6 Accomplishments (Completed)
+1. **AI Model Integration**:
+   - Deployed multiple AI processing services
+   - Integrated Silero VAD, Kyutai STT, MiniCPM Vision
+   - Set up Moondream OCR processing
+   - Configured AI model pipelines with Kafka
+
+2. **Service Architecture**:
+   - Implemented 30+ microservices
+   - Established Kafka topic structure (40+ topics)
+   - Created database-driven consumer configuration
+   - Built pipeline monitoring system
 
 #### Sprint 5 Accomplishments (Completed)
-1. **Android OS Event Tracking**: 
+1. **Android OS Event Tracking**:
    - Screen on/off detection with BroadcastReceiver
    - Device lock/unlock state monitoring
    - Power connected/disconnected events
@@ -434,6 +464,8 @@ This table details the core data processing pipeline, showing how raw data flows
 - **Sprint 3**: ✅ Storage abstraction layer, database migrations
 - **Sprint 4**: ✅ Kafka topic auto-creation, app monitoring endpoints
 - **Sprint 5**: ✅ OS event tracking, screenshot intelligence, app lifecycle monitoring
+- **Sprint 6**: ✅ AI model integration, service architecture, pipeline monitoring
+- **Sprint 7**: 🚧 Documentation cleanup, production readiness, mobile enhancements
 
 ### Development Roadmap
 
@@ -449,18 +481,18 @@ This table details the core data processing pipeline, showing how raw data flows
 - Native Android integration for system monitoring
 - Batch data upload with configurable profiles
 
-#### In Development (Sprint 6)
-- TimescaleDB migration for time-series optimization
-- AI model microservices (VAD, Vision, LLM)
-- Structured LLM output processing with outlines
-- External data ingestion via CronJobs
-- Cross-device remote control system
+#### In Development (Sprint 7)
+- Documentation overhaul and consistency fixes
+- Production deployment strategy implementation
+- Mobile app Bluetooth integration
+- Code cleanup and technical debt reduction
+- Environment variable standardization
 
 #### Future Sprints
-- **Sprint 6**: Advanced AI model integration (emotion recognition, 3D reconstruction)
-- **Sprint 7**: Real-time analytics dashboard and visualization
-- **Sprint 8**: Mobile SDK development and device client optimization
-- **Sprint 9**: Production hardening and performance optimization
+- **Sprint 8**: Real-time analytics dashboard and visualization
+- **Sprint 9**: Mobile SDK development and device client optimization
+- **Sprint 10**: Production hardening and performance optimization
+- **Sprint 11**: Advanced AI model integration (emotion recognition, 3D reconstruction)
 
 ## Configuration
 
@@ -685,9 +717,10 @@ The mobile client is a Flutter application that collects data from Android/iOS d
 ### Data Sources
 - **Audio**: Microphone recording with chunking
 - **GPS**: Location tracking with accuracy
-- **Accelerometer**: 3-axis motion data  
+- **Accelerometer**: 3-axis motion data
 - **Battery**: Power state and charging status
-- **Network**: WiFi and Bluetooth state
+- **Network**: WiFi connection monitoring
+- **Bluetooth**: Device scanning and discovery with RSSI tracking
 - **Screenshot**: Automatic and manual captures
 - **Camera**: Photo capture
 - **Screen State** (Android): Screen on/off and lock detection
@@ -715,6 +748,14 @@ Tracks application lifecycle events:
   - Device is locked
   - Within 5 seconds of screen turning on (to avoid lock screen capture)
 
+#### Bluetooth Scanning
+The mobile client performs periodic Bluetooth device discovery:
+- **Paired Devices**: Automatically tracked on startup
+- **Device Discovery**: Periodic scanning for nearby devices
+- **RSSI Tracking**: Signal strength monitoring for proximity estimation
+- **Device Information**: Name, address, type (Classic/LE/Dual)
+- **Configurable Intervals**: Scan frequency based on battery profile
+
 ### Battery Profiles
 - **Performance**: Immediate upload, high frequency collection
 - **Balanced**: Moderate intervals and batch sizes
@@ -723,10 +764,11 @@ Tracks application lifecycle events:
 
 ### Permissions
 The app requires various permissions depending on enabled data sources:
-- Location (GPS)
+- Location (GPS, Bluetooth scanning on Android)
 - Microphone (Audio)
 - Storage/Photos (Screenshots)
 - Usage Stats (App Monitoring - Android only)
+- Bluetooth (Scanning, Connect, Advertise - Android 12+)
 
 ### Configuration
 Data collection is configured through battery profiles that control:
@@ -760,10 +802,10 @@ The OS event tracking uses native Android components:
 3. Flutter data sources process and batch events
 4. Data collection service uploads batches to API endpoints
 5. API forwards to Kafka topics for processing
-6. TimescaleDB stores events with automatic retention
+6. PostgreSQL stores events with retention policies
 
 #### Database Schema
-OS events are stored in TimescaleDB hypertables:
+OS events are stored in PostgreSQL tables (with hypertable support via TimescaleDB extension when enabled):
 - `os_events_system_raw` - Screen, lock, and power events
 - `os_events_app_lifecycle_raw` - App lifecycle events
 - `device_system_apps_android_raw` - Running app snapshots
