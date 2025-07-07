@@ -20,23 +20,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and loom-common
+COPY kyutai-stt/pyproject.toml ./
+COPY loom-common ./loom-common/
 
 # Install Python dependencies with CPU-only torch
 RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -e .
 
-# Create a directory for Hugging Face cache with proper permissions
-RUN mkdir -p /tmp/cache && chmod -R 777 /tmp/cache
+# Create a directory for Hugging Face models with proper permissions
+RUN mkdir -p /models && chmod -R 777 /models
 
-# Set Hugging Face cache to temp directory
-ENV HF_HOME=/tmp/cache \
-    TRANSFORMERS_CACHE=/tmp/cache \
-    TORCH_HOME=/tmp/cache
+# Set Hugging Face cache directory (HF_HOME replaces deprecated TRANSFORMERS_CACHE)
+ENV HF_HOME=/models \
+    TORCH_HOME=/models
 
 # Copy application code
-COPY app/ ./app/
+COPY kyutai-stt/app/ ./app/
 
 # Expose port
 EXPOSE 8002

@@ -58,13 +58,19 @@ class KafkaVADConsumer(ConsumerActivityLogger):
             # Create config loader
             self.config_loader = KafkaConsumerConfigLoader(self.db_pool)
 
-            # Create optimized consumer using config loader
-            self.consumer = await self.config_loader.create_consumer(
-                service_name=settings.service_name,
-                topics=[settings.kafka_input_topic],
-                kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
+            # Create consumer with basic configuration (avoiding config loader issue)
+            self.consumer = AIOKafkaConsumer(
+                settings.kafka_input_topic,
+                bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id=settings.kafka_consumer_group,
+                auto_offset_reset=settings.kafka_auto_offset_reset,
+                enable_auto_commit=settings.kafka_enable_auto_commit,
+                max_poll_records=settings.kafka_max_poll_records,
                 consumer_timeout_ms=settings.kafka_consumer_timeout_ms,
+                session_timeout_ms=settings.kafka_session_timeout_ms,
+                heartbeat_interval_ms=settings.kafka_heartbeat_interval_ms,
+                max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             )
 
             # Create producer

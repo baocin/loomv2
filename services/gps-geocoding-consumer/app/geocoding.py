@@ -129,6 +129,7 @@ class GeocodingService:
                 'postal_code': cached.postal_code,
                 'place_name': cached.place_name,
                 'place_type': cached.place_type,
+                'provider': 'opencage',
                 'cached': True,
                 'cache_id': cached.id
             }
@@ -179,6 +180,7 @@ class GeocodingService:
                 'postal_code': components.get('postcode'),
                 'place_name': components.get('neighbourhood') or components.get('suburb'),
                 'place_type': components.get('_type'),
+                'provider': 'opencage',
                 'cached': False
             }
             

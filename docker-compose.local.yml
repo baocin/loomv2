@@ -125,11 +125,13 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Fixed thread safety issues - now working properly
   silero-vad:
     build:
-      context: ./services/silero-vad
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: silero-vad/Dockerfile
     environment:
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_KAFKA_INPUT_TOPIC: device.audio.raw
       LOOM_KAFKA_OUTPUT_TOPIC: media.audio.vad_filtered
@@ -139,19 +141,26 @@ services:
       LOOM_DEBUG: "true"
       LOOM_HOST: 0.0.0.0
       LOOM_PORT: 8001
+      LOOM_SILERO_USE_ONNX: "true"
+      LOOM_SILERO_MODEL_CACHE_PATH: "/data/models/silero-vad"
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
+    volumes:
+      - ~/loom-data/models:/data/models
     ports:
       - "8001:8001"
     depends_on:
       kafka:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8001/healthz'); r.raise_for_status()"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   scheduled-consumers:
     build:
@@ -178,21 +187,29 @@ services:
 
   kyutai-stt:
     build:
-      context: ./services/kyutai-stt
-      dockerfile: Dockerfile.cpu  # Use CPU version for faster builds in development
+      context: ./services  # Build from services directory to access loom-common
+      dockerfile: kyutai-stt/Dockerfile.cpu  # Use CPU version for faster builds in development
     environment:
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_KAFKA_INPUT_TOPIC: device.audio.raw  # Process raw audio directly
       LOOM_KAFKA_OUTPUT_TOPIC: media.text.transcribed.words
       LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
-      LOOM_LOG_LEVEL: INFO
+      LOOM_LOG_LEVEL: DEBUG
       LOOM_HOST: 0.0.0.0
       LOOM_PORT: 8002
+      # Hugging Face cache directory
+      HF_HOME: /models
+      # Unset deprecated TRANSFORMERS_CACHE
+      TRANSFORMERS_CACHE: ""
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
+    volumes:
+      - ~/loom-data/models:/models
     ports:
       - "8002:8002"
+    command: sh -c "unset TRANSFORMERS_CACHE && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8002"
     depends_on:
       kafka:
         condition: service_healthy
@@ -654,21 +671,52 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Database Consumer (Legacy)
-  kafka-to-db-consumer:
-    build:
-      context: ./services/kafka-to-db-consumer
-      dockerfile: Dockerfile
+  # Database Consumer (Legacy) - DISABLED in favor of generic-kafka-to-db-consumer
+  # kafka-to-db-consumer:
+  #   build:
+  #     context: ./services/kafka-to-db-consumer
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #     LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+  #     LOOM_LOG_LEVEL: INFO
+  #     CONSUMER_TYPE: legacy  # Use legacy consumer
+  #     # Set timezone
+  #     TZ: UTC
+  #     DEBIAN_FRONTEND: noninteractive
+  #   volumes:
+  #     - ~/loom-data/logs/kafka-to-db:/app/logs
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   restart: unless-stopped
+
+  # Database Consumer (mapping-based, reads config from database)
+  # Instance 1
+  kafka-to-db-consumer-1:
+    image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_LOG_LEVEL: INFO
-      CONSUMER_TYPE: legacy  # Use legacy consumer
+      CONSUMER_TYPE: generic  # Use new generic consumer
+      KAFKA_GROUP_ID: kafka-to-db-consumer
+      USE_DATABASE_CONFIG: "true"  # Source topics from database instead of YAML
+      CONSUMER_INSTANCE_ID: "1"
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8009:8001"
     volumes:
-      - ~/loom-data/logs/kafka-to-db:/app/logs
+      - ~/loom-data/logs/kafka-to-db-1:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -681,25 +729,84 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Generic Database Consumer (New mapping-based)
-  generic-kafka-to-db-consumer:
-    build:
-      context: ./services/kafka-to-db-consumer
-      dockerfile: Dockerfile
+  # Instance 2
+  kafka-to-db-consumer-2:
+    image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_LOG_LEVEL: INFO
       CONSUMER_TYPE: generic  # Use new generic consumer
-      KAFKA_GROUP_ID: generic-kafka-to-db-consumer
-      USE_DATABASE_CONFIG: true  # Source topics from database instead of YAML
+      KAFKA_GROUP_ID: kafka-to-db-consumer
+      USE_DATABASE_CONFIG: "true"  # Source topics from database instead of YAML
+      CONSUMER_INSTANCE_ID: "2"
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     ports:
-      - "8009:8001"  # Different port to avoid conflict
+      - "8010:8001"
     volumes:
-      - ~/loom-data/logs/generic-kafka-to-db:/app/logs
+      - ~/loom-data/logs/kafka-to-db-2:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Instance 3
+  kafka-to-db-consumer-3:
+    image: loomv2-kafka-to-db-consumer:latest
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_LOG_LEVEL: INFO
+      CONSUMER_TYPE: generic  # Use new generic consumer
+      KAFKA_GROUP_ID: kafka-to-db-consumer
+      USE_DATABASE_CONFIG: "true"  # Source topics from database instead of YAML
+      CONSUMER_INSTANCE_ID: "3"
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8011:8001"
+    volumes:
+      - ~/loom-data/logs/kafka-to-db-3:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Instance 4
+  kafka-to-db-consumer-4:
+    image: loomv2-kafka-to-db-consumer:latest
+    environment:
+      LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
+      LOOM_LOG_LEVEL: INFO
+      CONSUMER_TYPE: generic  # Use new generic consumer
+      KAFKA_GROUP_ID: kafka-to-db-consumer
+      USE_DATABASE_CONFIG: "true"  # Source topics from database instead of YAML
+      CONSUMER_INSTANCE_ID: "4"
+      # Set timezone
+      TZ: UTC
+      DEBIAN_FRONTEND: noninteractive
+    ports:
+      - "8019:8001"
+    volumes:
+      - ~/loom-data/logs/kafka-to-db-4:/app/logs
     depends_on:
       postgres:
         condition: service_healthy

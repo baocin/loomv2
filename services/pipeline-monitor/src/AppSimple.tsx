@@ -55,7 +55,11 @@ const nodeTypes = {
     const [showExample, setShowExample] = useState(false)
 
     return (
-      <div className="relative bg-blue-100 border-2 border-blue-500 rounded-lg p-4 min-w-[200px] m-2">
+      <div 
+        className={`relative bg-blue-100 border-2 border-blue-500 rounded-lg p-4 min-w-[200px] m-2 ${
+          data.isFiltered ? 'opacity-30' : ''
+        } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+      >
         <Handle
           type="target"
           position={Position.Left}
@@ -103,7 +107,11 @@ const nodeTypes = {
     const [showLog, setShowLog] = useState(false)
 
     return (
-      <div className="relative bg-green-100 border-2 border-green-500 rounded-lg p-4 min-w-[250px] m-2">
+      <div 
+        className={`relative bg-green-100 border-2 border-green-500 rounded-lg p-4 min-w-[250px] m-2 ${
+          data.isFiltered ? 'opacity-30' : ''
+        } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+      >
         <Handle
           type="target"
           position={Position.Left}
@@ -160,7 +168,11 @@ const nodeTypes = {
     )
   },
   'database': ({ data }: any) => (
-    <div className="bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2">
+    <div 
+      className={`bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2 ${
+        data.isFiltered ? 'opacity-30' : ''
+      } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+    >
       <div className="font-bold text-sm">{data.label}</div>
       {data.description && (
         <div className="text-xs text-gray-600 mt-1">{data.description}</div>
@@ -168,7 +180,11 @@ const nodeTypes = {
     </div>
   ),
   'table': ({ data }: any) => (
-    <div className="relative bg-orange-100 border-2 border-orange-500 rounded-lg p-4 min-w-[200px] m-2">
+    <div 
+      className={`relative bg-orange-100 border-2 border-orange-500 rounded-lg p-4 min-w-[200px] m-2 ${
+        data.isFiltered ? 'opacity-30' : ''
+      } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+    >
       <Handle
         type="target"
         position={Position.Left}
@@ -188,7 +204,11 @@ const nodeTypes = {
     </div>
   ),
   'api': ({ data }: any) => (
-    <div className="relative bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2">
+    <div 
+      className={`relative bg-purple-100 border-2 border-purple-500 rounded-lg p-4 min-w-[200px] m-2 ${
+        data.isFiltered ? 'opacity-30' : ''
+      } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+    >
       <div className="font-bold text-sm flex items-center">
         <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
@@ -216,7 +236,11 @@ const nodeTypes = {
     </div>
   ),
   'fetcher': ({ data }: any) => (
-    <div className="relative bg-yellow-100 border-2 border-yellow-500 rounded-lg p-4 min-w-[200px] m-2">
+    <div 
+      className={`relative bg-yellow-100 border-2 border-yellow-500 rounded-lg p-4 min-w-[200px] m-2 ${
+        data.isFiltered ? 'opacity-30' : ''
+      } ${data.isMatched ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+    >
       <div className="font-bold text-sm flex items-center">
         <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
@@ -428,6 +452,8 @@ function SimplePipelineMonitor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [topology, setTopology] = useState<any>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filteredNodes, setFilteredNodes] = useState<Set<string>>(new Set())
 
   // Load saved positions from localStorage
   const loadSavedPositions = (): { [nodeId: string]: { x: number, y: number } } => {
@@ -476,6 +502,121 @@ function SimplePipelineMonitor() {
   useEffect(() => {
     fetchPipelineStructure()
   }, [])
+
+  // Search and filter logic
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredNodes(new Set())
+      return
+    }
+
+    const searchLower = searchTerm.toLowerCase()
+    const matchedNodes = new Set<string>()
+    const connectedNodes = new Set<string>()
+
+    // Find directly matched nodes
+    nodes.forEach(node => {
+      if (node.type === 'column-header') return
+      
+      const label = node.data.label?.toLowerCase() || ''
+      const description = node.data.description?.toLowerCase() || ''
+      const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
+      const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
+      const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
+      
+      if (label.includes(searchLower) || 
+          description.includes(searchLower) ||
+          consumerGroup.includes(searchLower) ||
+          inputTopics.includes(searchLower) ||
+          outputTopics.includes(searchLower)) {
+        matchedNodes.add(node.id)
+      }
+    })
+
+    // Find connected nodes (nodes that have edges to/from matched nodes)
+    edges.forEach(edge => {
+      if (matchedNodes.has(edge.source) || matchedNodes.has(edge.target)) {
+        connectedNodes.add(edge.source)
+        connectedNodes.add(edge.target)
+      }
+    })
+
+    // Combine matched and connected nodes
+    const allVisibleNodes = new Set([...matchedNodes, ...connectedNodes])
+    setFilteredNodes(allVisibleNodes)
+  }, [searchTerm, nodes, edges])
+
+  // Update node styling when search changes
+  useEffect(() => {
+    if (!nodes.length) return
+    
+    const updatedNodes = nodes.map(node => {
+      if (node.type === 'column-header') return node
+      
+      const isMatched = searchTerm.trim() && filteredNodes.has(node.id) && (() => {
+        const searchLower = searchTerm.toLowerCase()
+        const label = node.data.label?.toLowerCase() || ''
+        const description = node.data.description?.toLowerCase() || ''
+        const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
+        const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
+        const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
+        
+        return label.includes(searchLower) || 
+               description.includes(searchLower) ||
+               consumerGroup.includes(searchLower) ||
+               inputTopics.includes(searchLower) ||
+               outputTopics.includes(searchLower)
+      })()
+      
+      const isFiltered = searchTerm.trim() && !filteredNodes.has(node.id)
+      
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isMatched,
+          isFiltered
+        }
+      }
+    })
+    
+    setNodes(updatedNodes)
+    
+    // Also update edge styling
+    const updatedEdges = edges.map(edge => {
+      const sourceFiltered = searchTerm.trim() && !filteredNodes.has(edge.source)
+      const targetFiltered = searchTerm.trim() && !filteredNodes.has(edge.target)
+      const isFiltered = sourceFiltered || targetFiltered
+      
+      if (isFiltered) {
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            opacity: 0.3
+          },
+          labelStyle: {
+            ...edge.labelStyle,
+            opacity: 0.3
+          }
+        }
+      } else {
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            opacity: 1
+          },
+          labelStyle: {
+            ...edge.labelStyle,
+            opacity: 1
+          }
+        }
+      }
+    })
+    
+    setEdges(updatedEdges)
+  }, [filteredNodes, searchTerm])
 
   const fetchPipelineStructure = async () => {
     try {
@@ -884,7 +1025,38 @@ function SimplePipelineMonitor() {
         return node
       })
 
-      setNodes(nodesWithSavedPositions)
+      // Apply search filtering to nodes
+      const nodesWithFiltering = nodesWithSavedPositions.map(node => {
+        if (node.type === 'column-header') return node
+        
+        const isMatched = searchTerm.trim() && filteredNodes.has(node.id) && (() => {
+          const searchLower = searchTerm.toLowerCase()
+          const label = node.data.label?.toLowerCase() || ''
+          const description = node.data.description?.toLowerCase() || ''
+          const consumerGroup = node.data.consumerGroup?.toLowerCase() || ''
+          const inputTopics = node.data.inputTopics?.join(' ').toLowerCase() || ''
+          const outputTopics = node.data.outputTopics?.join(' ').toLowerCase() || ''
+          
+          return label.includes(searchLower) || 
+                 description.includes(searchLower) ||
+                 consumerGroup.includes(searchLower) ||
+                 inputTopics.includes(searchLower) ||
+                 outputTopics.includes(searchLower)
+        })()
+        
+        const isFiltered = searchTerm.trim() && !filteredNodes.has(node.id)
+        
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isMatched,
+            isFiltered
+          }
+        }
+      })
+      
+      setNodes(nodesWithFiltering)
       setEdges(layouted.edges)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -1078,8 +1250,41 @@ function SimplePipelineMonitor() {
 
   return (
     <div className="h-screen bg-gray-100">
-      <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg">
+      <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg max-w-sm">
         <h1 className="text-xl font-bold mb-2">Loom Pipeline Structure</h1>
+        
+        {/* Search Input */}
+        <div className="mb-4">
+          <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
+            Search Nodes
+          </label>
+          <div className="relative">
+            <input
+              id="search"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, topic, or description..."
+              className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {searchTerm && (
+            <div className="text-xs text-gray-500 mt-1">
+              {filteredNodes.size > 0 ? `Showing ${filteredNodes.size} related nodes` : 'No matches found'}
+            </div>
+          )}
+        </div>
+        
         <div className="text-sm text-gray-600 mb-4 space-y-1">
           <div>Nodes: {nodes.filter(n => n.type !== 'column-header').length}</div>
           <div>Connections: {edges.length}</div>

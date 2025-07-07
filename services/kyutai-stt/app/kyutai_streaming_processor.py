@@ -98,13 +98,38 @@ class KyutaiStreamingProcessor:
                 # Assume raw PCM data
                 audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
             
+            # Ensure audio is exactly 30 seconds (480,000 samples at 16kHz) for Whisper
+            target_length = 30 * chunk.sample_rate  # 30 seconds worth of samples
+            current_length = len(audio_np)
+            
+            if current_length < target_length:
+                # Pad with zeros to reach exactly 30 seconds
+                padding_needed = target_length - current_length
+                audio_np = np.pad(audio_np, (0, padding_needed), mode='constant', constant_values=0)
+                logger.debug(
+                    "Padded audio to 30 seconds",
+                    original_length=current_length,
+                    target_length=target_length,
+                    padding_added=padding_needed,
+                    chunk_id=chunk.get_chunk_id()
+                )
+            elif current_length > target_length:
+                # Truncate to exactly 30 seconds
+                audio_np = audio_np[:target_length]
+                logger.debug(
+                    "Truncated audio to 30 seconds", 
+                    original_length=current_length,
+                    target_length=target_length,
+                    chunk_id=chunk.get_chunk_id()
+                )
+            
             # Process with model
             inputs = self.processor(
                 audio_np,
                 sampling_rate=chunk.sample_rate,
                 return_tensors="pt",
                 truncation=False,
-                padding="longest",
+                padding=False,  # We've already handled padding manually
                 return_attention_mask=True,
             )
             

@@ -39,9 +39,9 @@ class Settings(BaseSettings):
     target_sample_rate: int = 16000
 
     # Audio accumulation settings
-    min_chunks_for_processing: int = 10  # Minimum chunks to accumulate before processing
+    min_chunks_for_processing: int = 20  # Minimum chunks to accumulate before processing (~30 seconds)
     max_buffer_duration_ms: int = 30000  # Maximum buffer duration (30 seconds)
-    buffer_timeout_seconds: float = 5.0  # Process buffer after this timeout
+    buffer_timeout_seconds: float = 8.0  # Process buffer after this timeout
 
     # Logging
     log_level: str = "INFO"

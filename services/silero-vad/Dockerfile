@@ -24,8 +24,9 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml README.md ./
+# Copy dependency files and loom-common
+COPY silero-vad/pyproject.toml silero-vad/README.md ./
+COPY loom-common ./loom-common/
 
 # Install dependencies
 RUN uv venv && \
@@ -64,7 +65,7 @@ COPY --from=builder /root/.cache/torch /home/appuser/.cache/torch
 RUN chown -R appuser:appuser /home/appuser/.cache
 
 # Copy application code
-COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser silero-vad/app/ ./app/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:${PATH}"
