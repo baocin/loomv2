@@ -1,6 +1,6 @@
 """Configuration management for the macOS client."""
 
-import os
+import uuid
 from typing import Any
 
 from pydantic import Field
@@ -18,9 +18,9 @@ class LoomConfig(BaseSettings):
     )
 
     device_id: str = Field(
-        default_factory=lambda: f"macos-{os.uname().nodename}",
+        default_factory=lambda: str(uuid.uuid4()),
         env="LOOM_DEVICE_ID",
-        description="Unique device identifier",
+        description="Unique device identifier (UUID format)",
     )
 
     # Logging

@@ -18,10 +18,8 @@ from .models import HealthCheck
 from .routers import (
     ai_context,  # AI context endpoint
     audio,
-    # devices,  # TODO: Requires database implementation
     digital,  # Digital data (clipboard, web analytics)
     documents,  # Documents router for document ingestion
-    # github,  # TODO: Check if this requires database
     health_data,  # Health monitoring data
     images,  # Images router doesn't require database
     notes,  # Notes router for text notes ingestion
@@ -30,8 +28,6 @@ from .routers import (
     system,  # System monitoring (app monitoring, device metadata)
     unified_ingestion,  # Unified data ingestion with message type mapping
 )
-
-# urls,  # TODO: Check if this requires database
 from .tracing import TracingMiddleware, get_trace_context
 
 
@@ -173,10 +169,8 @@ app.add_middleware(
 # Include routers
 app.include_router(ai_context.router)  # AI context endpoint
 app.include_router(audio.router)
-# app.include_router(devices.router)  # TODO: Requires database implementation
 app.include_router(digital.router)  # Digital data (clipboard, web analytics)
 app.include_router(documents.router)  # Documents router for document ingestion
-# app.include_router(github.router)  # TODO: Check if this requires database
 app.include_router(health_data.router)  # Health monitoring data
 app.include_router(images.router)  # Images router doesn't require database
 app.include_router(notes.router)  # Notes router for text notes ingestion
@@ -186,8 +180,6 @@ app.include_router(system.router)  # System monitoring (app monitoring, device m
 app.include_router(
     unified_ingestion.router,
 )  # Unified data ingestion with message type mapping
-# app.include_router(meta.router, prefix="/meta", tags=["meta"])  # Meta endpoints moved to system router
-# app.include_router(urls.router)  # TODO: Check if this requires database
 
 
 @app.get("/", status_code=status.HTTP_200_OK)
