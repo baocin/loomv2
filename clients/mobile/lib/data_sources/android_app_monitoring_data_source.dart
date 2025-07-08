@@ -35,7 +35,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
   @override
   Future<void> onStart() async {
     if (!Platform.isAndroid) {
-      print('App monitoring is only available on Android');
+      print('ANDROID_APP_MONITORING: App monitoring is only available on Android');
       return;
     }
 
@@ -46,7 +46,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       // Check if we have usage stats permission
       final bool hasPermission = await platform.invokeMethod('hasUsageStatsPermission');
       if (!hasPermission) {
-        print('Usage stats permission not granted. Some features may be limited.');
+        print('ANDROID_APP_MONITORING: Usage stats permission not granted. Some features may be limited.');
         // We can still try to get basic app info without usage stats
       }
 
@@ -59,9 +59,9 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       // Collect initial data
       await _collectAppData();
 
-      print('Started Android app monitoring with ${_collectionIntervalMs}ms interval');
+      print('ANDROID_APP_MONITORING: Started Android app monitoring with ${_collectionIntervalMs}ms interval');
     } catch (e) {
-      print('Failed to start app monitoring: $e');
+      print('ANDROID_APP_MONITORING: Failed to start app monitoring: $e');
       throw Exception('Failed to start app monitoring: $e');
     }
   }
@@ -70,7 +70,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
   Future<void> onStop() async {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-    print('Stopped Android app monitoring');
+    print('ANDROID_APP_MONITORING: Stopped Android app monitoring');
   }
 
   @override
@@ -84,17 +84,17 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       final List<dynamic>? runningApps = await platform.invokeMethod('getRunningApps');
 
       if (runningApps == null) {
-        print('Failed to get running apps - null response');
+        print('ANDROID_APP_MONITORING: Failed to get running apps - null response');
         return;
       }
 
       if (runningApps.isEmpty) {
-        print('Warning: No running apps detected. This might indicate a permission issue.');
+        print('ANDROID_APP_MONITORING: Warning: No running apps detected. This might indicate a permission issue.');
         // Even with no apps, we should at least see Loom itself
         // Try to check permissions
         final bool hasPermission = await platform.invokeMethod('hasUsageStatsPermission');
         if (!hasPermission) {
-          print('App monitoring: Usage stats permission not granted. Limited functionality.');
+          print('ANDROID_APP_MONITORING: Usage stats permission not granted. Limited functionality.');
         }
         return;
       }
@@ -144,16 +144,16 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
           )).toList(),
         );
 
-        print('WARNING: App monitoring data collected - ${appInfoList.length} apps detected');
+        print('ANDROID_APP_MONITORING: WARNING: App monitoring data collected - ${appInfoList.length} apps detected');
         emitData(appMonitoring);
-        print('Collected data for ${appInfoList.length} running apps');
+        print('ANDROID_APP_MONITORING: Collected data for ${appInfoList.length} running apps');
       }
 
       // Also collect aggregated usage stats if available
       await _collectUsageStats();
 
     } catch (e) {
-      print('Failed to collect app data: $e');
+      print('ANDROID_APP_MONITORING: Failed to collect app data: $e');
     }
   }
 
@@ -201,7 +201,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
         });
       }
     } catch (e) {
-      print('Failed to collect usage stats: $e');
+      print('ANDROID_APP_MONITORING: Failed to collect usage stats: $e');
     }
   }
 
@@ -223,9 +223,9 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
             'is_system_app': appInfo['isSystemApp'] ?? false,
           },
       });
-      print('Uploaded metadata for app: $packageName');
+      print('ANDROID_APP_MONITORING: Uploaded metadata for app: $packageName');
     } catch (e) {
-      print('Failed to upload app metadata: $e');
+      print('ANDROID_APP_MONITORING: Failed to upload app metadata: $e');
     }
   }
 
@@ -238,12 +238,12 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       });
 
       if (response.isSuccess) {
-        print('Usage stats uploaded successfully');
+        print('ANDROID_APP_MONITORING: Usage stats uploaded successfully');
       } else {
-        print('Failed to upload usage stats: ${response.status}');
+        print('ANDROID_APP_MONITORING: Failed to upload usage stats: ${response.status}');
       }
     } catch (e) {
-      print('Failed to upload usage stats: $e');
+      print('ANDROID_APP_MONITORING: Failed to upload usage stats: $e');
     }
   }
 }

@@ -11,7 +11,7 @@ import '../core/utils/content_hasher.dart';
 
 class AudioDataSource extends BaseDataSource<AudioChunk> {
   static const String _sourceId = 'audio';
-  
+
   final AudioRecorder _recorder = AudioRecorder();
   Timer? _chunkTimer;
   String? _deviceId;
@@ -44,7 +44,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
   @override
   Future<void> onStart() async {
     print('AUDIO: Starting audio data source...');
-    
+
     // Check permissions
     print('AUDIO: Checking permissions...');
     final hasPermission = await _checkPermissions();
@@ -58,7 +58,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
     print('AUDIO: Starting recording...');
     await _startRecording();
     print('AUDIO: Recording started successfully');
-    
+
     // Set up chunking timer
     final chunkDuration = Duration(
       milliseconds: configuration['chunk_duration_ms'] ?? 5000, // Default 5 seconds
@@ -75,7 +75,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
   @override
   Future<void> onStop() async {
     print('AUDIO: Stopping audio data source...');
-    
+
     _chunkTimer?.cancel();
     _chunkTimer = null;
     print('AUDIO: Chunk timer cancelled');
@@ -111,15 +111,15 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
     );
 
     print('AUDIO: Recording config - sampleRate: ${config.sampleRate}, bitRate: ${config.bitRate}, channels: ${config.numChannels}');
-    
+
     try {
       await _recorder.start(config, path: _currentRecordingPath!);
       print('AUDIO: Recorder.start() completed successfully');
-      
+
       // Verify recording is actually running
       final isRecording = await _recorder.isRecording();
       print('AUDIO: Recording status after start: $isRecording');
-      
+
       if (!isRecording) {
         throw Exception('Failed to start recording - recorder reports not recording');
       }
@@ -131,12 +131,12 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
 
   Future<void> _processAudioChunk() async {
     print('AUDIO: _processAudioChunk() called');
-    
+
     if (_deviceId == null) {
       print('AUDIO: ERROR - Device ID is null, cannot process chunk');
       return;
     }
-    
+
     if (_currentRecordingPath == null) {
       print('AUDIO: ERROR - Current recording path is null, cannot process chunk');
       return;
@@ -149,7 +149,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
       // Check if recorder is actually recording
       final isRecordingBefore = await _recorder.isRecording();
       print('AUDIO: Recording status before stop: $isRecordingBefore');
-      
+
       // Stop current recording
       if (isRecordingBefore) {
         print('AUDIO: Stopping current recording...');
@@ -162,7 +162,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
       // Read the recorded file
       final file = File(_currentRecordingPath!);
       print('AUDIO: Checking if file exists: ${file.path}');
-      
+
       if (!await file.exists()) {
         print('AUDIO: ERROR - Audio file does not exist: $_currentRecordingPath');
         return;
@@ -171,7 +171,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
       final audioBytes = await file.readAsBytes();
       final fileSize = audioBytes.length;
       print('AUDIO: Read audio file successfully - size: $fileSize bytes');
-      
+
       if (fileSize == 0) {
         print('AUDIO: WARNING - Audio file is empty (0 bytes)');
         return;
@@ -219,12 +219,12 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
       print('AUDIO: ERROR processing audio chunk: $e');
       print('AUDIO: Stack trace: ${StackTrace.current}');
       _updateStatus(errorMessage: e.toString());
-      
+
       // Try to restart recording
       try {
         await _startRecording();
       } catch (restartError) {
-        print('Error restarting recording: $restartError');
+        print('AUDIO: Error restarting recording: $restartError');
       }
     }
   }
@@ -232,25 +232,25 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
   Future<bool> _checkPermissions() async {
     try {
       print('AUDIO: Checking permissions with PermissionManager...');
-      
+
       // Use centralized permission manager
       final permissionStatus = await PermissionManager.checkAllPermissions();
       final audioStatus = permissionStatus['audio'];
-      
+
       print('AUDIO: Permission status for audio: $audioStatus');
-      
+
       // Check if permission is granted using the correct enum comparison
       if (audioStatus != null && audioStatus == permission_handler.PermissionStatus.granted) {
         print('AUDIO: Microphone permission already granted');
         return true;
       }
-      
+
       print('AUDIO: Microphone permission not granted, requesting...');
-      
+
       // Try to request permission if not granted
       final result = await PermissionManager.requestDataSourcePermissions('audio');
       print('AUDIO: Permission request result: granted=${result.granted}');
-      
+
       return result.granted;
     } catch (e) {
       print('AUDIO: ERROR checking microphone permissions: $e');
@@ -267,7 +267,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
         }
       }
     } catch (e) {
-      print('Error cleaning up temp files: $e');
+      print('AUDIO: Error cleaning up temp files: $e');
     }
   }
 
@@ -283,7 +283,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
 
       final tempDir = await getTemporaryDirectory();
       final filePath = '${tempDir.path}/single_chunk_${DateTime.now().millisecondsSinceEpoch}.wav';
-      
+
       final config = RecordConfig(
         encoder: AudioEncoder.wav,
         sampleRate: configuration['sample_rate'] ?? 16000,
@@ -293,10 +293,10 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
 
       final startTime = DateTime.now();
       await _recorder.start(config, path: filePath);
-      
+
       // Wait for the duration
       await Future.delayed(duration);
-      
+
       await _recorder.stop();
 
       // Read the file
@@ -331,7 +331,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
 
       return audioChunk;
     } catch (e) {
-      print('Error recording single chunk: $e');
+      print('AUDIO: Error recording single chunk: $e');
       return null;
     }
   }
@@ -349,7 +349,7 @@ class AudioDataSource extends BaseDataSource<AudioChunk> {
     // This would normally update the parent class status
     // For now, just print the error
     if (errorMessage != null) {
-      print('Audio Status Error: $errorMessage');
+      print('AUDIO: Audio Status Error: $errorMessage');
     }
   }
 

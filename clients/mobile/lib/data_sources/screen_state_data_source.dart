@@ -37,7 +37,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
   @override
   Future<void> onStart() async {
     if (!Platform.isAndroid) {
-      print('Screen state monitoring is only available on Android');
+      print('SCREEN_STATE: Screen state monitoring is only available on Android');
       return;
     }
 
@@ -47,7 +47,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
       _eventSubscription = eventChannel.receiveBroadcastStream().listen(
         _handleScreenStateEvent,
         onError: (error) {
-          print('Error receiving screen state events: $error');
+          print('SCREEN_STATE: Error receiving screen state events: $error');
         },
       );
 
@@ -56,12 +56,12 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
       if (initialState != null) {
         _isScreenOn = initialState['isScreenOn'] ?? true;
         _isDeviceLocked = initialState['isLocked'] ?? false;
-        print('Initial screen state - on: $_isScreenOn, locked: $_isDeviceLocked');
+        print('SCREEN_STATE: Initial screen state - on: $_isScreenOn, locked: $_isDeviceLocked');
       }
 
-      print('Started screen state monitoring');
+      print('SCREEN_STATE: Started screen state monitoring');
     } catch (e) {
-      print('Failed to start screen state monitoring: $e');
+      print('SCREEN_STATE: Failed to start screen state monitoring: $e');
       throw Exception('Failed to start screen state monitoring: $e');
     }
   }
@@ -70,7 +70,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
   Future<void> onStop() async {
     await _eventSubscription?.cancel();
     _eventSubscription = null;
-    print('Stopped screen state monitoring');
+    print('SCREEN_STATE: Stopped screen state monitoring');
   }
 
   void _handleScreenStateEvent(dynamic event) {
@@ -80,7 +80,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
     final int timestamp = event['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
     final DateTime eventTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
 
-    print('Screen state event: $eventType at $eventTime');
+    print('SCREEN_STATE: Screen state event: $eventType at $eventTime');
 
     // Update internal state
     switch (eventType) {
@@ -119,7 +119,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
     );
 
     // Emit the event
-    print('WARNING: Screen state event emitted - type: $eventType, category: ${osEvent.eventCategory}');
+    print('SCREEN_STATE: WARNING: Screen state event emitted - type: $eventType, category: ${osEvent.eventCategory}');
     emitData(osEvent);
 
     // Also notify other components about screen state changes
@@ -166,7 +166,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
   void _notifyScreenStateChange() {
     // This will be used by screenshot data source to check screen state
     // For now, just log it
-    print('Screen state changed - on: $_isScreenOn, locked: $_isDeviceLocked');
+    print('SCREEN_STATE: Screen state changed - on: $_isScreenOn, locked: $_isDeviceLocked');
   }
 
   // Public getters for other data sources to check screen state

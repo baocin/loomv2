@@ -7,7 +7,7 @@ import '../core/utils/content_hasher.dart';
 
 class BatteryDataSource extends BaseDataSource<PowerState> {
   static const String _sourceId = 'battery';
-  
+
   final Battery _battery = Battery();
   StreamSubscription<BatteryState>? _batteryStateSubscription;
   Timer? _batteryLevelTimer;
@@ -45,7 +45,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     _batteryStateSubscription = _battery.onBatteryStateChanged.listen(
       _onBatteryStateChanged,
       onError: (error) {
-        print('Battery state error: $error');
+        print('BATTERY: Battery state error: $error');
         _updateStatus(errorMessage: error.toString());
       },
     );
@@ -58,7 +58,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     _batteryLevelTimer = Timer.periodic(pollInterval, (_) async {
       // Only collect if enabled
       if (!configuration['enabled']) {
-        print('Debug: Battery timer triggered but sensor is disabled');
+        print('BATTERY: Debug: Battery timer triggered but sensor is disabled');
         return;
       }
       await _collectBatteryInfo();
@@ -72,7 +72,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
   Future<void> onStop() async {
     await _batteryStateSubscription?.cancel();
     _batteryStateSubscription = null;
-    
+
     _batteryLevelTimer?.cancel();
     _batteryLevelTimer = null;
   }
@@ -86,7 +86,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
   Future<void> collectDataPoint() async {
     // Safety check to prevent disabled sensors from collecting
     if (!configuration['enabled']) {
-      print('Debug: Battery collectDataPoint called but sensor is disabled');
+      print('BATTERY: Debug: Battery collectDataPoint called but sensor is disabled');
       return;
     }
     await _collectBatteryInfo();
@@ -98,10 +98,10 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     try {
       final batteryLevel = await _battery.batteryLevel;
       final batteryState = await _battery.batteryState;
-      
+
       final isCharging = batteryState == BatteryState.charging;
       final powerSource = _getPowerSource(batteryState);
-      
+
       final now = DateTime.now();
       final powerState = PowerState(
         deviceId: _deviceId!,
@@ -122,7 +122,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
 
       emitData(powerState);
     } catch (e) {
-      print('Error collecting battery info: $e');
+      print('BATTERY: Error collecting battery info: $e');
       _updateStatus(errorMessage: e.toString());
     }
   }
@@ -149,10 +149,10 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     try {
       final batteryLevel = await _battery.batteryLevel;
       final batteryState = await _battery.batteryState;
-      
+
       final isCharging = batteryState == BatteryState.charging;
       final powerSource = _getPowerSource(batteryState);
-      
+
       final now = DateTime.now();
       return PowerState(
         deviceId: _deviceId!,
@@ -171,7 +171,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
         ),
       );
     } catch (e) {
-      print('Error getting current battery info: $e');
+      print('BATTERY: Error getting current battery info: $e');
       return null;
     }
   }
@@ -180,7 +180,7 @@ class BatteryDataSource extends BaseDataSource<PowerState> {
     // This would normally update the parent class status
     // For now, just print the error
     if (errorMessage != null) {
-      print('Battery Status Error: $errorMessage');
+      print('BATTERY: Battery Status Error: $errorMessage');
     }
   }
 

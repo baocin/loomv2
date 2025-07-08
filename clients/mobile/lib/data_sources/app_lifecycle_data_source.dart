@@ -36,7 +36,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
   @override
   Future<void> onStart() async {
     if (!Platform.isAndroid) {
-      print('App lifecycle monitoring is only available on Android');
+      print('APP_LIFECYCLE: App lifecycle monitoring is only available on Android');
       return;
     }
 
@@ -46,7 +46,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
       _eventSubscription = eventChannel.receiveBroadcastStream().listen(
         _handleAppLifecycleEvent,
         onError: (error) {
-          print('Error receiving app lifecycle events: $error');
+          print('APP_LIFECYCLE: Error receiving app lifecycle events: $error');
         },
       );
 
@@ -56,9 +56,9 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
       // Start monitoring other apps
       await platform.invokeMethod('startAppMonitoring');
 
-      print('Started app lifecycle monitoring');
+      print('APP_LIFECYCLE: Started app lifecycle monitoring');
     } catch (e) {
-      print('Failed to start app lifecycle monitoring: $e');
+      print('APP_LIFECYCLE: Failed to start app lifecycle monitoring: $e');
       throw Exception('Failed to start app lifecycle monitoring: $e');
     }
   }
@@ -73,10 +73,10 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
     try {
       await platform.invokeMethod('stopAppMonitoring');
     } catch (e) {
-      print('Failed to stop app monitoring: $e');
+      print('APP_LIFECYCLE: Failed to stop app monitoring: $e');
     }
 
-    print('Stopped app lifecycle monitoring');
+    print('APP_LIFECYCLE: Stopped app lifecycle monitoring');
   }
 
   @override
@@ -122,7 +122,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
       },
     );
 
-    print('WARNING: App lifecycle event emitted - app: $appName, event: $eventType, duration: ${durationSeconds ?? 0}s');
+    print('APP_LIFECYCLE: WARNING: App lifecycle event emitted - app: $appName, event: $eventType, duration: ${durationSeconds ?? 0}s');
     emitData(event);
   }
 
@@ -135,7 +135,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
     final int timestamp = event['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
     final DateTime eventTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
 
-    print('App lifecycle event: $packageName - $eventType at $eventTime');
+    print('APP_LIFECYCLE: App lifecycle event: $packageName - $eventType at $eventTime');
 
     // Calculate duration for foreground/background events
     int? durationSeconds;
@@ -182,7 +182,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
     );
 
     // Emit the event
-    print('WARNING: App lifecycle event emitted - app: ${appName ?? packageName}, event: $eventType, duration: ${durationSeconds ?? 0}s');
+    print('APP_LIFECYCLE: WARNING: App lifecycle event emitted - app: ${appName ?? packageName}, event: $eventType, duration: ${durationSeconds ?? 0}s');
     emitData(lifecycleEvent);
   }
 

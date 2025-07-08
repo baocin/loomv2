@@ -38,7 +38,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
       _cameras = await availableCameras();
       return _cameras != null && _cameras!.isNotEmpty;
     } catch (e) {
-      print('Camera not available: $e');
+      print('CAMERA: Camera not available: $e');
       return false;
     }
   }
@@ -77,7 +77,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
       _isInitialized = true;
       return true;
     } catch (e) {
-      print('Failed to initialize camera: $e');
+      print('CAMERA: Failed to initialize camera: $e');
       _isInitialized = false;
       return false;
     }
@@ -145,11 +145,11 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
           await _captureAutomaticPhoto(_currentAutoDirection);
         }
       } catch (e) {
-        print('Automatic camera capture failed: $e');
+        print('CAMERA: Automatic camera capture failed: $e');
       }
     });
 
-    print('Automatic camera capture started with interval: ${_captureInterval.inSeconds}s');
+    print('CAMERA: Automatic camera capture started with interval: ${_captureInterval.inSeconds}s');
   }
 
   /// Stop automatic camera capture
@@ -175,10 +175,10 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'interval_seconds': _captureInterval.inSeconds,
       };
 
-      print('WARNING: Camera photo data emitted - automatic capture, camera: ${data['camera_type']}');
+      print('CAMERA: WARNING: Camera photo data emitted - automatic capture, camera: ${data['camera_type']}');
       emitData(data);
     } catch (e) {
-      print('Failed to capture automatic photo from ${direction.name}: $e');
+      print('CAMERA: Failed to capture automatic photo from ${direction.name}: $e');
     }
   }
 
@@ -212,9 +212,9 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
             imageBytes,
             name: "loom_photo_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Photo saved to gallery');
+          print('CAMERA: Photo saved to gallery');
         } catch (e) {
-          print('Failed to save to gallery: $e');
+          print('CAMERA: Failed to save to gallery: $e');
         }
       }
 
@@ -242,7 +242,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
       );
 
       // Log the upload
-      print('UPLOAD: /image/camera | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: camera');
+      print('CAMERA: UPLOAD: /image/camera | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: camera');
       _lastCaptureTime = timestamp;
 
       // Emit to stream for tracking
@@ -256,10 +256,10 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
 
-      print('WARNING: Camera photo data emitted - camera: ${data['camera_type']}, method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
+      print('CAMERA: WARNING: Camera photo data emitted - camera: ${data['camera_type']}, method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
       emitData(data);
     } catch (e) {
-      print('Failed to capture photo: $e');
+      print('CAMERA: Failed to capture photo: $e');
       throw Exception('Photo capture failed: $e');
     }
   }

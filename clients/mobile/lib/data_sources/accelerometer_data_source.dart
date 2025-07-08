@@ -7,7 +7,7 @@ import '../core/utils/content_hasher.dart';
 
 class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
   static const String _sourceId = 'accelerometer';
-  
+
   String? _deviceId;
   AccelerometerEvent? _lastReading;
 
@@ -46,25 +46,25 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
   @override
   Future<void> collectDataPoint() async {
     print('ACCELEROMETER: collectDataPoint() called - deviceId: $_deviceId, enabled: ${configuration['enabled']}');
-    
+
     if (_deviceId == null) {
       print('ACCELEROMETER: Device ID is null, returning');
       return;
     }
-    
+
     // Additional safety check to prevent disabled sensors from collecting
     if (!configuration['enabled']) {
       print('ACCELEROMETER: collectDataPoint called but sensor is disabled, returning');
       return;
     }
-    
+
     print('ACCELEROMETER: Starting data collection...');
 
     try {
       // Get a single accelerometer reading
       final completer = Completer<AccelerometerEvent>();
       late StreamSubscription<AccelerometerEvent> subscription;
-      
+
       subscription = accelerometerEventStream(
         samplingPeriod: const Duration(milliseconds: 10), // Fast sampling for single reading
       ).listen(
@@ -115,7 +115,7 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
       emitData(reading);
       print('ACCELEROMETER: Data emitted successfully');
     } catch (e) {
-      print('Error collecting accelerometer data: $e');
+      print('ACCELEROMETER: Error collecting accelerometer data: $e');
       _updateStatus(errorMessage: e.toString());
     }
   }
@@ -124,7 +124,7 @@ class AccelerometerDataSource extends BaseDataSource<AccelerometerReading> {
     // This would normally update the parent class status
     // For now, just print the error
     if (errorMessage != null) {
-      print('Accelerometer Status Error: $errorMessage');
+      print('ACCELEROMETER: Accelerometer Status Error: $errorMessage');
     }
   }
 

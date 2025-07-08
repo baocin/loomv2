@@ -94,14 +94,14 @@ class DataCollectionService {
         final permissionStatus = await PermissionManager.checkAllPermissions();
         final status = permissionStatus[sourceId];
         if (status != null && status.isGranted) {
-          print('DEBUG: Starting data source $sourceId (enabled: ${config.enabled})');
+          print('${sourceId.toUpperCase()}: DEBUG: Starting data source (enabled: ${config.enabled})');
           await _startDataSource(sourceId, dataSource);
           _uploadQueues[sourceId] = [];
         } else {
-          print('Skipping $sourceId: permissions not granted');
+          print('${sourceId.toUpperCase()}: Skipping - permissions not granted');
         }
       } else {
-        print('DEBUG: Skipping data source $sourceId (available: ${dataSource != null}, config exists: ${config != null}, enabled: ${config?.enabled ?? false})');
+        print('${sourceId.toUpperCase()}: DEBUG: Skipping data source (available: ${dataSource != null}, config exists: ${config != null}, enabled: ${config?.enabled ?? false})');
       }
     }
   }
@@ -232,32 +232,32 @@ class DataCollectionService {
       // Subscribe to data stream
       final subscription = dataSource.dataStream.listen(
         (data) => _onDataReceived(sourceId, data),
-        onError: (error) => print('Error from $sourceId: $error'),
+        onError: (error) => print('${sourceId.toUpperCase()}: Error - $error'),
       );
 
       _subscriptions[sourceId] = subscription;
-      print('Started data source: $sourceId with interval ${config?.collectionIntervalMs}ms');
+      print('${sourceId.toUpperCase()}: Started data source with interval ${config?.collectionIntervalMs}ms');
 
       // Add warning logs for specific data sources
       switch (sourceId) {
         case 'screenshot':
-          print('WARNING: Screenshot data source started - will capture screenshots');
+          print('SCREENSHOT: WARNING: Data source started - will capture screenshots');
           break;
         case 'camera':
-          print('WARNING: Camera data source started - will capture photos');
+          print('CAMERA: WARNING: Data source started - will capture photos');
           break;
         case 'screen_state':
-          print('WARNING: Screen state data source started - will monitor screen on/off events');
+          print('SCREEN_STATE: WARNING: Data source started - will monitor screen on/off events');
           break;
         case 'app_lifecycle':
-          print('WARNING: App lifecycle data source started - will monitor app foreground/background events');
+          print('APP_LIFECYCLE: WARNING: Data source started - will monitor app foreground/background events');
           break;
         case 'android_app_monitoring':
-          print('WARNING: App monitoring data source started - will monitor running apps');
+          print('ANDROID_APP_MONITORING: WARNING: Data source started - will monitor running apps');
           break;
       }
     } catch (e) {
-      print('Failed to start data source $sourceId: $e');
+      print('${sourceId.toUpperCase()}: Failed to start data source - $e');
     }
   }
 
@@ -274,27 +274,27 @@ class DataCollectionService {
     // Add warning logs for specific data sources
     switch (sourceId) {
       case 'screenshot':
-        print('WARNING: Screenshot event received - type: ${data.runtimeType}');
+        print('SCREENSHOT: WARNING: Event received - type: ${data.runtimeType}');
         break;
       case 'camera':
-        print('WARNING: Camera photo event received - type: ${data.runtimeType}');
+        print('CAMERA: WARNING: Photo event received - type: ${data.runtimeType}');
         break;
       case 'screen_state':
-        print('WARNING: Screen state event received - type: ${data.runtimeType}');
+        print('SCREEN_STATE: WARNING: Event received - type: ${data.runtimeType}');
         if (data is OSSystemEvent) {
-          print('WARNING: Screen state details - event: ${data.eventType}, category: ${data.eventCategory}');
+          print('SCREEN_STATE: WARNING: Details - event: ${data.eventType}, category: ${data.eventCategory}');
         }
         break;
       case 'app_lifecycle':
-        print('WARNING: App lifecycle event received - type: ${data.runtimeType}');
+        print('APP_LIFECYCLE: WARNING: Event received - type: ${data.runtimeType}');
         if (data is OSAppLifecycleEvent) {
-          print('WARNING: App lifecycle details - app: ${data.appName}, event: ${data.eventType}');
+          print('APP_LIFECYCLE: WARNING: Details - app: ${data.appName}, event: ${data.eventType}');
         }
         break;
       case 'android_app_monitoring':
-        print('WARNING: App monitoring event received - type: ${data.runtimeType}');
+        print('ANDROID_APP_MONITORING: WARNING: Event received - type: ${data.runtimeType}');
         if (data is AndroidAppMonitoring) {
-          print('WARNING: App monitoring details - ${data.runningApplications.length} apps detected');
+          print('ANDROID_APP_MONITORING: WARNING: Details - ${data.runningApplications.length} apps detected');
         }
         break;
     }
@@ -304,7 +304,7 @@ class DataCollectionService {
     _uploadQueues[sourceId] = queue;
 
     // Log queue status for all sources
-    print('[$sourceId] Data received - Queue size: ${queue.length}');
+    print('${sourceId.toUpperCase()}: Data received - Queue size: ${queue.length}');
 
     final config = _config?.getConfig(sourceId);
     if (config != null && queue.length >= config.uploadBatchSize) {
@@ -354,17 +354,17 @@ class DataCollectionService {
     queue.clear();
 
     try {
-      print('[$sourceId] Starting upload of ${dataToUpload.length} items...');
+      print('${sourceId.toUpperCase()}: Starting upload of ${dataToUpload.length} items...');
       await _uploadDataByType(sourceId, dataToUpload);
       // Update background service after successful upload
       _updateBackgroundServiceQueues();
 
-      print('[$sourceId] Upload completed successfully - ${dataToUpload.length} items uploaded');
+      print('${sourceId.toUpperCase()}: Upload completed successfully - ${dataToUpload.length} items uploaded');
       if (sourceId == 'audio') {
         print('AUDIO: Upload completed successfully');
       }
     } catch (e) {
-      print('ERROR: Failed to upload $sourceId data: $e');
+      print('${sourceId.toUpperCase()}: ERROR: Failed to upload data - $e');
 
       if (sourceId == 'audio') {
         print('AUDIO: Upload failed, re-adding to queue');
@@ -479,18 +479,18 @@ class DataCollectionService {
 
         case 'screenshot':
           // Screenshots are uploaded immediately by the data source itself
-          print('WARNING: Screenshot data upload - handled by data source directly');
+          print('SCREENSHOT: WARNING: Data upload - handled by data source directly');
           return;
 
         case 'camera':
           // Camera photos are uploaded immediately by the data source itself
-          print('WARNING: Camera photo data upload - handled by data source directly');
+          print('CAMERA: WARNING: Photo data upload - handled by data source directly');
           return;
 
         case 'screen_state':
           endpoint = '/os-events/system';
           final items = data.cast<OSSystemEvent>();
-          print('WARNING: Uploading ${items.length} screen state events to $endpoint');
+          print('SCREEN_STATE: WARNING: Uploading ${items.length} events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -503,7 +503,7 @@ class DataCollectionService {
         case 'app_lifecycle':
           endpoint = '/os-events/app-lifecycle';
           final items = data.cast<OSAppLifecycleEvent>();
-          print('WARNING: Uploading ${items.length} app lifecycle events to $endpoint');
+          print('APP_LIFECYCLE: WARNING: Uploading ${items.length} events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -516,7 +516,7 @@ class DataCollectionService {
         case 'android_app_monitoring':
           endpoint = '/system/apps/android';
           final items = data.cast<AndroidAppMonitoring>();
-          print('WARNING: Uploading ${items.length} app monitoring events to $endpoint');
+          print('ANDROID_APP_MONITORING: WARNING: Uploading ${items.length} events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -539,15 +539,15 @@ class DataCollectionService {
           break;
 
         default:
-          print('Unknown data source: $sourceId');
+          print('${sourceId.toUpperCase()}: Unknown data source');
           return;
       }
 
       // Log the upload
-      print('UPLOAD: $endpoint | batch_size: ${data.length} | payload_size: $totalBytes bytes | source: $sourceId');
+      print('${sourceId.toUpperCase()}: UPLOAD: $endpoint | batch_size: ${data.length} | payload_size: $totalBytes bytes');
 
     } catch (e) {
-      print('Error uploading $sourceId data: $e');
+      print('${sourceId.toUpperCase()}: Error uploading data - $e');
       rethrow;
     }
   }
@@ -568,12 +568,12 @@ class DataCollectionService {
           final permissionStatus = await PermissionManager.checkAllPermissions();
           final status = permissionStatus[sourceId];
           if (status != null && status.isGranted) {
-            print('DEBUG: Enabling data source $sourceId via toggle');
+            print('${sourceId.toUpperCase()}: DEBUG: Enabling data source via toggle');
             await _startDataSource(sourceId, dataSource);
             _uploadQueues[sourceId] = [];
           }
         } else {
-          print('DEBUG: Disabling data source $sourceId via toggle');
+          print('${sourceId.toUpperCase()}: DEBUG: Disabling data source via toggle');
           await _subscriptions[sourceId]?.cancel();
           _subscriptions.remove(sourceId);
           await dataSource.stop();
@@ -594,14 +594,14 @@ class DataCollectionService {
     // Only restart the source if it was previously enabled AND still enabled
     // This prevents accidentally starting sources when switching profiles
     if (_isRunning && _dataSources.containsKey(sourceId) && wasEnabled && config.enabled) {
-      print('DEBUG: Restarting $sourceId due to config change (was enabled, still enabled)');
+      print('${sourceId.toUpperCase()}: DEBUG: Restarting due to config change (was enabled, still enabled)');
       await setDataSourceEnabled(sourceId, false);
       await setDataSourceEnabled(sourceId, true);
     } else if (_isRunning && _dataSources.containsKey(sourceId) && wasEnabled && !config.enabled) {
-      print('DEBUG: Disabling $sourceId due to config change (was enabled, now disabled)');
+      print('${sourceId.toUpperCase()}: DEBUG: Disabling due to config change (was enabled, now disabled)');
       await setDataSourceEnabled(sourceId, false);
     } else if (_isRunning && _dataSources.containsKey(sourceId) && !wasEnabled && config.enabled) {
-      print('DEBUG: NOT auto-starting $sourceId - was disabled before profile change');
+      print('${sourceId.toUpperCase()}: DEBUG: NOT auto-starting - was disabled before profile change');
     }
   }
 
@@ -656,7 +656,7 @@ class DataCollectionService {
 
   /// Manually trigger data upload for a specific source
   Future<void> uploadNowForSource(String sourceId) async {
-    print('Manual upload triggered for source: $sourceId');
+    print('${sourceId.toUpperCase()}: Manual upload triggered');
     await _uploadQueuedDataForSource(sourceId);
   }
 

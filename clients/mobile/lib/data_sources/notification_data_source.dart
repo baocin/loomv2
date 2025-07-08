@@ -34,7 +34,7 @@ class NotificationDataSource extends BaseDataSource<OSNotificationEvent> {
       final bool isGranted = await platform.invokeMethod('checkNotificationAccess');
       return isGranted;
     } catch (e) {
-      print('Error checking notification access: $e');
+      print('NOTIFICATION: Error checking notification access: $e');
       return false;
     }
   }
@@ -45,7 +45,7 @@ class NotificationDataSource extends BaseDataSource<OSNotificationEvent> {
     try {
       await platform.invokeMethod('requestNotificationAccess');
     } catch (e) {
-      print('Error requesting notification access: $e');
+      print('NOTIFICATION: Error requesting notification access: $e');
     }
   }
 
@@ -65,7 +65,7 @@ class NotificationDataSource extends BaseDataSource<OSNotificationEvent> {
     _notificationSubscription = eventChannel.receiveBroadcastStream().listen(
       _handleNotificationEvent,
       onError: (error) {
-        print('Error in notification stream: $error');
+        print('NOTIFICATION: Error in notification stream: $error');
         throw error;
       },
     );
@@ -84,14 +84,14 @@ class NotificationDataSource extends BaseDataSource<OSNotificationEvent> {
       try {
         await platform.invokeMethod('stopNotificationMonitoring');
       } catch (e) {
-        print('Error stopping notification monitoring: $e');
+        print('NOTIFICATION: Error stopping notification monitoring: $e');
       }
     }
   }
 
   void _handleNotificationEvent(dynamic event) {
     if (event is! Map<dynamic, dynamic>) {
-      print('Invalid notification event format: $event');
+      print('NOTIFICATION: Invalid notification event format: $event');
       return;
     }
 
@@ -153,7 +153,7 @@ class NotificationDataSource extends BaseDataSource<OSNotificationEvent> {
 
       emitData(notificationEvent);
     } catch (e) {
-      print('Error handling notification event: $e');
+      print('NOTIFICATION: Error handling notification event: $e');
     }
   }
 

@@ -8,7 +8,7 @@ import '../core/utils/content_hasher.dart';
 
 class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
   static const String _sourceId = 'network';
-  
+
   final Connectivity _connectivity = Connectivity();
   final NetworkInfo _networkInfo = NetworkInfo();
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
@@ -49,7 +49,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       _onConnectivityChanged,
       onError: (error) {
-        print('Connectivity error: $error');
+        print('NETWORK: Connectivity error: $error');
         _updateStatus(errorMessage: error.toString());
       },
     );
@@ -71,7 +71,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
   Future<void> onStop() async {
     await _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
-    
+
     _networkInfoTimer?.cancel();
     _networkInfoTimer = null;
   }
@@ -86,7 +86,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
 
     try {
       final connectivityResult = await _connectivity.checkConnectivity();
-      
+
       // Only process WiFi connections
       if (connectivityResult != ConnectivityResult.wifi) {
         return;
@@ -97,7 +97,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
         emitData(wifiInfo);
       }
     } catch (e) {
-      print('Error collecting network info: $e');
+      print('NETWORK: Error collecting network info: $e');
       _updateStatus(errorMessage: e.toString());
     }
   }
@@ -143,7 +143,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
         ),
       );
     } catch (e) {
-      print('Error getting WiFi info: $e');
+      print('NETWORK: Error getting WiFi info: $e');
       return null;
     }
   }
@@ -154,14 +154,14 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
 
     try {
       final connectivityResult = await _connectivity.checkConnectivity();
-      
+
       if (connectivityResult == ConnectivityResult.wifi) {
         return await _getWiFiInfo();
       }
-      
+
       return null;
     } catch (e) {
-      print('Error getting current network info: $e');
+      print('NETWORK: Error getting current network info: $e');
       return null;
     }
   }
@@ -171,7 +171,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
     try {
       return await _connectivity.checkConnectivity();
     } catch (e) {
-      print('Error checking connectivity: $e');
+      print('NETWORK: Error checking connectivity: $e');
       return ConnectivityResult.none;
     }
   }
@@ -180,7 +180,7 @@ class NetworkDataSource extends BaseDataSource<NetworkWiFiReading> {
     // This would normally update the parent class status
     // For now, just print the error
     if (errorMessage != null) {
-      print('Network Status Error: $errorMessage');
+      print('NETWORK: Network Status Error: $errorMessage');
     }
   }
 }

@@ -88,7 +88,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       if (!hasPermission) {
         final granted = await PlatformScreenshotService.requestScreenshotPermission();
         if (!granted) {
-          print('Screenshot permission not granted');
+          print('SCREENSHOT: Screenshot permission not granted');
           return;
         }
       }
@@ -98,7 +98,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         onScreenshot: (Uint8List imageBytes) async {
           // Check screen state before handling screenshot
           if (!_shouldCaptureScreenshot()) {
-            print('Skipping screenshot - screen is off or device is locked');
+            print('SCREENSHOT: Skipping screenshot - screen is off or device is locked');
             return;
           }
           await _handlePlatformScreenshot(imageBytes);
@@ -106,7 +106,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       );
 
       if (started) {
-        print('Platform screenshot service started with interval: ${_captureInterval.inSeconds}s');
+        print('SCREENSHOT: Platform screenshot service started with interval: ${_captureInterval.inSeconds}s');
         return;
       }
     }
@@ -116,12 +116,12 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       try {
         // Check screen state before capturing
         if (!_shouldCaptureScreenshot()) {
-          print('Skipping timer-based screenshot - screen is off or device is locked');
+          print('SCREENSHOT: Skipping timer-based screenshot - screen is off or device is locked');
           return;
         }
 
         // This is limited - can only capture app's own UI
-        print('Timer-based screenshot capture (limited to app UI)');
+        print('SCREENSHOT: Timer-based screenshot capture (limited to app UI)');
 
         final data = {
           'device_id': deviceId,
@@ -131,14 +131,14 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'interval_seconds': _captureInterval.inSeconds,
         };
 
-        print('WARNING: Screenshot data emitted - automatic limited capture');
+        print('SCREENSHOT: WARNING: Screenshot data emitted - automatic limited capture');
         emitData(data);
       } catch (e) {
-        print('Automatic screenshot failed: $e');
+        print('SCREENSHOT: Automatic screenshot failed: $e');
       }
     });
 
-    print('Timer-based screenshot capture started with interval: ${_captureInterval.inSeconds}s');
+    print('SCREENSHOT: Timer-based screenshot capture started with interval: ${_captureInterval.inSeconds}s');
   }
 
   /// Stop automatic screenshot capture
@@ -164,9 +164,9 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
             imageBytes,
             name: "loom_auto_screenshot_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Auto screenshot saved to gallery');
+          print('SCREENSHOT: Auto screenshot saved to gallery');
         } catch (e) {
-          print('Failed to save to gallery: $e');
+          print('SCREENSHOT: Failed to save to gallery: $e');
         }
       }
 
@@ -192,7 +192,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         },
       );
 
-      print('Automatic screenshot uploaded successfully: ${imageBytes.length} bytes');
+      print('SCREENSHOT: Automatic screenshot uploaded successfully: ${imageBytes.length} bytes');
       _lastCaptureTime = timestamp;
 
       // Emit to stream for tracking
@@ -205,10 +205,10 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
 
-      print('WARNING: Screenshot data emitted - method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
+      print('SCREENSHOT: WARNING: Screenshot data emitted - method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
       emitData(data);
     } catch (e) {
-      print('Failed to handle platform screenshot: $e');
+      print('SCREENSHOT: Failed to handle platform screenshot: $e');
     }
   }
 
@@ -242,7 +242,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       }
 
       // Fallback: use screenshot package to capture app content only
-      print('Using fallback screenshot method (app content only)');
+      print('SCREENSHOT: Using fallback screenshot method (app content only)');
 
       // Note: This requires the app to wrap its content in a Screenshot widget
       // For a full implementation, you'd need to pass the screenshot controller
@@ -257,13 +257,13 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'fallback_method': true,
       };
 
-      print('WARNING: Screenshot data emitted - method: ${data['capture_method']}, fallback: ${data['fallback_method']}');
+      print('SCREENSHOT: WARNING: Screenshot data emitted - method: ${data['capture_method']}, fallback: ${data['fallback_method']}');
       emitData(data);
       _lastCaptureTime = timestamp;
 
       throw Exception('Full screen capture not available. Please use the screenshot widget in the app.');
     } catch (e) {
-      print('Error capturing screenshot: $e');
+      print('SCREENSHOT: Error capturing screenshot: $e');
       throw Exception('Screenshot capture failed: $e');
     }
   }
@@ -282,9 +282,9 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
             imageBytes,
             name: "loom_screenshot_${timestamp.millisecondsSinceEpoch}",
           );
-          print('Screenshot saved to gallery');
+          print('SCREENSHOT: Screenshot saved to gallery');
         } catch (e) {
-          print('Failed to save to gallery: $e');
+          print('SCREENSHOT: Failed to save to gallery: $e');
         }
       }
 
@@ -310,7 +310,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
       );
 
       // Log the upload
-      print('UPLOAD: /image/screenshot | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: screenshot');
+      print('SCREENSHOT: UPLOAD: /image/screenshot | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: screenshot');
       _lastCaptureTime = timestamp;
 
       // Emit to stream for tracking
@@ -323,10 +323,10 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
 
-      print('WARNING: Screenshot data emitted - manual capture uploaded, size: ${imageBytes.length} bytes');
+      print('SCREENSHOT: WARNING: Screenshot data emitted - manual capture uploaded, size: ${imageBytes.length} bytes');
       emitData(data);
     } catch (e) {
-      print('Failed to upload screenshot: $e');
+      print('SCREENSHOT: Failed to upload screenshot: $e');
       throw Exception('Screenshot upload failed: $e');
     }
   }
