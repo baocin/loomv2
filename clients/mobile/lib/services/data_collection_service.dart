@@ -55,6 +55,16 @@ class DataCollectionService {
     // Load configuration
     _config = await DataCollectionConfig.load();
 
+    if (_config != null) {
+      print('Config loaded: ${_config!.sourceIds.length} sources configured');
+      for (final sourceId in _config!.sourceIds) {
+        final sourceConfig = _config!.getConfig(sourceId);
+        print('  $sourceId: enabled=${sourceConfig.enabled}, uploadInterval=${sourceConfig.uploadIntervalMs}ms');
+      }
+    } else {
+      print('WARNING: Config is null after loading');
+    }
+
     // Check permissions before initializing data sources
     final permissionSummary = await PermissionManager.getPermissionSummary();
     if (!permissionSummary.readyForDataCollection) {
@@ -324,20 +334,31 @@ class DataCollectionService {
 
   /// Set up upload timers for each data source
   void _setupUploadTimers() {
-    if (_config == null) return;
+    if (_config == null) {
+      print('WARNING: Cannot setup upload timers - config is null');
+      return;
+    }
+
+    print('Setting up upload timers for ${_config!.sourceIds.length} sources');
 
     for (final sourceId in _config!.sourceIds) {
       final config = _config!.getConfig(sourceId);
       final uploadInterval = Duration(milliseconds: config.uploadIntervalMs);
 
+      print('Creating upload timer for $sourceId with interval: ${uploadInterval.inSeconds}s');
+
       _uploadTimers[sourceId] = Timer.periodic(uploadInterval, (_) {
         _uploadQueuedDataForSource(sourceId);
       });
     }
+
+    print('Upload timers created: ${_uploadTimers.keys.join(', ')}');
   }
 
   /// Upload queued data for a specific source
   Future<void> _uploadQueuedDataForSource(String sourceId) async {
+    print('${sourceId.toUpperCase()}: Upload timer triggered');
+
     final queue = _uploadQueues[sourceId];
     if (queue == null || queue.isEmpty) {
       if (sourceId == 'audio') {

@@ -82,7 +82,11 @@ class GPSDataSource extends BaseDataSource<GPSReading> {
       if (_lastPosition != null) {
         final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(_lastPosition!.timestamp!.millisecondsSinceEpoch));
         if (age.inSeconds > 60) {
-          print('GPS: Last position is ${age.inSeconds} seconds old, may need to restart stream');
+          print('GPS: Last position is ${age.inSeconds} seconds old, restarting stream...');
+          // Restart the stream
+          await _positionStream?.cancel();
+          _positionStream = null;
+          _startLocationStream();
         }
       }
       return;
