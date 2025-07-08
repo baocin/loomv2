@@ -8,7 +8,7 @@ import '../core/models/os_event_data.dart';
 class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with WidgetsBindingObserver {
   static const String _sourceId = 'app_lifecycle';
   static const platform = MethodChannel('red.steele.loom/app_lifecycle');
-  
+
   String? _deviceId;
   final Map<String, DateTime> _appLaunchTimes = {};
   final Map<String, DateTime> _appForegroundTimes = {};
@@ -67,30 +67,30 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
   Future<void> onStop() async {
     await _eventSubscription?.cancel();
     _eventSubscription = null;
-    
+
     WidgetsBinding.instance.removeObserver(this);
-    
+
     try {
       await platform.invokeMethod('stopAppMonitoring');
     } catch (e) {
       print('Failed to stop app monitoring: $e');
     }
-    
+
     print('Stopped app lifecycle monitoring');
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // Track this app's lifecycle
     final now = DateTime.now();
     const appIdentifier = 'red.steele.loom';
     const appName = 'Loom';
-    
+
     String eventType;
     int? durationSeconds;
-    
+
     switch (state) {
       case AppLifecycleState.resumed:
         eventType = 'foreground';
@@ -108,7 +108,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
       default:
         return;
     }
-    
+
     final event = OSAppLifecycleEvent(
       deviceId: _deviceId!,
       timestamp: now,
@@ -121,7 +121,8 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
         'is_self': true,
       },
     );
-    
+
+    print('WARNING: App lifecycle event emitted - app: $appName, event: $eventType, duration: ${durationSeconds ?? 0}s');
     emitData(event);
   }
 
@@ -138,7 +139,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
 
     // Calculate duration for foreground/background events
     int? durationSeconds;
-    
+
     switch (eventType) {
       case 'launch':
         _appLaunchTimes[packageName] = eventTime;
@@ -181,6 +182,7 @@ class AppLifecycleDataSource extends BaseDataSource<OSAppLifecycleEvent> with Wi
     );
 
     // Emit the event
+    print('WARNING: App lifecycle event emitted - app: ${appName ?? packageName}, event: $eventType, duration: ${durationSeconds ?? 0}s');
     emitData(lifecycleEvent);
   }
 

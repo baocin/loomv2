@@ -20,7 +20,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   bool _automaticCaptureEnabled = false;
   bool _captureBothCameras = true;
   CameraLensDirection _currentAutoDirection = CameraLensDirection.back;
-  
+
   CameraDataSource(this.deviceId);
 
   @override
@@ -59,20 +59,20 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Initialize camera controller
   Future<bool> initializeCamera([CameraLensDirection direction = CameraLensDirection.back]) async {
     if (_cameras == null || _cameras!.isEmpty) return false;
-    
+
     try {
       // Find camera with specified direction
       final camera = _cameras!.firstWhere(
         (cam) => cam.lensDirection == direction,
         orElse: () => _cameras!.first,
       );
-      
+
       _controller = CameraController(
         camera,
         ResolutionPreset.high,
         enableAudio: false,
       );
-      
+
       await _controller!.initialize();
       _isInitialized = true;
       return true;
@@ -126,18 +126,18 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Start automatic camera capture
   void _startAutomaticCapture() {
     _stopAutomaticCapture(); // Cancel any existing timer
-    
+
     if (!_automaticCaptureEnabled) return;
-    
+
     _captureTimer = Timer.periodic(_captureInterval, (timer) async {
       try {
         if (_captureBothCameras && _cameras != null && _cameras!.length > 1) {
           // Capture from back camera first
           await _captureAutomaticPhoto(CameraLensDirection.back);
-          
+
           // Wait a bit before switching cameras
           await Future.delayed(const Duration(seconds: 2));
-          
+
           // Capture from front camera
           await _captureAutomaticPhoto(CameraLensDirection.front);
         } else {
@@ -148,7 +148,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         print('Automatic camera capture failed: $e');
       }
     });
-    
+
     print('Automatic camera capture started with interval: ${_captureInterval.inSeconds}s');
   }
 
@@ -165,7 +165,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         description: 'Automatic capture - ${direction == CameraLensDirection.front ? 'Front' : 'Back'} camera',
         direction: direction,
       );
-      
+
       final data = {
         'device_id': deviceId,
         'timestamp': DateTime.now().toIso8601String(),
@@ -174,7 +174,8 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'capture_method': 'automatic',
         'interval_seconds': _captureInterval.inSeconds,
       };
-      
+
+      print('WARNING: Camera photo data emitted - automatic capture, camera: ${data['camera_type']}');
       emitData(data);
     } catch (e) {
       print('Failed to capture automatic photo from ${direction.name}: $e');
@@ -184,7 +185,7 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
   /// Take a photo and upload it
   Future<void> capturePhoto({String? description, CameraLensDirection? direction}) async {
     if (!isRunning) return;
-    
+
     try {
       // Initialize camera if needed
       if (!_isInitialized || (direction != null && _controller?.description.lensDirection != direction)) {
@@ -194,16 +195,16 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
           throw Exception('Failed to initialize camera');
         }
       }
-      
+
       if (_controller == null || !_controller!.value.isInitialized) {
         throw Exception('Camera not initialized');
       }
-      
+
       // Take the picture
       final XFile photo = await _controller!.takePicture();
       final Uint8List imageBytes = await photo.readAsBytes();
       final timestamp = DateTime.now();
-      
+
       // Save to gallery if enabled
       if (_saveToGallery) {
         try {
@@ -216,13 +217,13 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
           print('Failed to save to gallery: $e');
         }
       }
-      
+
       // Get image dimensions
       final codec = await ui.instantiateImageCodec(imageBytes);
       final frame = await codec.getNextFrame();
       final width = frame.image.width;
       final height = frame.image.height;
-      
+
       // Upload via API
       final apiClient = await LoomApiClient.createFromSettings();
       await apiClient.uploadPhoto(
@@ -239,11 +240,11 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
           'camera_name': _controller!.description.name,
         },
       );
-      
+
       // Log the upload
       print('UPLOAD: /image/camera | batch_size: 1 | payload_size: ${imageBytes.length} bytes | source: camera');
       _lastCaptureTime = timestamp;
-      
+
       // Emit to stream for tracking
       final data = {
         'device_id': deviceId,
@@ -254,7 +255,8 @@ class CameraDataSource extends BaseDataSource<Map<String, dynamic>> {
         'uploaded': true,
         'size_bytes': imageBytes.length,
       };
-      
+
+      print('WARNING: Camera photo data emitted - camera: ${data['camera_type']}, method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
       emitData(data);
     } catch (e) {
       print('Failed to capture photo: $e');

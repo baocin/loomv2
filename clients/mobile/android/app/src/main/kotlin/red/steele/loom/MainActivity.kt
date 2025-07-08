@@ -54,6 +54,7 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     screenStateEventSink = events
                     registerScreenStateReceiver()
+                    println("WARNING: Screen state event listener registered")
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -84,6 +85,7 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     appLifecycleEventSink = events
                     appLifecycleMonitor.setEventSink(events)
+                    println("WARNING: App lifecycle event listener registered")
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -142,7 +144,7 @@ class MainActivity : FlutterActivity() {
                 "takeScreenshot" -> {
                     // Store the result to be used after permission is granted
                     pendingScreenshotResult = result
-                    
+
                     // Check if we already have permission (service is running)
                     if (ScreenshotService.isServiceRunning(this)) {
                         // Take screenshot immediately
@@ -205,17 +207,17 @@ class MainActivity : FlutterActivity() {
     private fun requestMediaProjectionPermission() {
         val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
-        
+
         // Check if we're requesting for a single screenshot
         val requestCode = if (pendingScreenshotResult != null) {
             REQUEST_SINGLE_SCREENSHOT
         } else {
             REQUEST_MEDIA_PROJECTION
         }
-        
+
         startActivityForResult(permissionIntent, requestCode)
     }
-    
+
     private fun takeImmediateScreenshot() {
         // Send a broadcast to the service to take a screenshot immediately
         val intent = Intent("red.steele.loom.TAKE_SCREENSHOT_NOW")
@@ -231,7 +233,7 @@ class MainActivity : FlutterActivity() {
                     // Save the permission for later use
                     lastResultCode = resultCode
                     lastResultData = data
-                    
+
                     // Start the screenshot service with the permission result
                     val serviceIntent = Intent(this, ScreenshotService::class.java).apply {
                         action = ScreenshotService.ACTION_START_CAPTURE
@@ -247,7 +249,7 @@ class MainActivity : FlutterActivity() {
                     // Save the permission for later use
                     lastResultCode = resultCode
                     lastResultData = data
-                    
+
                     // Start the service temporarily for a single screenshot
                     val serviceIntent = Intent(this, ScreenshotService::class.java).apply {
                         action = ScreenshotService.ACTION_SINGLE_CAPTURE

@@ -131,6 +131,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
           'interval_seconds': _captureInterval.inSeconds,
         };
 
+        print('WARNING: Screenshot data emitted - automatic limited capture');
         emitData(data);
       } catch (e) {
         print('Automatic screenshot failed: $e');
@@ -204,6 +205,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
 
+      print('WARNING: Screenshot data emitted - method: ${data['capture_method']}, size: ${data['size_bytes']} bytes');
       emitData(data);
     } catch (e) {
       print('Failed to handle platform screenshot: $e');
@@ -255,6 +257,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'fallback_method': true,
       };
 
+      print('WARNING: Screenshot data emitted - method: ${data['capture_method']}, fallback: ${data['fallback_method']}');
       emitData(data);
       _lastCaptureTime = timestamp;
 
@@ -320,6 +323,7 @@ class ScreenshotDataSource extends BaseDataSource<Map<String, dynamic>> {
         'size_bytes': imageBytes.length,
       };
 
+      print('WARNING: Screenshot data emitted - manual capture uploaded, size: ${imageBytes.length} bytes');
       emitData(data);
     } catch (e) {
       print('Failed to upload screenshot: $e');

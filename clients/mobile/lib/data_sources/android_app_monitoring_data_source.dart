@@ -8,7 +8,7 @@ import '../core/api/loom_api_client.dart';
 class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring> {
   static const String _sourceId = 'android_app_monitoring';
   static const platform = MethodChannel('red.steele.loom/app_monitoring');
-  
+
   String? _deviceId;
   Timer? _pollingTimer;
   final Set<String> _knownPackages = {};
@@ -42,7 +42,7 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
     try {
       // Get API client for metadata uploads
       _apiClient = await LoomApiClient.createFromSettings();
-      
+
       // Check if we have usage stats permission
       final bool hasPermission = await platform.invokeMethod('hasUsageStatsPermission');
       if (!hasPermission) {
@@ -82,12 +82,12 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
     try {
       // Get list of running applications
       final List<dynamic>? runningApps = await platform.invokeMethod('getRunningApps');
-      
+
       if (runningApps == null) {
         print('Failed to get running apps - null response');
         return;
       }
-      
+
       if (runningApps.isEmpty) {
         print('Warning: No running apps detected. This might indicate a permission issue.');
         // Even with no apps, we should at least see Loom itself
@@ -100,21 +100,21 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       }
 
       final List<Map<String, dynamic>> appInfoList = [];
-      
+
       for (final app in runningApps) {
         if (app is! Map) continue;
-        
+
         final String packageName = app['packageName'] ?? '';
         final String appName = app['appName'] ?? packageName;
         final bool isForeground = app['isForeground'] ?? false;
         final int pid = app['pid'] ?? 0;
-        
+
         // Track new packages for device metadata
         if (!_knownPackages.contains(packageName)) {
           _knownPackages.add(packageName);
           await _uploadDeviceMetadata(packageName, appName, app);
         }
-        
+
         appInfoList.add({
           'pid': pid,
           'name': appName,
@@ -143,14 +143,15 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
             versionName: info['version_name'] as String?,
           )).toList(),
         );
-        
+
+        print('WARNING: App monitoring data collected - ${appInfoList.length} apps detected');
         emitData(appMonitoring);
         print('Collected data for ${appInfoList.length} running apps');
       }
 
       // Also collect aggregated usage stats if available
       await _collectUsageStats();
-      
+
     } catch (e) {
       print('Failed to collect app data: $e');
     }
@@ -162,17 +163,17 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       final Map<dynamic, dynamic>? usageStats = await platform.invokeMethod('getUsageStats', {
         'intervalMinutes': 60, // Last hour
       });
-      
+
       if (usageStats == null) {
         return;
       }
 
       final List<Map<String, dynamic>> appUsageList = [];
       final apps = usageStats['apps'] as List<dynamic>? ?? [];
-      
+
       for (final app in apps) {
         if (app is! Map) continue;
-        
+
         appUsageList.add({
           'package_name': app['packageName'] ?? '',
           'app_name': app['appName'],

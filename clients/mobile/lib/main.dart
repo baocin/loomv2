@@ -779,9 +779,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _showUploadStatus() async {
     final status = widget.dataService.getUploadStatus();
-    
+
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -827,18 +827,18 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Future<void> _forceUpload() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Uploading all queued data...')),
     );
-    
+
     await widget.dataService.uploadNow();
-    
+
     setState(() {});
-    
+
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Upload completed')),
     );

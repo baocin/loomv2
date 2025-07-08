@@ -30,7 +30,7 @@ class DataCollectionService {
   final Map<String, Timer> _uploadTimers = {};
   final Map<String, dynamic> _lastSentData = {};
   final Map<String, DateTime> _lastSentTime = {};
-  
+
   // Stable queue snapshots for UI display
   final Map<String, int> _stableQueueSizes = {};
   Timer? _queueSnapshotTimer;
@@ -73,10 +73,10 @@ class DataCollectionService {
     if (_isRunning) return;
 
     _isRunning = true;
-    
+
     // Initialize stable queue sizes immediately
     _updateStableQueueSizes();
-    
+
     // Start queue snapshot timer for stable UI display
     _queueSnapshotTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _updateStableQueueSizes();
@@ -111,7 +111,7 @@ class DataCollectionService {
     if (!_isRunning) return;
 
     _isRunning = false;
-    
+
     // Stop queue snapshot timer
     _queueSnapshotTimer?.cancel();
     _queueSnapshotTimer = null;
@@ -208,7 +208,7 @@ class DataCollectionService {
     }
 
     print('Initialized ${_dataSources.length} data sources: ${_dataSources.keys.join(', ')}');
-    
+
     // Initialize stable queue sizes
     for (final sourceId in _dataSources.keys) {
       _stableQueueSizes[sourceId] = 0;
@@ -237,6 +237,25 @@ class DataCollectionService {
 
       _subscriptions[sourceId] = subscription;
       print('Started data source: $sourceId with interval ${config?.collectionIntervalMs}ms');
+
+      // Add warning logs for specific data sources
+      switch (sourceId) {
+        case 'screenshot':
+          print('WARNING: Screenshot data source started - will capture screenshots');
+          break;
+        case 'camera':
+          print('WARNING: Camera data source started - will capture photos');
+          break;
+        case 'screen_state':
+          print('WARNING: Screen state data source started - will monitor screen on/off events');
+          break;
+        case 'app_lifecycle':
+          print('WARNING: App lifecycle data source started - will monitor app foreground/background events');
+          break;
+        case 'android_app_monitoring':
+          print('WARNING: App monitoring data source started - will monitor running apps');
+          break;
+      }
     } catch (e) {
       print('Failed to start data source $sourceId: $e');
     }
@@ -252,10 +271,38 @@ class DataCollectionService {
       }
     }
 
+    // Add warning logs for specific data sources
+    switch (sourceId) {
+      case 'screenshot':
+        print('WARNING: Screenshot event received - type: ${data.runtimeType}');
+        break;
+      case 'camera':
+        print('WARNING: Camera photo event received - type: ${data.runtimeType}');
+        break;
+      case 'screen_state':
+        print('WARNING: Screen state event received - type: ${data.runtimeType}');
+        if (data is OSSystemEvent) {
+          print('WARNING: Screen state details - event: ${data.eventType}, category: ${data.eventCategory}');
+        }
+        break;
+      case 'app_lifecycle':
+        print('WARNING: App lifecycle event received - type: ${data.runtimeType}');
+        if (data is OSAppLifecycleEvent) {
+          print('WARNING: App lifecycle details - app: ${data.appName}, event: ${data.eventType}');
+        }
+        break;
+      case 'android_app_monitoring':
+        print('WARNING: App monitoring event received - type: ${data.runtimeType}');
+        if (data is AndroidAppMonitoring) {
+          print('WARNING: App monitoring details - ${data.runningApplications.length} apps detected');
+        }
+        break;
+    }
+
     final queue = _uploadQueues[sourceId] ?? [];
     queue.add(data);
     _uploadQueues[sourceId] = queue;
-    
+
     // Log queue status for all sources
     print('[$sourceId] Data received - Queue size: ${queue.length}');
 
@@ -432,17 +479,18 @@ class DataCollectionService {
 
         case 'screenshot':
           // Screenshots are uploaded immediately by the data source itself
-          print('Screenshot data handled by data source directly');
+          print('WARNING: Screenshot data upload - handled by data source directly');
           return;
 
         case 'camera':
           // Camera photos are uploaded immediately by the data source itself
-          print('Camera data handled by data source directly');
+          print('WARNING: Camera photo data upload - handled by data source directly');
           return;
 
         case 'screen_state':
           endpoint = '/os-events/system';
           final items = data.cast<OSSystemEvent>();
+          print('WARNING: Uploading ${items.length} screen state events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -455,6 +503,7 @@ class DataCollectionService {
         case 'app_lifecycle':
           endpoint = '/os-events/app-lifecycle';
           final items = data.cast<OSAppLifecycleEvent>();
+          print('WARNING: Uploading ${items.length} app lifecycle events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -467,6 +516,7 @@ class DataCollectionService {
         case 'android_app_monitoring':
           endpoint = '/system/apps/android';
           final items = data.cast<AndroidAppMonitoring>();
+          print('WARNING: Uploading ${items.length} app monitoring events to $endpoint');
           for (final item in items) {
             final jsonData = item.toJson();
             totalBytes += jsonData.toString().length;
@@ -571,7 +621,7 @@ class DataCollectionService {
 
   /// Get queue size for a specific source (returns stable snapshot)
   int getQueueSizeForSource(String sourceId) => _stableQueueSizes[sourceId] ?? 0;
-  
+
   /// Get actual queue size for a specific source (real-time)
   int getActualQueueSizeForSource(String sourceId) => _uploadQueues[sourceId]?.length ?? 0;
 
@@ -609,28 +659,28 @@ class DataCollectionService {
     print('Manual upload triggered for source: $sourceId');
     await _uploadQueuedDataForSource(sourceId);
   }
-  
+
   /// Get upload status summary
   Map<String, dynamic> getUploadStatus() {
     final status = <String, dynamic>{};
     int totalPending = 0;
-    
+
     _uploadQueues.forEach((sourceId, queue) {
       final queueSize = queue.length;
       totalPending += queueSize;
-      
+
       final config = _config?.getConfig(sourceId);
       if (config != null) {
         status[sourceId] = {
           'pending': queueSize,
           'batchSize': config.uploadBatchSize,
           'uploadInterval': config.uploadIntervalMs,
-          'willUploadAt': queueSize >= config.uploadBatchSize ? 'now' : 
+          'willUploadAt': queueSize >= config.uploadBatchSize ? 'now' :
                           'in ${(config.uploadIntervalMs / 1000).round()}s or when ${config.uploadBatchSize} items queued',
         };
       }
     });
-    
+
     status['totalPending'] = totalPending;
     return status;
   }
@@ -669,7 +719,7 @@ class DataCollectionService {
 
     service.invoke('updateQueues', {'queues': queueData});
   }
-  
+
   /// Update stable queue sizes for UI display
   void _updateStableQueueSizes() {
     // Update all data sources, not just ones with queues
@@ -680,7 +730,7 @@ class DataCollectionService {
       _stableQueueSizes[sourceId] = queueSize;
       totalQueued += queueSize;
     }
-    
+
     if (totalQueued > 0) {
       print('Queue snapshot - Total items pending upload: $totalQueued');
       _stableQueueSizes.forEach((source, size) {
@@ -689,7 +739,7 @@ class DataCollectionService {
         }
       });
     }
-    
+
     // Also update the background service with new snapshot
     _updateBackgroundServiceQueues();
   }

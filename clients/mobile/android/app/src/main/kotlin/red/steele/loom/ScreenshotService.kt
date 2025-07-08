@@ -34,9 +34,9 @@ class ScreenshotService : Service() {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_INTERVAL_MILLIS = "interval_millis"
-        
+
         private var isRunning = false
-        
+
         fun isServiceRunning(context: Context): Boolean {
             return isRunning
         }
@@ -82,13 +82,13 @@ class ScreenshotService : Service() {
         setupVirtualDisplay()
         startTimer()
     }
-    
+
     private fun startSingleCapture(resultCode: Int, resultData: Intent) {
         val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
 
         setupVirtualDisplay()
-        
+
         // Take a single screenshot after a short delay to ensure everything is set up
         Handler(Looper.getMainLooper()).postDelayed({
             captureScreenshot()
@@ -164,7 +164,7 @@ class ScreenshotService : Service() {
 
                     // Clean up
                     image.close()
-                    
+
                     // Only recycle bitmaps on Android versions before Q
                     // On Android Q and above, the garbage collector handles this automatically
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

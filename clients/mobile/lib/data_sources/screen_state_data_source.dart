@@ -7,7 +7,7 @@ import '../core/models/os_event_data.dart';
 class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
   static const String _sourceId = 'screen_state';
   static const platform = MethodChannel('red.steele.loom/screen_state');
-  
+
   String? _deviceId;
   bool _isScreenOn = true;
   bool _isDeviceLocked = false;
@@ -119,6 +119,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
     );
 
     // Emit the event
+    print('WARNING: Screen state event emitted - type: $eventType, category: ${osEvent.eventCategory}');
     emitData(osEvent);
 
     // Also notify other components about screen state changes
@@ -176,7 +177,7 @@ class ScreenStateDataSource extends BaseDataSource<OSSystemEvent> {
 
   // Static getter for screenshot data source to access this instance
   static ScreenStateDataSource? instance;
-  
+
   @override
   void dispose() {
     if (instance == this) {
