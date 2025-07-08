@@ -1,6 +1,7 @@
 package red.steele.loom
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -29,9 +30,16 @@ class ScreenshotService : Service() {
     companion object {
         const val ACTION_START_CAPTURE = "red.steele.loom.START_CAPTURE"
         const val ACTION_STOP_CAPTURE = "red.steele.loom.STOP_CAPTURE"
+        const val ACTION_SINGLE_CAPTURE = "red.steele.loom.SINGLE_CAPTURE"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_INTERVAL_MILLIS = "interval_millis"
+        
+        private var isRunning = false
+        
+        fun isServiceRunning(context: Context): Boolean {
+            return isRunning
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -45,11 +53,22 @@ class ScreenshotService : Service() {
 
                 if (resultCode != -1 && resultData != null) {
                     startCapture(resultCode, resultData)
+                    isRunning = true
                 }
             }
             ACTION_STOP_CAPTURE -> {
                 stopCapture()
+                isRunning = false
                 stopSelf()
+            }
+            ACTION_SINGLE_CAPTURE -> {
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
+                val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
+
+                if (resultCode != -1 && resultData != null) {
+                    // Start capture for a single screenshot
+                    startSingleCapture(resultCode, resultData)
+                }
             }
         }
 
@@ -62,6 +81,23 @@ class ScreenshotService : Service() {
 
         setupVirtualDisplay()
         startTimer()
+    }
+    
+    private fun startSingleCapture(resultCode: Int, resultData: Intent) {
+        val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
+
+        setupVirtualDisplay()
+        
+        // Take a single screenshot after a short delay to ensure everything is set up
+        Handler(Looper.getMainLooper()).postDelayed({
+            captureScreenshot()
+            // Stop the service after capturing
+            Handler(Looper.getMainLooper()).postDelayed({
+                stopCapture()
+                stopSelf()
+            }, 1000)
+        }, 100)
     }
 
     private fun setupVirtualDisplay() {
@@ -128,10 +164,15 @@ class ScreenshotService : Service() {
 
                     // Clean up
                     image.close()
-                    if (rowPadding > 0) {
-                        bitmap.recycle()
+                    
+                    // Only recycle bitmaps on Android versions before Q
+                    // On Android Q and above, the garbage collector handles this automatically
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                        if (rowPadding > 0) {
+                            bitmap.recycle()
+                        }
+                        croppedBitmap.recycle()
                     }
-                    croppedBitmap.recycle()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

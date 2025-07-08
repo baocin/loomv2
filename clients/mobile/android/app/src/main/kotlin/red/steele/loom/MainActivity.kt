@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -20,9 +21,13 @@ class MainActivity : FlutterActivity() {
     private var appLifecycleEventSink: EventChannel.EventSink? = null
     private var screenshotEventSink: EventChannel.EventSink? = null
     private var screenshotReceiver: BroadcastReceiver? = null
+    private var pendingScreenshotResult: MethodChannel.Result? = null
+    private var lastResultCode: Int = -1
+    private var lastResultData: Intent? = null
 
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
+        private const val REQUEST_SINGLE_SCREENSHOT = 1002
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -135,11 +140,17 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "takeScreenshot" -> {
-                    // We need to request permission first if not granted
-                    requestMediaProjectionPermission()
-                    // The actual screenshot will be taken after permission is granted
-                    // For now, we return null as we need to wait for the permission result
-                    result.success(null)
+                    // Store the result to be used after permission is granted
+                    pendingScreenshotResult = result
+                    
+                    // Check if we already have permission (service is running)
+                    if (ScreenshotService.isServiceRunning(this)) {
+                        // Take screenshot immediately
+                        takeImmediateScreenshot()
+                    } else {
+                        // Request permission first
+                        requestMediaProjectionPermission()
+                    }
                 }
                 "isServiceRunning" -> {
                     // Check if screenshot service is running
@@ -194,22 +205,61 @@ class MainActivity : FlutterActivity() {
     private fun requestMediaProjectionPermission() {
         val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val permissionIntent = mediaProjectionManager.createScreenCaptureIntent()
-        startActivityForResult(permissionIntent, REQUEST_MEDIA_PROJECTION)
+        
+        // Check if we're requesting for a single screenshot
+        val requestCode = if (pendingScreenshotResult != null) {
+            REQUEST_SINGLE_SCREENSHOT
+        } else {
+            REQUEST_MEDIA_PROJECTION
+        }
+        
+        startActivityForResult(permissionIntent, requestCode)
+    }
+    
+    private fun takeImmediateScreenshot() {
+        // Send a broadcast to the service to take a screenshot immediately
+        val intent = Intent("red.steele.loom.TAKE_SCREENSHOT_NOW")
+        sendBroadcast(intent)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == REQUEST_MEDIA_PROJECTION) {
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                // Start the screenshot service with the permission result
-                val serviceIntent = Intent(this, ScreenshotService::class.java).apply {
-                    action = ScreenshotService.ACTION_START_CAPTURE
-                    putExtra(ScreenshotService.EXTRA_RESULT_CODE, resultCode)
-                    putExtra(ScreenshotService.EXTRA_RESULT_DATA, data)
-                    putExtra(ScreenshotService.EXTRA_INTERVAL_MILLIS, 300000L) // 5 minutes default
+        when (requestCode) {
+            REQUEST_MEDIA_PROJECTION -> {
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    // Save the permission for later use
+                    lastResultCode = resultCode
+                    lastResultData = data
+                    
+                    // Start the screenshot service with the permission result
+                    val serviceIntent = Intent(this, ScreenshotService::class.java).apply {
+                        action = ScreenshotService.ACTION_START_CAPTURE
+                        putExtra(ScreenshotService.EXTRA_RESULT_CODE, resultCode)
+                        putExtra(ScreenshotService.EXTRA_RESULT_DATA, data)
+                        putExtra(ScreenshotService.EXTRA_INTERVAL_MILLIS, 300000L) // 5 minutes default
+                    }
+                    startService(serviceIntent)
                 }
-                startService(serviceIntent)
+            }
+            REQUEST_SINGLE_SCREENSHOT -> {
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    // Save the permission for later use
+                    lastResultCode = resultCode
+                    lastResultData = data
+                    
+                    // Start the service temporarily for a single screenshot
+                    val serviceIntent = Intent(this, ScreenshotService::class.java).apply {
+                        action = ScreenshotService.ACTION_SINGLE_CAPTURE
+                        putExtra(ScreenshotService.EXTRA_RESULT_CODE, resultCode)
+                        putExtra(ScreenshotService.EXTRA_RESULT_DATA, data)
+                    }
+                    startService(serviceIntent)
+                } else {
+                    // Permission denied
+                    pendingScreenshotResult?.error("PERMISSION_DENIED", "Screenshot permission denied", null)
+                    pendingScreenshotResult = null
+                }
             }
         }
     }
@@ -217,16 +267,35 @@ class MainActivity : FlutterActivity() {
     private fun registerScreenshotReceiver() {
         screenshotReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == "red.steele.loom.SCREENSHOT_CAPTURED") {
-                    val screenshotData = intent.getByteArrayExtra("screenshot_data")
-                    if (screenshotData != null) {
-                        screenshotEventSink?.success(screenshotData)
+                when (intent?.action) {
+                    "red.steele.loom.SCREENSHOT_CAPTURED" -> {
+                        val screenshotData = intent.getByteArrayExtra("screenshot_data")
+                        if (screenshotData != null) {
+                            // Check if this is for a pending single screenshot
+                            if (pendingScreenshotResult != null) {
+                                pendingScreenshotResult?.success(screenshotData)
+                                pendingScreenshotResult = null
+                            } else {
+                                // Regular screenshot event for streaming
+                                screenshotEventSink?.success(screenshotData)
+                            }
+                        }
+                    }
+                    "red.steele.loom.SCREENSHOT_ERROR" -> {
+                        val error = intent.getStringExtra("error") ?: "Unknown error"
+                        if (pendingScreenshotResult != null) {
+                            pendingScreenshotResult?.error("SCREENSHOT_ERROR", error, null)
+                            pendingScreenshotResult = null
+                        }
                     }
                 }
             }
         }
 
-        val filter = IntentFilter("red.steele.loom.SCREENSHOT_CAPTURED")
+        val filter = IntentFilter().apply {
+            addAction("red.steele.loom.SCREENSHOT_CAPTURED")
+            addAction("red.steele.loom.SCREENSHOT_ERROR")
+        }
         registerReceiver(screenshotReceiver, filter)
     }
 

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Service settings
     service_name: str = "silero-vad"
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104 - binding to all interfaces in container
     port: int = 8001
     log_level: str = "INFO"
     environment: str = "development"
@@ -35,9 +35,13 @@ class Settings(BaseSettings):
     kafka_max_poll_interval_ms: int = 300000  # 5 minutes for slow processing
 
     # VAD settings
-    vad_threshold: float = 0.5
-    vad_min_speech_duration_ms: float = 250.0
-    vad_min_silence_duration_ms: float = 100.0
+    vad_threshold: float = 0.3  # Lowered from 0.5 for more sensitivity
+    vad_min_speech_duration_ms: float = (
+        100.0  # Reduced from 250ms to catch shorter utterances
+    )
+    vad_min_silence_duration_ms: float = (
+        300.0  # Increased from 100ms to avoid cutting off speech
+    )
     vad_window_size_samples: int = 512  # 16ms at 16kHz
     vad_sample_rate: int = 16000  # Silero VAD expects 16kHz
 

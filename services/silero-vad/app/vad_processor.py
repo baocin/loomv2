@@ -158,6 +158,15 @@ class VADProcessor:
                     if hasattr(self.model, "reset_states"):
                         self.model.reset_states()
 
+                    # Log VAD settings for verification
+                    logger.debug(
+                        "Using VAD settings",
+                        threshold=settings.vad_threshold,
+                        min_speech_duration_ms=settings.vad_min_speech_duration_ms,
+                        min_silence_duration_ms=settings.vad_min_silence_duration_ms,
+                        window_size_samples=settings.vad_window_size_samples,
+                    )
+
                     speech_timestamps = self.get_speech_timestamps(
                         audio_tensor,
                         self.model,

@@ -42,63 +42,100 @@ class AppLifecycleMonitor(private val context: Context) {
     
     fun getRunningApps(): List<Map<String, Any>> {
         val runningApps = mutableListOf<Map<String, Any>>()
+        val processedPackages = mutableSetOf<String>()
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            // Use UsageStats for newer versions
-            val endTime = System.currentTimeMillis()
-            val startTime = endTime - 1000 * 60 * 5 // Last 5 minutes
-            
-            val usageEvents = usageStatsManager?.queryEvents(startTime, endTime)
-            val activeApps = mutableSetOf<String>()
-            
-            while (usageEvents?.hasNextEvent() == true) {
-                val event = UsageEvents.Event()
-                usageEvents.getNextEvent(event)
+        // First, get all running processes (works without UsageStats permission)
+        val runningProcesses = activityManager.runningAppProcesses
+        runningProcesses?.forEach { process ->
+            try {
+                // Skip if already processed
+                if (processedPackages.contains(process.processName)) return@forEach
                 
-                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
-                    event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND) {
-                    activeApps.add(event.packageName)
+                val appInfo = packageManager.getApplicationInfo(process.processName, 0)
+                
+                // Skip system apps unless they're user-visible
+                if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0) {
+                    // Allow some system apps that users interact with
+                    val allowedSystemApps = listOf("com.android.chrome", "com.google.android", "com.android.settings")
+                    if (!allowedSystemApps.any { process.processName.startsWith(it) }) {
+                        return@forEach
+                    }
                 }
+                
+                val appName = packageManager.getApplicationLabel(appInfo).toString()
+                processedPackages.add(process.processName)
+                
+                runningApps.add(mapOf(
+                    "packageName" to process.processName,
+                    "appName" to appName,
+                    "pid" to process.pid,
+                    "isForeground" to (process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND),
+                    "launchTime" to 0L,
+                    "versionCode" to getAppVersionCode(process.processName),
+                    "versionName" to getAppVersionName(process.processName),
+                    "isSystemApp" to ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
+                ))
+            } catch (e: PackageManager.NameNotFoundException) {
+                // Process might be a service or sub-process, skip
             }
+        }
+        
+        // If we have UsageStats permission, enhance with additional data
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && hasUsageStatsPermission()) {
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - 1000 * 60 * 60 // Last hour for better coverage
             
-            // Get app info for active apps
-            activeApps.forEach { packageName ->
-                try {
-                    val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                    val appName = packageManager.getApplicationLabel(appInfo).toString()
-                    val pid = getProcessIdForPackage(packageName)
-                    
-                    runningApps.add(mapOf(
-                        "packageName" to packageName,
-                        "appName" to appName,
-                        "pid" to (pid ?: 0),
-                        "isForeground" to isAppInForeground(packageName),
-                        "launchTime" to getAppLaunchTime(packageName),
-                        "versionCode" to getAppVersionCode(packageName),
-                        "versionName" to getAppVersionName(packageName)
-                    ))
-                } catch (e: PackageManager.NameNotFoundException) {
-                    // App not found, skip
+            // Get usage stats for the period
+            val usageStatsList = usageStatsManager?.queryUsageStats(
+                UsageStatsManager.INTERVAL_BEST,
+                startTime,
+                endTime
+            )
+            
+            // Add apps that have been used recently but might not have running processes
+            usageStatsList?.forEach { stats ->
+                if (stats.totalTimeInForeground > 0 && !processedPackages.contains(stats.packageName)) {
+                    try {
+                        val appInfo = packageManager.getApplicationInfo(stats.packageName, 0)
+                        val appName = packageManager.getApplicationLabel(appInfo).toString()
+                        
+                        runningApps.add(mapOf(
+                            "packageName" to stats.packageName,
+                            "appName" to appName,
+                            "pid" to 0, // No active process
+                            "isForeground" to false,
+                            "launchTime" to stats.lastTimeUsed,
+                            "versionCode" to getAppVersionCode(stats.packageName),
+                            "versionName" to getAppVersionName(stats.packageName),
+                            "isSystemApp" to ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0),
+                            "lastUsed" to stats.lastTimeUsed
+                        ))
+                        processedPackages.add(stats.packageName)
+                    } catch (e: PackageManager.NameNotFoundException) {
+                        // Skip
+                    }
                 }
             }
-        } else {
-            // Fallback for older versions
-            val runningTasks = activityManager.runningAppProcesses
-            runningTasks?.forEach { process ->
-                try {
-                    val appInfo = packageManager.getApplicationInfo(process.processName, 0)
-                    val appName = packageManager.getApplicationLabel(appInfo).toString()
-                    
-                    runningApps.add(mapOf(
-                        "packageName" to process.processName,
-                        "appName" to appName,
-                        "pid" to process.pid,
-                        "isForeground" to (process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND),
-                        "launchTime" to 0L
-                    ))
-                } catch (e: PackageManager.NameNotFoundException) {
-                    // App not found, skip
-                }
+        }
+        
+        // Always include Loom itself
+        if (!processedPackages.contains(context.packageName)) {
+            try {
+                val appInfo = packageManager.getApplicationInfo(context.packageName, 0)
+                val appName = packageManager.getApplicationLabel(appInfo).toString()
+                
+                runningApps.add(mapOf(
+                    "packageName" to context.packageName,
+                    "appName" to appName,
+                    "pid" to android.os.Process.myPid(),
+                    "isForeground" to true, // We're running, so we're at least partially foreground
+                    "launchTime" to 0L,
+                    "versionCode" to getAppVersionCode(context.packageName),
+                    "versionName" to getAppVersionName(context.packageName),
+                    "isSystemApp" to false
+                ))
+            } catch (e: Exception) {
+                // Should not happen for our own app
             }
         }
         

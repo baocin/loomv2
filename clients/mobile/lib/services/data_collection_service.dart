@@ -30,6 +30,10 @@ class DataCollectionService {
   final Map<String, Timer> _uploadTimers = {};
   final Map<String, dynamic> _lastSentData = {};
   final Map<String, DateTime> _lastSentTime = {};
+  
+  // Stable queue snapshots for UI display
+  final Map<String, int> _stableQueueSizes = {};
+  Timer? _queueSnapshotTimer;
 
   DataCollectionConfig? _config;
   bool _isRunning = false;
@@ -69,6 +73,14 @@ class DataCollectionService {
     if (_isRunning) return;
 
     _isRunning = true;
+    
+    // Initialize stable queue sizes immediately
+    _updateStableQueueSizes();
+    
+    // Start queue snapshot timer for stable UI display
+    _queueSnapshotTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _updateStableQueueSizes();
+    });
 
     final enabledSources = _config?.enabledSourceIds ?? [];
 
@@ -99,6 +111,10 @@ class DataCollectionService {
     if (!_isRunning) return;
 
     _isRunning = false;
+    
+    // Stop queue snapshot timer
+    _queueSnapshotTimer?.cancel();
+    _queueSnapshotTimer = null;
 
     // Stop all subscriptions
     for (final subscription in _subscriptions.values) {
@@ -192,6 +208,11 @@ class DataCollectionService {
     }
 
     print('Initialized ${_dataSources.length} data sources: ${_dataSources.keys.join(', ')}');
+    
+    // Initialize stable queue sizes
+    for (final sourceId in _dataSources.keys) {
+      _stableQueueSizes[sourceId] = 0;
+    }
   }
 
   /// Start a specific data source
@@ -234,6 +255,9 @@ class DataCollectionService {
     final queue = _uploadQueues[sourceId] ?? [];
     queue.add(data);
     _uploadQueues[sourceId] = queue;
+    
+    // Log queue status for all sources
+    print('[$sourceId] Data received - Queue size: ${queue.length}');
 
     final config = _config?.getConfig(sourceId);
     if (config != null && queue.length >= config.uploadBatchSize) {
@@ -283,15 +307,17 @@ class DataCollectionService {
     queue.clear();
 
     try {
+      print('[$sourceId] Starting upload of ${dataToUpload.length} items...');
       await _uploadDataByType(sourceId, dataToUpload);
       // Update background service after successful upload
       _updateBackgroundServiceQueues();
 
+      print('[$sourceId] Upload completed successfully - ${dataToUpload.length} items uploaded');
       if (sourceId == 'audio') {
         print('AUDIO: Upload completed successfully');
       }
     } catch (e) {
-      print('Error uploading $sourceId data: $e');
+      print('ERROR: Failed to upload $sourceId data: $e');
 
       if (sourceId == 'audio') {
         print('AUDIO: Upload failed, re-adding to queue');
@@ -540,11 +566,14 @@ class DataCollectionService {
   /// Get current service status
   bool get isRunning => _isRunning;
 
-  /// Get current queue size for all sources
-  int get queueSize => _uploadQueues.values.fold(0, (sum, queue) => sum + queue.length);
+  /// Get current queue size for all sources (returns stable snapshot)
+  int get queueSize => _stableQueueSizes.values.fold(0, (sum, size) => sum + size);
 
-  /// Get queue size for a specific source
-  int getQueueSizeForSource(String sourceId) => _uploadQueues[sourceId]?.length ?? 0;
+  /// Get queue size for a specific source (returns stable snapshot)
+  int getQueueSizeForSource(String sourceId) => _stableQueueSizes[sourceId] ?? 0;
+  
+  /// Get actual queue size for a specific source (real-time)
+  int getActualQueueSizeForSource(String sourceId) => _uploadQueues[sourceId]?.length ?? 0;
 
   /// Get last data point for a specific source
   dynamic getLastDataPointForSource(String sourceId) {
@@ -571,12 +600,39 @@ class DataCollectionService {
 
   /// Manually trigger data upload for all sources
   Future<void> uploadNow() async {
+    print('Manual upload triggered for all sources...');
     await _uploadAllQueuedData();
   }
 
   /// Manually trigger data upload for a specific source
   Future<void> uploadNowForSource(String sourceId) async {
+    print('Manual upload triggered for source: $sourceId');
     await _uploadQueuedDataForSource(sourceId);
+  }
+  
+  /// Get upload status summary
+  Map<String, dynamic> getUploadStatus() {
+    final status = <String, dynamic>{};
+    int totalPending = 0;
+    
+    _uploadQueues.forEach((sourceId, queue) {
+      final queueSize = queue.length;
+      totalPending += queueSize;
+      
+      final config = _config?.getConfig(sourceId);
+      if (config != null) {
+        status[sourceId] = {
+          'pending': queueSize,
+          'batchSize': config.uploadBatchSize,
+          'uploadInterval': config.uploadIntervalMs,
+          'willUploadAt': queueSize >= config.uploadBatchSize ? 'now' : 
+                          'in ${(config.uploadIntervalMs / 1000).round()}s or when ${config.uploadBatchSize} items queued',
+        };
+      }
+    });
+    
+    status['totalPending'] = totalPending;
+    return status;
   }
 
   /// Request permissions for all data sources
@@ -604,13 +660,38 @@ class DataCollectionService {
     final service = FlutterBackgroundService();
     final queueData = <String, int>{};
 
-    _uploadQueues.forEach((sourceId, queue) {
-      if (queue.isNotEmpty) {
-        queueData[sourceId] = queue.length;
+    // Use stable queue sizes for consistent notification display
+    _stableQueueSizes.forEach((sourceId, size) {
+      if (size > 0) {
+        queueData[sourceId] = size;
       }
     });
 
     service.invoke('updateQueues', {'queues': queueData});
+  }
+  
+  /// Update stable queue sizes for UI display
+  void _updateStableQueueSizes() {
+    // Update all data sources, not just ones with queues
+    int totalQueued = 0;
+    for (final sourceId in _dataSources.keys) {
+      final queue = _uploadQueues[sourceId];
+      final queueSize = queue?.length ?? 0;
+      _stableQueueSizes[sourceId] = queueSize;
+      totalQueued += queueSize;
+    }
+    
+    if (totalQueued > 0) {
+      print('Queue snapshot - Total items pending upload: $totalQueued');
+      _stableQueueSizes.forEach((source, size) {
+        if (size > 0) {
+          print('  [$source]: $size items');
+        }
+      });
+    }
+    
+    // Also update the background service with new snapshot
+    _updateBackgroundServiceQueues();
   }
 
   /// Dispose the service

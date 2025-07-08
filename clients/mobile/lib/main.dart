@@ -323,15 +323,42 @@ class _HomePageState extends State<HomePage> {
 
             // Data Collection Control
             Card(
-              child: ListTile(
-                title: const Text('Data Collection'),
-                subtitle: Text(_isDataCollectionRunning
-                    ? 'Collecting sensor data (Queue: ${widget.dataService.queueSize})'
-                    : 'Data collection stopped'),
-                trailing: Switch(
-                  value: _isDataCollectionRunning,
-                  onChanged: (_) => _toggleDataCollection(),
-                ),
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('Data Collection'),
+                    subtitle: Text(_isDataCollectionRunning
+                        ? 'Collecting sensor data (Queue: ${widget.dataService.queueSize})'
+                        : 'Data collection stopped'),
+                    trailing: Switch(
+                      value: _isDataCollectionRunning,
+                      onChanged: (_) => _toggleDataCollection(),
+                    ),
+                  ),
+                  if (_isDataCollectionRunning)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _showUploadStatus,
+                              icon: const Icon(Icons.info_outline, size: 16),
+                              label: const Text('Upload Status'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: widget.dataService.queueSize > 0 ? _forceUpload : null,
+                              icon: const Icon(Icons.cloud_upload, size: 16),
+                              label: const Text('Upload Now'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -750,6 +777,73 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  Future<void> _showUploadStatus() async {
+    final status = widget.dataService.getUploadStatus();
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Upload Status'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total pending: ${status['totalPending']} items'),
+                const SizedBox(height: 16),
+                ...(status.entries.where((e) => e.key != 'totalPending').map((entry) {
+                  final sourceStatus = entry.value as Map<String, dynamic>;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.key,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text('Pending: ${sourceStatus['pending']}'),
+                        Text('Batch size: ${sourceStatus['batchSize']}'),
+                        Text('Upload: ${sourceStatus['willUploadAt']}'),
+                        const Divider(),
+                      ],
+                    ),
+                  );
+                })),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _forceUpload() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading all queued data...')),
+    );
+    
+    await widget.dataService.uploadNow();
+    
+    setState(() {});
+    
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Upload completed')),
+    );
+  }
+
   Future<void> _showPermissionDialog() async {
     final summary = await widget.dataService.getPermissionSummary();
 
@@ -759,27 +853,34 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Permissions'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${summary.grantedCount}/${summary.totalDataSources} permissions granted'),
-            const SizedBox(height: 16),
-            ...summary.statusBySource.entries.map((entry) {
-              final granted = entry.value.isGranted;
-              return ListTile(
-                title: Text(entry.key),
-                trailing: Icon(
-                  granted ? Icons.check_circle : Icons.error,
-                  color: granted ? Colors.green : Colors.red,
-                ),
-                onTap: granted ? null : () async {
-                  await widget.dataService.requestPermissionForSource(entry.key);
-                  Navigator.of(context).pop();
-                  _checkPermissions();
-                },
-              );
-            }).toList(),
-          ],
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${summary.grantedCount}/${summary.totalDataSources} permissions granted'),
+                const SizedBox(height: 16),
+                ...summary.statusBySource.entries.map((entry) {
+                  final granted = entry.value.isGranted;
+                  return ListTile(
+                    dense: true,
+                    title: Text(entry.key),
+                    trailing: Icon(
+                      granted ? Icons.check_circle : Icons.error,
+                      color: granted ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                    onTap: granted ? null : () async {
+                      await widget.dataService.requestPermissionForSource(entry.key);
+                      Navigator.of(context).pop();
+                      _checkPermissions();
+                    },
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(

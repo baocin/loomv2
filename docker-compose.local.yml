@@ -137,6 +137,7 @@ services:
       LOOM_KAFKA_OUTPUT_TOPIC: media.audio.vad_filtered
       LOOM_VAD_THRESHOLD: "0.3"
       LOOM_VAD_MIN_SPEECH_DURATION_MS: "100"
+      LOOM_VAD_MIN_SILENCE_DURATION_MS: "300"
       LOOM_LOG_LEVEL: DEBUG
       LOOM_DEBUG: "true"
       LOOM_HOST: 0.0.0.0
@@ -192,7 +193,7 @@ services:
     environment:
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      LOOM_KAFKA_INPUT_TOPIC: device.audio.raw  # Process raw audio directly
+      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered  # Process VAD-filtered audio
       LOOM_KAFKA_OUTPUT_TOPIC: media.text.transcribed.words
       LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
       LOOM_LOG_LEVEL: DEBUG
@@ -701,6 +702,9 @@ services:
   # Database Consumer (mapping-based, reads config from database)
   # Instance 1
   kafka-to-db-consumer-1:
+    build:
+      context: ./services
+      dockerfile: kafka-to-db-consumer/Dockerfile
     image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -731,6 +735,9 @@ services:
 
   # Instance 2
   kafka-to-db-consumer-2:
+    build:
+      context: ./services
+      dockerfile: kafka-to-db-consumer/Dockerfile
     image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -761,6 +768,9 @@ services:
 
   # Instance 3
   kafka-to-db-consumer-3:
+    build:
+      context: ./services
+      dockerfile: kafka-to-db-consumer/Dockerfile
     image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -791,6 +801,9 @@ services:
 
   # Instance 4
   kafka-to-db-consumer-4:
+    build:
+      context: ./services
+      dockerfile: kafka-to-db-consumer/Dockerfile
     image: loomv2-kafka-to-db-consumer:latest
     environment:
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092

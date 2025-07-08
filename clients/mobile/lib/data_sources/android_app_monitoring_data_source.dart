@@ -83,8 +83,19 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       // Get list of running applications
       final List<dynamic>? runningApps = await platform.invokeMethod('getRunningApps');
       
-      if (runningApps == null || runningApps.isEmpty) {
-        print('No running apps detected');
+      if (runningApps == null) {
+        print('Failed to get running apps - null response');
+        return;
+      }
+      
+      if (runningApps.isEmpty) {
+        print('Warning: No running apps detected. This might indicate a permission issue.');
+        // Even with no apps, we should at least see Loom itself
+        // Try to check permissions
+        final bool hasPermission = await platform.invokeMethod('hasUsageStatsPermission');
+        if (!hasPermission) {
+          print('App monitoring: Usage stats permission not granted. Limited functionality.');
+        }
         return;
       }
 

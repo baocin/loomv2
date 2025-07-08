@@ -10,6 +10,8 @@ class GPSDataSource extends BaseDataSource<GPSReading> {
   
   String? _deviceId;
   Position? _lastPosition;
+  StreamSubscription<Position>? _positionStream;
+  bool _useStreaming = false;
 
   GPSDataSource(this._deviceId);
 
@@ -51,23 +53,74 @@ class GPSDataSource extends BaseDataSource<GPSReading> {
     if (!serviceEnabled) {
       throw Exception('Location services are disabled');
     }
+    
+    // Check if we should use streaming mode (better for continuous tracking)
+    _useStreaming = configuration['use_streaming'] as bool? ?? true;
+    
+    if (_useStreaming) {
+      print('GPS: Starting in streaming mode for better reliability');
+      _startLocationStream();
+    } else {
+      print('GPS: Using polling mode');
+    }
   }
 
   @override
   Future<void> onStop() async {
     _lastPosition = null;
+    await _positionStream?.cancel();
+    _positionStream = null;
   }
 
   @override
   Future<void> collectDataPoint() async {
     if (_deviceId == null) return;
+    
+    // In streaming mode, we don't need to actively collect - the stream handles it
+    if (_useStreaming && _positionStream != null) {
+      // Just check if we have a recent position
+      if (_lastPosition != null) {
+        final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(_lastPosition!.timestamp!.millisecondsSinceEpoch));
+        if (age.inSeconds > 60) {
+          print('GPS: Last position is ${age.inSeconds} seconds old, may need to restart stream');
+        }
+      }
+      return;
+    }
 
     try {
-      // Get current position with timeout
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
-      );
+      Position? position;
+      
+      // Try to get current position with a longer timeout
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15), // Increased timeout
+        );
+      } catch (timeoutError) {
+        // If high accuracy times out, try with lower accuracy
+        print('High accuracy GPS timed out, trying balanced accuracy...');
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 10),
+          );
+        } catch (e) {
+          // If still failing, try to get last known position
+          print('GPS still timing out, trying last known position...');
+          position = await Geolocator.getLastKnownPosition();
+          
+          if (position == null) {
+            throw Exception('Unable to get GPS location after multiple attempts');
+          }
+          
+          // Check if last known position is too old (more than 5 minutes)
+          final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(position.timestamp!.millisecondsSinceEpoch));
+          if (age.inMinutes > 5) {
+            print('Last known position is ${age.inMinutes} minutes old');
+          }
+        }
+      }
       
       _lastPosition = position;
 
@@ -93,6 +146,7 @@ class GPSDataSource extends BaseDataSource<GPSReading> {
       );
 
       emitData(reading);
+      _updateStatus(errorMessage: null); // Clear any previous errors
     } catch (e) {
       print('Error collecting GPS data: $e');
       _updateStatus(errorMessage: e.toString());
@@ -225,5 +279,55 @@ class GPSDataSource extends BaseDataSource<GPSReading> {
   @override
   Future<void> onConfigurationUpdated(DataSourceConfig config) async {
     // Configuration is handled by the base class
+  }
+  
+  void _startLocationStream() {
+    final settings = _getLocationSettings();
+    
+    _positionStream = Geolocator.getPositionStream(locationSettings: settings).listen(
+      (Position position) {
+        _lastPosition = position;
+        
+        if (_deviceId == null) return;
+        
+        final now = DateTime.now();
+        final reading = GPSReading(
+          deviceId: _deviceId!,
+          recordedAt: now,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          altitude: position.altitude,
+          accuracy: position.accuracy,
+          heading: position.heading,
+          speed: position.speed,
+          contentHash: ContentHasher.generateSensorHash(
+            sensorType: 'gps',
+            timestamp: now,
+            value: {
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'accuracy': position.accuracy,
+            },
+          ),
+        );
+        
+        emitData(reading);
+        _updateStatus(errorMessage: null);
+      },
+      onError: (error) {
+        print('GPS stream error: $error');
+        _updateStatus(errorMessage: error.toString());
+        
+        // Try to restart the stream after a delay
+        Future.delayed(const Duration(seconds: 5), () {
+          if (_useStreaming && _positionStream != null) {
+            print('GPS: Attempting to restart stream after error');
+            _positionStream?.cancel();
+            _startLocationStream();
+          }
+        });
+      },
+      cancelOnError: false, // Don't cancel on error, keep trying
+    );
   }
 }
