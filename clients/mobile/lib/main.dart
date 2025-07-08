@@ -15,6 +15,7 @@ import 'screens/settings_screen.dart';
 import 'screens/advanced_settings_screen.dart';
 import 'data_sources/screenshot_data_source.dart';
 import 'data_sources/camera_data_source.dart';
+import 'data_sources/android_app_monitoring_data_source.dart';
 import 'widgets/screenshot_widget.dart';
 import 'widgets/camera_widget.dart';
 import 'core/utils/power_estimation.dart';
@@ -849,6 +850,15 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
+    // Check special Android permissions
+    bool hasUsageStatsPermission = false;
+    bool hasAccessibilityPermission = false;
+
+    if (Platform.isAndroid) {
+      hasUsageStatsPermission = await AndroidAppMonitoringDataSource.hasUsageStatsPermission();
+      hasAccessibilityPermission = await AndroidAppMonitoringDataSource.hasAccessibilityServicePermission();
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -878,6 +888,59 @@ class _HomePageState extends State<HomePage> {
                     },
                   );
                 }).toList(),
+
+                // Special Android permissions
+                if (Platform.isAndroid &&
+                    summary.statusBySource.containsKey('android_app_monitoring')) ...[
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text(
+                      'App Monitoring Special Permissions',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  ListTile(
+                    dense: true,
+                    title: const Text('Accessibility Service'),
+                    subtitle: const Text('Best option for comprehensive app monitoring'),
+                    trailing: Icon(
+                      hasAccessibilityPermission ? Icons.check_circle : Icons.error,
+                      color: hasAccessibilityPermission ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                    onTap: hasAccessibilityPermission ? null : () async {
+                      await AndroidAppMonitoringDataSource.requestAccessibilityServicePermission();
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enable Loom in Accessibility settings'),
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    dense: true,
+                    title: const Text('Usage Stats Permission'),
+                    subtitle: const Text('Alternative: Limited app monitoring'),
+                    trailing: Icon(
+                      hasUsageStatsPermission ? Icons.check_circle : Icons.error,
+                      color: hasUsageStatsPermission ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                    onTap: hasUsageStatsPermission ? null : () async {
+                      await AndroidAppMonitoringDataSource.requestUsageStatsPermission();
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enable usage access for Loom'),
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),

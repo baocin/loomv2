@@ -9,6 +9,8 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.accessibility.AccessibilityManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -84,12 +86,22 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     appLifecycleEventSink = events
-                    appLifecycleMonitor.setEventSink(events)
-                    println("WARNING: App lifecycle event listener registered")
+
+                    // Check if accessibility service is enabled
+                    if (isAccessibilityServiceEnabled()) {
+                        // Use accessibility service for comprehensive app monitoring
+                        AppAccessibilityService.setEventSink(events)
+                        println("WARNING: App lifecycle monitoring using Accessibility Service")
+                    } else {
+                        // Fall back to UsageStats-based monitoring
+                        appLifecycleMonitor.setEventSink(events)
+                        println("WARNING: App lifecycle monitoring using UsageStats (limited)")
+                    }
                 }
 
                 override fun onCancel(arguments: Any?) {
                     appLifecycleEventSink = null
+                    AppAccessibilityService.setEventSink(null)
                     appLifecycleMonitor.setEventSink(null)
                 }
             }
@@ -111,6 +123,15 @@ class MainActivity : FlutterActivity() {
                 "requestUsageStatsPermission" -> {
                     // Open usage stats settings
                     val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    startActivity(intent)
+                    result.success(true)
+                }
+                "hasAccessibilityPermission" -> {
+                    result.success(isAccessibilityServiceEnabled())
+                }
+                "requestAccessibilityPermission" -> {
+                    // Open accessibility settings
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                     startActivity(intent)
                     result.success(true)
                 }
@@ -202,6 +223,21 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
         unregisterScreenStateReceiver()
         unregisterScreenshotReceiver()
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+
+        for (service in enabledServices) {
+            val serviceInfo = service.resolveInfo.serviceInfo
+            if (serviceInfo.packageName == packageName &&
+                serviceInfo.name == "red.steele.loom.AppAccessibilityService") {
+                return true
+            }
+        }
+
+        return false
     }
 
     private fun requestMediaProjectionPermission() {

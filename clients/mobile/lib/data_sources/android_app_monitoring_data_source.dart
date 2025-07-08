@@ -43,11 +43,18 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       // Get API client for metadata uploads
       _apiClient = await LoomApiClient.createFromSettings();
 
-      // Check if we have usage stats permission
-      final bool hasPermission = await platform.invokeMethod('hasUsageStatsPermission');
-      if (!hasPermission) {
-        print('ANDROID_APP_MONITORING: Usage stats permission not granted. Some features may be limited.');
-        // We can still try to get basic app info without usage stats
+      // Check if we have accessibility permission (preferred)
+      final bool hasAccessibilityPermission = await hasAccessibilityServicePermission();
+      if (hasAccessibilityPermission) {
+        print('ANDROID_APP_MONITORING: Using Accessibility Service for comprehensive app monitoring');
+      } else {
+        // Check if we have usage stats permission (fallback)
+        final bool hasUsagePermission = await hasUsageStatsPermission();
+        if (!hasUsagePermission) {
+          print('ANDROID_APP_MONITORING: Neither accessibility nor usage stats permission granted. Limited functionality.');
+        } else {
+          print('ANDROID_APP_MONITORING: Using UsageStats for app monitoring (limited)');
+        }
       }
 
       // Start periodic polling for running apps
@@ -244,6 +251,45 @@ class AndroidAppMonitoringDataSource extends BaseDataSource<AndroidAppMonitoring
       }
     } catch (e) {
       print('ANDROID_APP_MONITORING: Failed to upload usage stats: $e');
+    }
+  }
+
+  // Permission check methods
+  static Future<bool> hasUsageStatsPermission() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await platform.invokeMethod('hasUsageStatsPermission') ?? false;
+    } catch (e) {
+      print('ANDROID_APP_MONITORING: Error checking usage stats permission: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> hasAccessibilityServicePermission() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await platform.invokeMethod('hasAccessibilityPermission') ?? false;
+    } catch (e) {
+      print('ANDROID_APP_MONITORING: Error checking accessibility permission: $e');
+      return false;
+    }
+  }
+
+  static Future<void> requestUsageStatsPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await platform.invokeMethod('requestUsageStatsPermission');
+    } catch (e) {
+      print('ANDROID_APP_MONITORING: Error requesting usage stats permission: $e');
+    }
+  }
+
+  static Future<void> requestAccessibilityServicePermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await platform.invokeMethod('requestAccessibilityPermission');
+    } catch (e) {
+      print('ANDROID_APP_MONITORING: Error requesting accessibility permission: $e');
     }
   }
 }
