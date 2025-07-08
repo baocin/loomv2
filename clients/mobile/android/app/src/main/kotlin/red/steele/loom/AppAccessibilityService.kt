@@ -5,24 +5,8 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.pm.PackageManager
 import android.view.accessibility.AccessibilityEvent
 import android.content.Intent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.IntentFilter
-import android.graphics.Bitmap
-import android.graphics.PixelFormat
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
-import android.media.ImageReader
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.DisplayMetrics
-import android.util.Base64
-import java.io.ByteArrayOutputStream
-import java.util.Timer
-import java.util.TimerTask
 import io.flutter.plugin.common.EventChannel
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -31,18 +15,30 @@ class AppAccessibilityService : AccessibilityService() {
     companion object {
         private var eventSink: EventChannel.EventSink? = null
         private var instance: AppAccessibilityService? = null
+        private var screenshotEventSink: EventChannel.EventSink? = null
 
         fun setEventSink(sink: EventChannel.EventSink?) {
             eventSink = sink
         }
 
+        fun setScreenshotEventSink(sink: EventChannel.EventSink?) {
+            screenshotEventSink = sink
+        }
+
         fun isServiceEnabled(): Boolean {
             return instance != null
+        }
+
+        fun requestScreenshot() {
+            instance?.triggerScreenshot()
         }
     }
 
     private val appPackageManager: PackageManager by lazy { applicationContext.packageManager }
     private val currentForegroundApps = mutableMapOf<String, Long>()
+    private val handler = Handler(Looper.getMainLooper())
+    private var lastScreenshotTime = 0L
+    private val SCREENSHOT_COOLDOWN_MS = 5000L // 5 seconds minimum between screenshots
 
     override fun onCreate() {
         super.onCreate()
@@ -135,6 +131,14 @@ class AppAccessibilityService : AccessibilityService() {
             )
 
             println("WARNING: App lifecycle event detected via Accessibility - app: $appName ($packageName), event: $eventType")
+
+            // Trigger a screenshot when apps change (with cooldown)
+            if (eventType == "foreground" && shouldTakeScreenshot()) {
+                // Delay screenshot slightly to let the app fully render
+                handler.postDelayed({
+                    triggerScreenshot()
+                }, 1000)
+            }
         }
     }
 
@@ -155,6 +159,38 @@ class AppAccessibilityService : AccessibilityService() {
         durationSeconds?.let { eventData["durationSeconds"] = it }
 
         eventSink?.success(eventData)
+    }
+
+    private fun shouldTakeScreenshot(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastScreenshotTime < SCREENSHOT_COOLDOWN_MS) {
+            return false
+        }
+        return true
+    }
+
+    private fun triggerScreenshot() {
+        if (!shouldTakeScreenshot()) {
+            println("WARNING: Screenshot skipped - cooldown period")
+            return
+        }
+
+        lastScreenshotTime = System.currentTimeMillis()
+
+        // Check if screenshot service is running
+        if (ScreenshotService.isServiceRunning(this)) {
+            // Send broadcast to take screenshot
+            val intent = Intent("red.steele.loom.TAKE_SCREENSHOT_NOW")
+            intent.putExtra("reason", "app_change")
+            sendBroadcast(intent)
+            println("WARNING: Screenshot triggered by accessibility service - app change detected")
+        } else {
+            // Notify Flutter to request screenshot permission
+            screenshotEventSink?.success(mapOf(
+                "event" to "screenshot_permission_needed",
+                "reason" to "app_change_detected"
+            ))
+        }
     }
 
     override fun onInterrupt() {

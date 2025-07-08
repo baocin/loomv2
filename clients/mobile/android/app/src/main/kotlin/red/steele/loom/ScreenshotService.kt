@@ -1,8 +1,10 @@
 package red.steele.loom
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -26,6 +28,7 @@ class ScreenshotService : Service() {
     private var imageReader: ImageReader? = null
     private var timer: Timer? = null
     private var intervalMillis: Long = 300000 // 5 minutes default
+    private var screenshotReceiver: BroadcastReceiver? = null
 
     companion object {
         const val ACTION_START_CAPTURE = "red.steele.loom.START_CAPTURE"
@@ -81,6 +84,7 @@ class ScreenshotService : Service() {
 
         setupVirtualDisplay()
         startTimer()
+        registerScreenshotReceiver()
     }
 
     private fun startSingleCapture(resultCode: Int, resultData: Intent) {
@@ -88,6 +92,7 @@ class ScreenshotService : Service() {
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
 
         setupVirtualDisplay()
+        registerScreenshotReceiver()
 
         // Take a single screenshot after a short delay to ensure everything is set up
         Handler(Looper.getMainLooper()).postDelayed({
@@ -199,6 +204,38 @@ class ScreenshotService : Service() {
 
         mediaProjection?.stop()
         mediaProjection = null
+
+        unregisterScreenshotReceiver()
+    }
+
+    private fun registerScreenshotReceiver() {
+        screenshotReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    "red.steele.loom.TAKE_SCREENSHOT_NOW" -> {
+                        val reason = intent.getStringExtra("reason") ?: "manual"
+                        println("WARNING: Screenshot requested via broadcast - reason: $reason")
+                        captureScreenshot()
+                    }
+                }
+            }
+        }
+
+        val filter = IntentFilter().apply {
+            addAction("red.steele.loom.TAKE_SCREENSHOT_NOW")
+        }
+        registerReceiver(screenshotReceiver, filter)
+    }
+
+    private fun unregisterScreenshotReceiver() {
+        screenshotReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: IllegalArgumentException) {
+                // Receiver not registered
+            }
+            screenshotReceiver = null
+        }
     }
 
     override fun onDestroy() {

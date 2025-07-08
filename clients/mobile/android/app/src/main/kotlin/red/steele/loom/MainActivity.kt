@@ -189,11 +189,17 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     screenshotEventSink = events
                     registerScreenshotReceiver()
+
+                    // Also set the screenshot event sink on accessibility service if enabled
+                    if (isAccessibilityServiceEnabled()) {
+                        AppAccessibilityService.setScreenshotEventSink(events)
+                    }
                 }
 
                 override fun onCancel(arguments: Any?) {
                     screenshotEventSink = null
                     unregisterScreenshotReceiver()
+                    AppAccessibilityService.setScreenshotEventSink(null)
                 }
             }
         )
