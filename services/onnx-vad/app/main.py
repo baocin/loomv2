@@ -6,7 +6,13 @@ from typing import Any
 import structlog
 import torch
 from fastapi import FastAPI, File, Response
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    REGISTRY,
+    Counter,
+    Histogram,
+    generate_latest,
+)
 
 from app.config import settings
 from app.kafka_consumer import KafkaConsumer
@@ -36,16 +42,30 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Prometheus metrics
-audio_chunks_processed = Counter(
-    "onnx_vad_audio_chunks_processed_total", "Total number of audio chunks processed"
-)
-speech_chunks_produced = Counter(
-    "onnx_vad_speech_chunks_produced_total", "Total number of speech chunks produced"
-)
-processing_duration = Histogram(
-    "onnx_vad_processing_duration_seconds", "Time spent processing audio chunks"
-)
+# Prometheus metrics - initialize only once
+if "onnx_vad_audio_chunks_processed_total" not in REGISTRY._names_to_collectors:
+    audio_chunks_processed = Counter(
+        "onnx_vad_audio_chunks_processed_total",
+        "Total number of audio chunks processed",
+    )
+    speech_chunks_produced = Counter(
+        "onnx_vad_speech_chunks_produced_total",
+        "Total number of speech chunks produced",
+    )
+    processing_duration = Histogram(
+        "onnx_vad_processing_duration_seconds", "Time spent processing audio chunks"
+    )
+else:
+    # Metrics already registered
+    audio_chunks_processed = REGISTRY._names_to_collectors[
+        "onnx_vad_audio_chunks_processed_total"
+    ]
+    speech_chunks_produced = REGISTRY._names_to_collectors[
+        "onnx_vad_speech_chunks_produced_total"
+    ]
+    processing_duration = REGISTRY._names_to_collectors[
+        "onnx_vad_processing_duration_seconds"
+    ]
 
 # Global instances
 kafka_consumer = KafkaConsumer()

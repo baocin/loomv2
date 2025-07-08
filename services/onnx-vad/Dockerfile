@@ -27,11 +27,12 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and application code
+COPY pyproject.toml setup.py ./
+COPY app/ ./app/
 
-# Upgrade pip and install Python dependencies
-RUN python3 -m pip install --upgrade pip && \
+# Upgrade pip and install dependencies
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
     python3 -m pip install --no-cache-dir -e .
 
 # Create a directory for model cache with proper permissions
@@ -41,9 +42,6 @@ RUN mkdir -p /tmp/cache && chmod -R 777 /tmp/cache
 ENV HF_HOME=/tmp/cache \
     TRANSFORMERS_CACHE=/tmp/cache \
     TORCH_HOME=/tmp/cache
-
-# Copy application code
-COPY app/ ./app/
 
 # Expose port
 EXPOSE 8001
