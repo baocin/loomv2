@@ -30,14 +30,24 @@ k8s_yaml(helm(
     namespace='loom-dev'
 ))
 
-# Only build services that actually exist
+# Build ONNX-based AI services
 docker_build(
-    'loom/silero-vad',
-    'services/silero-vad',
-    dockerfile='services/silero-vad/Dockerfile',
+    'loom/onnx-vad',
+    'services/onnx-vad',
+    dockerfile='services/onnx-vad/Dockerfile',
     live_update=[
-        sync('services/silero-vad/app', '/app/app'),
-        run('pip install -e .', trigger=['services/silero-vad/pyproject.toml']),
+        sync('services/onnx-vad/app', '/app/app'),
+        run('pip install -e .', trigger=['services/onnx-vad/pyproject.toml']),
+    ]
+)
+
+docker_build(
+    'loom/onnx-asr',
+    'services/onnx-asr',
+    dockerfile='services/onnx-asr/Dockerfile',
+    live_update=[
+        sync('services/onnx-asr/app', '/app/app'),
+        run('pip install -e .', trigger=['services/onnx-asr/pyproject.toml']),
     ]
 )
 
@@ -62,14 +72,14 @@ docker_build(
 )
 
 docker_build(
-    'loom/hackernews-fetcher', 
+    'loom/hackernews-fetcher',
     'services/hackernews-fetcher',
     dockerfile='services/hackernews-fetcher/Dockerfile'
 )
 
 docker_build(
     'loom/email-fetcher',
-    'services/email-fetcher', 
+    'services/email-fetcher',
     dockerfile='services/email-fetcher/Dockerfile'
 )
 
@@ -108,7 +118,7 @@ k8s_yaml(helm(
 
 # Deploy kafka-ui for monitoring
 k8s_yaml(helm(
-    'deploy/helm/kafka-ui', 
+    'deploy/helm/kafka-ui',
     values=['deploy/helm/kafka-ui/values.yaml'],
     namespace='loom-dev'
 ))
@@ -132,6 +142,6 @@ Available services:
 - Kafka: localhost:9092
 - PostgreSQL: localhost:5432
 
-Logs: `tilt logs <service-name>`  
+Logs: `tilt logs <service-name>`
 Service status: `kubectl get pods -n loom-dev`
 """)

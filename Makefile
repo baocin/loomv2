@@ -42,8 +42,8 @@ dev-compose-up-rebuild: ## Start local development environment with Docker Compo
 	@echo "    - PostgreSQL: localhost:5432"
 	@echo "    - Kafka: localhost:9092"
 	@echo "  AI Services:"
-	@echo "    - Silero VAD: http://localhost:8001"
-	@echo "    - Parakeet TDT (STT): http://localhost:8002"
+	@echo "    - ONNX VAD: http://localhost:8001"
+	@echo "    - ONNX ASR (STT): http://localhost:8002"
 	@echo "    - MiniCPM Vision: http://localhost:8003"
 	@echo "    - BUD-E Emotion: http://localhost:8004"
 	@echo "    - Face Emotion: http://localhost:8005"
@@ -182,6 +182,10 @@ docker: base-images ## Build all Docker images
 	@cd services/pipeline-monitor-api && make docker
 	@echo "Building pipeline-monitor image..."
 	@cd services/pipeline-monitor && make docker
+	@echo "Building onnx-vad image..."
+	@cd services/onnx-vad && make docker
+	@echo "Building onnx-asr image..."
+	@cd services/onnx-asr && make docker
 
 docker-push: ## Push Docker images to registry
 	@echo "Pushing Docker images..."

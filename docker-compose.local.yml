@@ -125,30 +125,28 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Fixed thread safety issues - now working properly
-  silero-vad:
+  # ONNX-based VAD service
+  onnx-vad:
     build:
-      context: ./services
-      dockerfile: silero-vad/Dockerfile
+      context: ./services/onnx-vad
+      dockerfile: Dockerfile
     environment:
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       LOOM_KAFKA_INPUT_TOPIC: device.audio.raw
       LOOM_KAFKA_OUTPUT_TOPIC: media.audio.vad_filtered
-      LOOM_VAD_THRESHOLD: "0.3"
-      LOOM_VAD_MIN_SPEECH_DURATION_MS: "100"
-      LOOM_VAD_MIN_SILENCE_DURATION_MS: "300"
-      LOOM_LOG_LEVEL: DEBUG
-      LOOM_DEBUG: "true"
+      VAD_THRESHOLD: "0.5"
+      VAD_MIN_SPEECH_DURATION_MS: "250"
+      VAD_MIN_SILENCE_DURATION_MS: "100"
+      LOOM_LOG_LEVEL: INFO
       LOOM_HOST: 0.0.0.0
       LOOM_PORT: 8001
-      LOOM_SILERO_USE_ONNX: "true"
-      LOOM_SILERO_MODEL_CACHE_PATH: "/data/models/silero-vad"
+      VAD_MODEL_DEVICE: cpu
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/loom-data/models:/data/models
+      - ~/loom-data/models:/tmp/cache
     ports:
       - "8001:8001"
     depends_on:
@@ -186,31 +184,31 @@ services:
       timeout: 10s
       retries: 3
 
-  kyutai-stt:
+  onnx-asr:
     build:
-      context: ./services  # Build from services directory to access loom-common
-      dockerfile: kyutai-stt/Dockerfile.cpu  # Use CPU version for faster builds in development
+      context: ./services/onnx-asr
+      dockerfile: Dockerfile
     environment:
       LOOM_DATABASE_URL: postgresql://loom:loom@postgres:5432/loom
       LOOM_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      LOOM_KAFKA_INPUT_TOPIC: media.audio.vad_filtered  # Process VAD-filtered audio
+      LOOM_KAFKA_INPUT_TOPIC: device.audio.raw  # Process raw audio directly
       LOOM_KAFKA_OUTPUT_TOPIC: media.text.transcribed.words
-      LOOM_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
-      LOOM_LOG_LEVEL: DEBUG
+      ASR_MODEL_DEVICE: cpu  # Use 'cuda' for GPU support
+      ASR_MODEL_NAME: nvidia/parakeet-tdt-0.6b
+      LOOM_LOG_LEVEL: INFO
       LOOM_HOST: 0.0.0.0
       LOOM_PORT: 8002
       # Hugging Face cache directory
-      HF_HOME: /models
-      # Unset deprecated TRANSFORMERS_CACHE
-      TRANSFORMERS_CACHE: ""
+      HF_HOME: /tmp/cache
+      TRANSFORMERS_CACHE: /tmp/cache
+      TORCH_HOME: /tmp/cache
       # Set timezone
       TZ: UTC
       DEBIAN_FRONTEND: noninteractive
     volumes:
-      - ~/loom-data/models:/models
+      - ~/loom-data/models:/tmp/cache
     ports:
       - "8002:8002"
-    command: sh -c "unset TRANSFORMERS_CACHE && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8002"
     depends_on:
       kafka:
         condition: service_healthy

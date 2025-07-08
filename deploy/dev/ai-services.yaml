@@ -1,27 +1,27 @@
 ---
-# Silero VAD Deployment
+# ONNX VAD Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: silero-vad
+  name: onnx-vad
   namespace: loom-dev
   labels:
-    app: silero-vad
+    app: onnx-vad
     component: ai-processing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: silero-vad
+      app: onnx-vad
   template:
     metadata:
       labels:
-        app: silero-vad
+        app: onnx-vad
         component: ai-processing
     spec:
       containers:
-      - name: silero-vad
-        image: loom/silero-vad:latest
+      - name: onnx-vad
+        image: loom/onnx-vad:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 8001
@@ -32,7 +32,7 @@ spec:
           value: "INFO"
         - name: LOOM_ENVIRONMENT
           value: "development"
-        - name: VAD_DEVICE
+        - name: VAD_MODEL_DEVICE
           value: "cpu"  # Change to "cuda" if GPU available
         resources:
           requests:
@@ -71,13 +71,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: silero-vad
+  name: onnx-vad
   namespace: loom-dev
   labels:
-    app: silero-vad
+    app: onnx-vad
 spec:
   selector:
-    app: silero-vad
+    app: onnx-vad
   ports:
   - port: 8001
     targetPort: 8001
@@ -169,32 +169,32 @@ spec:
     name: http
 
 ---
-# Parakeet TDT ASR Deployment
+# ONNX ASR Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: parakeet-tdt
+  name: onnx-asr
   namespace: loom-dev
   labels:
-    app: parakeet-tdt
+    app: onnx-asr
     component: ai-processing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: parakeet-tdt
+      app: onnx-asr
   template:
     metadata:
       labels:
-        app: parakeet-tdt
+        app: onnx-asr
         component: ai-processing
     spec:
       containers:
-      - name: parakeet-tdt
-        image: loom/parakeet-tdt:latest
+      - name: onnx-asr
+        image: loom/onnx-asr:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 8000
+        - containerPort: 8002
         env:
         - name: LOOM_KAFKA_BOOTSTRAP_SERVERS
           value: "kafka-infra-chart:9092"
@@ -214,7 +214,7 @@ spec:
         startupProbe:
           httpGet:
             path: /healthz
-            port: 8000
+            port: 8002
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -222,7 +222,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8000
+            port: 8002
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
@@ -230,7 +230,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8000
+            port: 8002
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 5
@@ -241,14 +241,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: parakeet-tdt
+  name: onnx-asr
   namespace: loom-dev
   labels:
-    app: parakeet-tdt
+    app: onnx-asr
 spec:
   selector:
-    app: parakeet-tdt
+    app: onnx-asr
   ports:
-  - port: 8000
-    targetPort: 8000
+  - port: 8002
+    targetPort: 8002
     name: http
